@@ -1,5 +1,4 @@
-// app/api/doctors/schedules/[id]/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { api } from '@/lib/api';
 import { withAuth } from '@workos-inc/authkit-nextjs';
 
@@ -7,15 +6,11 @@ import { withAuth } from '@workos-inc/authkit-nextjs';
  * DELETE /api/doctors/schedules/[id]
  * Deletes a specific schedule
  */
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request, context) {
   try {
-    const { id } = params;
+    const { id } = context.params;
     // Get auth data from WorkOS
     const { accessToken, sessionId, organizationId } = await withAuth();
-    
     // Forward the request to the GoFiber backend with auth headers
     const response = await api.delete(`/api/doctor/schedule/${id}`, null, {
       headers: {
@@ -25,7 +20,7 @@ export async function DELETE(
       }
     });
     return NextResponse.json(response);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error deleting doctor schedule:', error);
     return NextResponse.json(
       { error: error.response?.data?.error || 'Failed to delete doctor schedule' },

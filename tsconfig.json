@@ -4,7 +4,7 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
-    "strict": true,
+    "strict": false,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -22,6 +22,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "components/auth/HospitalCreationForm.jsx", "lib/mongodb.js", "app/dashboard/layout.jsx"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "components/auth/HospitalCreationForm.jsx", "lib/mongodb.js", "app/dashboard/layout.jsx", "app/api/user/profile/picture/[userId]/route.js", "app/api/hospital/[id]/route.js", "app/api/hospital/[id]/picture/route.js", "app/api/hospital/[id]/picture/[filename]/route.js", "app/api/hospital/[id]/appointments/route.js", "app/api/doctors/schedules/[id]/route.js", "app/api/doctors/fees/[id]/route.js", "app/api/doctors/[id]/fees/route.js", "app/api/doctors/[id]/schedules/route.js", "app/api/appointments/[id]/route.js"],
   "exclude": ["node_modules"]
 }

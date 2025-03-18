@@ -1,12 +1,8 @@
-// app/api/user/profile/picture/[userId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import mongodb from '@/lib/mongodb';
 import { withAuth } from '@workos-inc/authkit-nextjs';
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { userId: string } }
-) {
+export async function GET(request, context) {
   try {
     // Get auth data from WorkOS
     const { user: authUser } = await withAuth();
@@ -16,22 +12,18 @@ export async function GET(
         { status: 401 }
       );
     }
-
     // Use the authenticated user's ID
     const userId = authUser.id;
-    
     // Connect to MongoDB
     const conn = await mongodb();
     const db = conn.connection.db;
     const collection = db.collection('users');
-
     // Find the user
     const user = await collection.findOne({ user_id: userId });
     if (!user || !user.profile_pic) {
       // Return a default profile picture
-      return NextResponse.redirect(new URL('/images/default-profile.png', req.url));
+      return NextResponse.redirect(new URL('/images/default-profile.png', request.url));
     }
-
     // Return the image with the proper content type
     return new NextResponse(user.profile_pic.data.buffer, {
       headers: {

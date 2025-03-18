@@ -26,7 +26,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import Link from "next/link";
-import { User } from "@/types/auth";
 
 // Type definitions
 interface Appointment {
@@ -41,10 +40,15 @@ interface Appointment {
   validity: "valid" | "expired";
   validUntil: string;
 }
-
-interface DashboardProps {
-  user: User | null;
+// Type definitions
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role?: string;
+  avatar?: string;
 }
+
 type AppointmentType = "all" | "recurring" | "default" | "emergency";
 type TabsType = "all" | "completed" | "pending" | "new";
 const Dashboard = () => {

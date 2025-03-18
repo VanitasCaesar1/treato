@@ -72,6 +72,22 @@ interface FormErrors {
   [key: string]: string;
 }
 
+// Add prop type interfaces for the components
+interface InfoCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  className?: string;
+}
+
+interface SettingsCardProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  onClick: () => void;
+}
+
+
 // Improved debounce utility function with proper typing
 function useDebounce<T extends (...args: any[]) => any>(
   callback: T,
@@ -94,7 +110,7 @@ function useDebounce<T extends (...args: any[]) => any>(
 }
 
 // Memoized helper components to prevent unnecessary re-renders
-const InfoCard = React.memo(({ icon, label, value, className = "" }) => (
+const InfoCard = React.memo(({ icon, label, value, className = "" }: InfoCardProps) => (
   <div
     className={`rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-sm hover:shadow-md transition ${className}`}
   >
@@ -107,7 +123,7 @@ const InfoCard = React.memo(({ icon, label, value, className = "" }) => (
 ));
 InfoCard.displayName = "InfoCard";
 
-const SettingsCard = React.memo(({ icon, title, description, onClick }) => (
+const SettingsCard = React.memo(({ icon, title, description, onClick }: SettingsCardProps) => (
   <div
     className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 flex gap-4 cursor-pointer hover:bg-gray-50/90 transition shadow-sm hover:shadow-md"
     onClick={onClick}
@@ -149,7 +165,7 @@ const ProfileSkeleton = () => (
 );
 
 // Helper function to get initials safely
-const getInitials = (name) => {
+const getInitials = (name: string | null): string => {
   if (!name || typeof name !== 'string') return 'U';
   return name.trim().substring(0, 2).toUpperCase();
 };
