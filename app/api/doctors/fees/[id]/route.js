@@ -1,4 +1,4 @@
-// app/api/doctors/fees/[id]/route.ts
+// app/api/doctors/fees/[id]/route.js
 import { NextRequest, NextResponse } from 'next/server';
 import { api } from '@/lib/api';
 import { withAuth } from '@workos-inc/authkit-nextjs';
@@ -8,14 +8,13 @@ import { withAuth } from '@workos-inc/authkit-nextjs';
  * Deletes a specific fee entry
  */
 export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+  req,
+  { params }
 ) {
   try {
     const { id } = params;
     // Get auth data from WorkOS
     const { accessToken, sessionId, organizationId } = await withAuth();
-    
     // Forward the request to the GoFiber backend with auth headers
     const response = await api.delete(`/api/doctor/fees/${id}`, null, {
       headers: {
@@ -25,7 +24,7 @@ export async function DELETE(
       }
     });
     return NextResponse.json(response);
-  } catch (error: any) {
+  } catch (error) {
     // Handle authentication errors
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(
@@ -33,7 +32,6 @@ export async function DELETE(
         { status: 401 }
       );
     }
-    
     console.error('Error deleting doctor fees:', error);
     return NextResponse.json(
       { error: error.response?.data?.error || 'Failed to delete doctor fees' },

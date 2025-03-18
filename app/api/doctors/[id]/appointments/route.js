@@ -7,8 +7,8 @@ import { withAuth } from '@workos-inc/authkit-nextjs';
  * Retrieves all appointments for a specific doctor
  */
 export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+  req,
+  { params }
 ) {
   try {
     // Get auth data from WorkOS
@@ -19,7 +19,6 @@ export async function GET(
         { status: 401 }
       );
     }
-
     // Get the doctor ID from the URL parameter
     const doctorId = params.id;
     
@@ -32,19 +31,18 @@ export async function GET(
     const offset = searchParams.get('offset');
     
     // Build query parameters
-    const queryParams: Record<string, string> = {};
+    const queryParams = {};
     if (status) queryParams.status = status;
     if (startDate) queryParams.start_date = startDate;
     if (endDate) queryParams.end_date = endDate;
     if (limit) queryParams.limit = limit;
     if (offset) queryParams.offset = offset;
-
+    
     // Forward the request to the backend
     const response = await api.get(`/api/appointments/doctor/${doctorId}`, queryParams);
     return NextResponse.json(response);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error retrieving doctor appointments:', error);
-    
     // Handle authentication errors
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(
@@ -52,7 +50,6 @@ export async function GET(
         { status: 401 }
       );
     }
-
     return NextResponse.json(
       { error: error.response?.data?.error || 'Failed to retrieve doctor appointments' },
       { status: error.response?.status || 500 }

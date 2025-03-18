@@ -1,15 +1,14 @@
-// app/api/doctors/[id]/fees/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { api } from '@/lib/api';
 import { withAuth } from '@workos-inc/authkit-nextjs';
 
 /**
- * GET /api/doctors/[id]/fees
- * Fetches fees for a specific doctor
+ * GET /api/doctors/[id]/schedules
+ * Fetches schedules for a specific doctor
  */
 export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+  req,
+  { params }
 ) {
   try {
     const { id } = params;
@@ -17,15 +16,16 @@ export async function GET(
     const { accessToken, sessionId, organizationId } = await withAuth();
     
     // Forward the request to the GoFiber backend with auth headers
-    const feesData = await api.get(`/api/doctor/fees?doctorId=${id}`, null, {
+    const schedulesData = await api.get(`/api/doctor/schedules?doctorId=${id}`, null, {
       headers: {
         'Authorization': accessToken ? `Bearer ${accessToken}` : '',
         'X-Session-ID': sessionId || '',
         'X-Organization-ID': organizationId || ''
       }
     });
-    return NextResponse.json(feesData);
-  } catch (error: any) {
+    
+    return NextResponse.json(schedulesData);
+  } catch (error) {
     // Handle authentication errors
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(
@@ -34,9 +34,9 @@ export async function GET(
       );
     }
     
-    console.error('Error fetching doctor fees:', error);
+    console.error('Error fetching doctor schedules:', error);
     return NextResponse.json(
-      { error: error.response?.data?.error || 'Failed to fetch doctor fees' },
+      { error: error.response?.data?.error || 'Failed to fetch doctor schedules' },
       { status: error.response?.status || 500 }
     );
   }

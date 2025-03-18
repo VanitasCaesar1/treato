@@ -1,24 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosError, AxiosProgressEvent } from 'axios';
-import { withAuth } from '@workos-inc/authkit-nextjs';
 
-// Make sure this points to the correct backend URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
-
-/**
- * Determines if code is running on the client side
- */
-const isClient = typeof window !== 'undefined';
-
-/**
- * Generate a UUID that works in both browser and Node environments
- */
+// Generate UUID function compatible with browser
 function generateUUID() {
-  // Use crypto.randomUUID() if available (Node.js environments)
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  
-  // Fallback implementation for browsers
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -27,17 +10,16 @@ function generateUUID() {
 }
 
 /**
- * Makes an API request to the backend with detailed error handling
- * Enhanced to support FormData for file uploads
+ * Makes a request to the Next.js API route which then communicates with the backend
  */
-export async function makeApiRequest(
+export async function makeClientApiRequest(
   endpoint: string,
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
   data?: any,
   options: AxiosRequestConfig = {}
 ) {
-  // Build the full URL for debugging
-  const fullUrl = `${API_BASE_URL}${endpoint}`;
+  // Always prepend with /api to ensure we're hitting our Next.js API routes
+  const fullUrl = `/api${endpoint}`;
   console.log(`🔍 Making ${method} request to: ${fullUrl}`);
 
   // Check if data is FormData (for file uploads)
@@ -53,41 +35,9 @@ export async function makeApiRequest(
       ...options.headers,
     },
     // Timeouts can help diagnose connection issues
-    timeout: 30000, // Increased timeout for file uploads
+    timeout: 30000, // 30 seconds
     ...options
   };
-
-  // Try to get auth data from WorkOS
-  try {
-    // Get the user ID from withAuth() to use as Bearer token
-    const { user, organizationId, role, permissions } = await withAuth();
-    
-    // Log auth info for debugging (don't log in production)
-    console.log('Auth data:', { 
-      userId: user?.id ? 'present' : 'missing', 
-      organizationId: organizationId || 'missing' 
-    });
-    
-    // Use the user ID as the Bearer token for authentication
-    if (user?.id) {
-      config.headers!.Authorization = `Bearer ${user.id}`;
-    }
-    
-    // Include organization ID in the headers if available
-    if (organizationId) {
-      config.headers!['X-Organization-ID'] = organizationId;
-    }
-    
-    if (role) {
-      config.headers!['X-Role'] = role;
-    }
-    
-    if (permissions) {
-      config.headers!['X-Permissions'] = permissions;
-    }
-  } catch (error) {
-    console.warn('Auth data not available in this context:', error);
-  }
 
   // Add request body for non-GET requests
   if (method !== 'GET' && data) {
@@ -99,48 +49,32 @@ export async function makeApiRequest(
     config.params = data;
   }
 
-  // Log complete request configuration (remove in production)
-  console.log('Request config:', {
-    url: config.url,
-    method: config.method,
-    headers: config.headers,
-    params: config.params || 'none',
-    withData: config.data ? (isFormData ? 'FormData' : true) : false
-  });
-
   try {
     // Make the actual request
     const response = await axios(config);
     console.log(`✅ Request succeeded with status: ${response.status}`);
     return response.data;
   } catch (error: any) {
-    // Detailed error handling
+    // Error handling
     console.error('❌ API request failed:', error);
-    
+
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError;
-      
       if (axiosError.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
         console.error('Response error data:', axiosError.response.data);
         console.error('Response status:', axiosError.response.status);
-        console.error('Response headers:', axiosError.response.headers);
       } else if (axiosError.request) {
-        // The request was made but no response was received
         console.error('No response received. Request:', axiosError.request);
-        console.error('Is the backend server running at', API_BASE_URL, '?');
       } else {
-        // Something happened in setting up the request that triggered an Error
         console.error('Error setting up request:', axiosError.message);
       }
-      
-      if (axiosError.response?.status === 401 && isClient) {
+
+      // Handle auth errors
+      if (axiosError.response?.status === 401) {
         console.log('Unauthorized. Redirecting to login...');
         window.location.href = '/login';
       }
     }
-    
     throw error;
   }
 }
@@ -148,48 +82,20 @@ export async function makeApiRequest(
 /**
  * Convenience methods for different request types
  */
-export const api = {
+export const clientApi = {
   get: (endpoint: string, params?: any, options?: AxiosRequestConfig) =>
-    makeApiRequest(endpoint, 'GET', params, options),
+    makeClientApiRequest(endpoint, 'GET', params, options),
   post: (endpoint: string, data?: any, options?: AxiosRequestConfig) =>
-    makeApiRequest(endpoint, 'POST', data, options),
+    makeClientApiRequest(endpoint, 'POST', data, options),
   put: (endpoint: string, data?: any, options?: AxiosRequestConfig) =>
-    makeApiRequest(endpoint, 'PUT', data, options),
+    makeClientApiRequest(endpoint, 'PUT', data, options),
   delete: (endpoint: string, params?: any, options?: AxiosRequestConfig) =>
-    makeApiRequest(endpoint, 'DELETE', params, options),
-  
-  // Test connection to backend
-  testConnection: async () => {
-    try {
-      // Try to connect to the backend server without authentication
-      const response = await axios.get(`${API_BASE_URL}/health`, { timeout: 5000 });
-      console.log('Backend connection test:', response.status === 200 ? 'SUCCESS' : 'FAILED');
-      return response.status === 200;
-    } catch (error) {
-      console.error('Backend connection test FAILED:', error);
-      return false;
-    }
-  },
-  
-  // Auth specific helper functions
-  auth: {
-    logout: async () => {
-      if (isClient) {
-        try {
-          await makeApiRequest('/api/auth/logout', 'POST');
-        } catch (error) {
-          console.error('Logout error:', error);
-        }
-        // Redirect to login page after logout
-        window.location.href = '/login';
-      }
-    }
-  },
+    makeClientApiRequest(endpoint, 'DELETE', params, options),
   
   // Helper for handling file uploads with progress
   upload: async (
-    endpoint: string, 
-    formData: FormData, 
+    endpoint: string,
+    formData: FormData,
     onProgress?: (progressEvent: AxiosProgressEvent) => void
   ) => {
     try {
@@ -198,16 +104,10 @@ export const api = {
         onUploadProgress: onProgress,
         // Longer timeout for file uploads
         timeout: 60000,
-        headers: {
-          // Let axios set the correct multipart/form-data content type with boundary
-        }
       };
-      
       console.log(`📤 Starting file upload to ${endpoint}`);
-      
       // Use the main API request function with the progress-tracking config
-      const result = await makeApiRequest(endpoint, 'POST', formData, uploadConfig);
-      
+      const result = await makeClientApiRequest(endpoint, 'POST', formData, uploadConfig);
       console.log('✅ File upload completed successfully');
       return result;
     } catch (error) {
@@ -227,9 +127,9 @@ export const api = {
       metadata?: Record<string, string>
     } = {}
   ) => {
-    const { 
+    const {
       chunkSize = 5 * 1024 * 1024, // Default 5MB chunks
-      onChunkProgress, 
+      onChunkProgress,
       onTotalProgress,
       metadata = {}
     } = options;
@@ -239,7 +139,7 @@ export const api = {
     console.log(`📦 Preparing to upload file "${file.name}" (${file.size} bytes) in ${totalChunks} chunks`);
     
     let uploadedBytes = 0;
-    const fileId = generateUUID(); // Use the browser-compatible UUID function
+    const fileId = generateUUID();
     
     // Upload each chunk
     for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
@@ -278,8 +178,7 @@ export const api = {
       
       // Upload this chunk
       console.log(`📤 Uploading chunk ${chunkIndex + 1}/${totalChunks} (${start}-${end} bytes)`);
-      await api.upload(`${endpoint}/chunk`, chunkFormData, trackChunkProgress);
-      
+      await clientApi.upload(`${endpoint}/chunk`, chunkFormData, trackChunkProgress);
       uploadedBytes += (end - start);
     }
     
@@ -297,11 +196,8 @@ export const api = {
     });
     
     // Request the server to assemble the chunks
-    const result = await api.post(`${endpoint}/finalize`, finalizeFormData);
+    const result = await clientApi.post(`${endpoint}/finalize`, finalizeFormData);
     console.log('✅ Large file upload completed successfully');
     return result;
   }
 };
-
-// Export the API base URL for other modules to use if needed
-export { API_BASE_URL };

@@ -67,12 +67,18 @@ const DoctorSettings: React.FC = () => {
     const fetchDoctors = async () => {
       setLoading(true);
       try {
-        // Direct API call to the correct endpoint
-        const response = await api.get('/api/doctors/organization');
+        // Use the new API route for fetching doctors in the organization
+        const response = await fetch('/api/doctors/organization');
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const data = await response.json();
         
         // Ensure the response is an array
-        const doctorsArray = Array.isArray(response) ? response : 
-                             (response && response.data && Array.isArray(response.data)) ? response.data : [];
+        const doctorsArray = Array.isArray(data) ? data : 
+          (data && data.data && Array.isArray(data.data)) ? data.data : [];
         
         setDoctors(doctorsArray);
         if (doctorsArray.length > 0) {
@@ -96,19 +102,33 @@ const DoctorSettings: React.FC = () => {
       const fetchDoctorData = async () => {
         setLoading(true);
         try {
-          // Use query parameters for doctorId as specified in the backend routes
-          const schedulesResponse = await api.get('/api/doctors/schedule', { doctorId: selectedDoctor.doctor_id });
+          // Use the new API routes for fetching schedules and fees
+          const schedulesResponse = await fetch(`/api/doctors/${selectedDoctor.doctor_id}/schedules`);
+          
+          if (!schedulesResponse.ok) {
+            throw new Error(`HTTP error when fetching schedules! Status: ${schedulesResponse.status}`);
+          }
+          
+          const schedulesData = await schedulesResponse.json();
+          
           // Ensure the response is an array
-          const schedulesArray = Array.isArray(schedulesResponse) ? schedulesResponse : 
-                                (schedulesResponse && schedulesResponse.data && Array.isArray(schedulesResponse.data)) ? 
-                                schedulesResponse.data : [];
+          const schedulesArray = Array.isArray(schedulesData) ? schedulesData : 
+                                (schedulesData && schedulesData.data && Array.isArray(schedulesData.data)) ? 
+                                schedulesData.data : [];
           setSchedules(schedulesArray);
           
-          const feesResponse = await api.get('/api/doctors/fees', { doctorId: selectedDoctor.doctor_id });
+          const feesResponse = await fetch(`/api/doctors/${selectedDoctor.doctor_id}/fees`);
+          
+          if (!feesResponse.ok) {
+            throw new Error(`HTTP error when fetching fees! Status: ${feesResponse.status}`);
+          }
+          
+          const feesData = await feesResponse.json();
+          
           // Ensure the response is an array
-          const feesArray = Array.isArray(feesResponse) ? feesResponse : 
-                           (feesResponse && feesResponse.data && Array.isArray(feesResponse.data)) ? 
-                           feesResponse.data : [];
+          const feesArray = Array.isArray(feesData) ? feesData : 
+                           (feesData && feesData.data && Array.isArray(feesData.data)) ? 
+                           feesData.data : [];
           setFees(feesArray);
         } catch (err: any) {
           setError('Failed to fetch doctor data: ' + (err.message || 'Unknown error'));
@@ -142,15 +162,32 @@ const DoctorSettings: React.FC = () => {
         hospitalID: localStorage.getItem('hospitalID') || '' // Assuming hospital ID is stored in localStorage
       };
       
-      // Direct API call using the correct endpoint
-      await api.put('/api/doctors/schedule', scheduleData);
+      // Use the new API route for creating schedules
+      const response = await fetch('/api/doctors/schedules', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(scheduleData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
       
       // Refresh schedules
-      const updatedSchedules = await api.get('/api/doctors/schedule', { doctorId: selectedDoctor.doctor_id });
+      const updatedSchedulesResponse = await fetch(`/api/doctors/${selectedDoctor.doctor_id}/schedules`);
+      
+      if (!updatedSchedulesResponse.ok) {
+        throw new Error(`HTTP error when refreshing schedules! Status: ${updatedSchedulesResponse.status}`);
+      }
+      
+      const updatedSchedulesData = await updatedSchedulesResponse.json();
+      
       // Ensure the response is an array
-      const schedulesArray = Array.isArray(updatedSchedules) ? updatedSchedules : 
-                            (updatedSchedules && updatedSchedules.data && Array.isArray(updatedSchedules.data)) ? 
-                            updatedSchedules.data : [];
+      const schedulesArray = Array.isArray(updatedSchedulesData) ? updatedSchedulesData : 
+                            (updatedSchedulesData && updatedSchedulesData.data && Array.isArray(updatedSchedulesData.data)) ? 
+                            updatedSchedulesData.data : [];
       setSchedules(schedulesArray);
       
       // Reset form
@@ -175,15 +212,28 @@ const DoctorSettings: React.FC = () => {
     
     try {
       setLoading(true);
-      // Direct API call using the correct endpoint
-      await api.delete(`/api/doctors/schedule/${scheduleId}`);
+      // Use the new API route for deleting schedules
+      const response = await fetch(`/api/doctors/schedules/${scheduleId}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
       
       // Refresh schedules
-      const updatedSchedules = await api.get('/api/doctors/schedule', { doctorId: selectedDoctor.doctor_id });
+      const updatedSchedulesResponse = await fetch(`/api/doctors/${selectedDoctor.doctor_id}/schedules`);
+      
+      if (!updatedSchedulesResponse.ok) {
+        throw new Error(`HTTP error when refreshing schedules! Status: ${updatedSchedulesResponse.status}`);
+      }
+      
+      const updatedSchedulesData = await updatedSchedulesResponse.json();
+      
       // Ensure the response is an array
-      const schedulesArray = Array.isArray(updatedSchedules) ? updatedSchedules : 
-                            (updatedSchedules && updatedSchedules.data && Array.isArray(updatedSchedules.data)) ? 
-                            updatedSchedules.data : [];
+      const schedulesArray = Array.isArray(updatedSchedulesData) ? updatedSchedulesData : 
+                            (updatedSchedulesData && updatedSchedulesData.data && Array.isArray(updatedSchedulesData.data)) ? 
+                            updatedSchedulesData.data : [];
       setSchedules(schedulesArray);
       
       setError(null);
@@ -207,15 +257,32 @@ const DoctorSettings: React.FC = () => {
         hospitalID: localStorage.getItem('hospitalID') || '' // Assuming hospital ID is stored in localStorage
       };
       
-      // Direct API call using the correct endpoint
-      await api.put('/api/doctors/fees', feesData);
+      // Use the new API route for updating fees
+      const response = await fetch('/api/doctors/fees', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(feesData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
       
       // Refresh fees
-      const updatedFees = await api.get('/api/doctors/fees', { doctorId: selectedDoctor.doctor_id });
+      const updatedFeesResponse = await fetch(`/api/doctors/${selectedDoctor.doctor_id}/fees`);
+      
+      if (!updatedFeesResponse.ok) {
+        throw new Error(`HTTP error when refreshing fees! Status: ${updatedFeesResponse.status}`);
+      }
+      
+      const updatedFeesData = await updatedFeesResponse.json();
+      
       // Ensure the response is an array
-      const feesArray = Array.isArray(updatedFees) ? updatedFees : 
-                        (updatedFees && updatedFees.data && Array.isArray(updatedFees.data)) ? 
-                        updatedFees.data : [];
+      const feesArray = Array.isArray(updatedFeesData) ? updatedFeesData : 
+                        (updatedFeesData && updatedFeesData.data && Array.isArray(updatedFeesData.data)) ? 
+                        updatedFeesData.data : [];
       setFees(feesArray);
       
       // Reset form
@@ -239,15 +306,28 @@ const DoctorSettings: React.FC = () => {
     
     try {
       setLoading(true);
-      // Direct API call using the correct endpoint
-      await api.delete(`/api/doctors/fees/${feesId}`);
+      // Use the new API route for deleting fees
+      const response = await fetch(`/api/doctors/fees/${feesId}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
       
       // Refresh fees
-      const updatedFees = await api.get('/api/doctors/fees', { doctorId: selectedDoctor.doctor_id });
+      const updatedFeesResponse = await fetch(`/api/doctors/${selectedDoctor.doctor_id}/fees`);
+      
+      if (!updatedFeesResponse.ok) {
+        throw new Error(`HTTP error when refreshing fees! Status: ${updatedFeesResponse.status}`);
+      }
+      
+      const updatedFeesData = await updatedFeesResponse.json();
+      
       // Ensure the response is an array
-      const feesArray = Array.isArray(updatedFees) ? updatedFees : 
-                        (updatedFees && updatedFees.data && Array.isArray(updatedFees.data)) ? 
-                        updatedFees.data : [];
+      const feesArray = Array.isArray(updatedFeesData) ? updatedFeesData : 
+                        (updatedFeesData && updatedFeesData.data && Array.isArray(updatedFeesData.data)) ? 
+                        updatedFeesData.data : [];
       setFees(feesArray);
       
       setError(null);
@@ -432,7 +512,7 @@ const DoctorSettings: React.FC = () => {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 <button
-                                  onClick={() => handleDeleteSchedule(schedule.doctorID)}
+                                  onClick={() => handleDeleteSchedule(schedule.id || '')}
                                   className="text-red-600 hover:text-red-900"
                                 >
                                   Delete
@@ -521,7 +601,7 @@ const DoctorSettings: React.FC = () => {
                               <td className="px-6 py-4 whitespace-nowrap">{new Date(fee.createdAt).toLocaleDateString()}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 <button
-                                  onClick={() => handleDeleteFees(fee.doctorID)}
+                                  onClick={() => handleDeleteFees(fee.id || '')}
                                   className="text-red-600 hover:text-red-900"
                                 >
                                   Delete

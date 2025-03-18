@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { api } from '@/lib/api';
 import { withAuth } from '@workos-inc/authkit-nextjs';
+import axios from 'axios';
 
-/**
- * POST /api/hospital/create
- * Creates a new hospital with the provided data
- */
+// Define your API base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+
 export async function POST(req: NextRequest) {
   try {
-    // Get auth data from WorkOS
+    // Get auth data from WorkOS - this runs server-side only
     const { user, organizationId, role } = await withAuth();
     
     if (!user) {
@@ -18,13 +17,20 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    // Get the hospital data from the request body
-    const hospitalData = await req.json();
+    // Get the form data
+    const formData = await req.formData();
     
-    // Forward the request to the backend
-    const response = await api.post('/api/hospital/create', hospitalData);
+    // Make the request to your backend API directly using axios
+    const response = await axios.post(`${API_BASE_URL}/api/hospital/create`, formData, {
+      headers: {
+        // Include auth headers
+        'Authorization': `Bearer ${user.id}`,
+        ...(organizationId && { 'X-Organization-ID': organizationId }),
+        ...(role && { 'X-Role': role })
+      }
+    });
     
-    return NextResponse.json(response);
+    return NextResponse.json(response.data);
   } catch (error: any) {
     console.error('Error creating hospital:', error);
     

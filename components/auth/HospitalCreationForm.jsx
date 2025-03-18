@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@radix-ui/react-label";
 import { Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle, Upload, Trash2, AlertCircle } from "lucide-react";
 import { Progress } from '@/components/ui/progress';
-import { makeApiRequest } from '@/lib/api';
+import { clientApi } from '@/lib/client-api';
 
 const CreateHospitalForm = () => {
   const [step, setStep] = useState(1);
@@ -141,7 +141,8 @@ const CreateHospitalForm = () => {
   };
 
   // Handle form submission
-  const handleSubmit = async (e) => {
+   // Handle form submission - updated to use clientApi instead of makeApiRequest
+   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
@@ -179,14 +180,12 @@ const CreateHospitalForm = () => {
         formDataToSubmit.append('hospitalPics', file);
       });
       
-      // Send the entire form data in a single request
-      const response = await makeApiRequest('/api/hospital/create', 'POST', formDataToSubmit, {
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / (progressEvent.total || 1)
-          );
-          setUploadProgress(percentCompleted);
-        }
+      // Use clientApi instead of makeApiRequest
+      const response = await clientApi.upload('/hospital/create', formDataToSubmit, (progressEvent) => {
+        const percentCompleted = Math.round(
+          (progressEvent.loaded * 100) / (progressEvent.total || 1)
+        );
+        setUploadProgress(percentCompleted);
       });
       
       // Handle successful submission
