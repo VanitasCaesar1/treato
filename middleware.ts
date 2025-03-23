@@ -24,6 +24,7 @@ export const config = {
       '/api/auth/:path*',
       '/api/user/:path*',
       '/api/hospital/:path*',
+      '/api/patients/:path*',
       '/api/doctors/:path*',
       "/api/appointments/:path*",
       // Public routes (need to be matched to apply middleware rules)
