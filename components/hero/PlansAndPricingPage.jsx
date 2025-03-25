@@ -89,7 +89,7 @@ const PlansAndPricingPage = () => {
     <div className="min-h-screen bg-gradient-to-b from-white to-[#37AFE1]/10">
       <Navbar />
       
-      <div className="max-w-screen-xl xl:max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-16 md:pt-44">
+      <div className="max-w-screen-xl xl:max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-22 md:pt-44">
         {/* Hero Section */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
