@@ -41,6 +41,8 @@ const PlansAndPricingPage = () => {
       yearlyPrice: "₹29,999",
       savings: "₹6,000",
       features: [
+        "Basic Health Monitoring",
+        "Emergency Support",
         "Advanced Analytics",
         "24/7 Doctor Chat",
         "Personalized Care Plans",
