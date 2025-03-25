@@ -218,50 +218,14 @@ const PlansAndPricingPage = () => {
           ))}
         </section>
 
-        {/* Replace the existing Feature Comparison section with this updated version */}
-<section className="bg-white rounded-xl shadow-lg p-12 sm:p-12 lg:p-16 mb-12 sm:mb-16">
+        <section className="bg-white rounded-xl shadow-lg p-6 sm:p-12 lg:p-16 mb-12 sm:mb-16">
   <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#37AFE1] text-center mb-8 sm:mb-12 lg:mb-16">
     Comprehensive Feature Comparison
   </h2>
   
-  {/* Mobile View - Accordion-style Comparison */}
-  <div className="block lg:hidden">
-    {compareFeatures.map(feature => (
-      <div key={feature} className="border-b last:border-b-0 py-4">
-        <div className="font-semibold text-gray-700 mb-3">{feature}</div>
-        <div className="grid grid-cols-3 gap-2">
-          {plans.map(plan => (
-            <div 
-              key={`${plan.name}-${feature}`} 
-              className="text-center"
-            >
-              <div 
-                className="text-xs font-medium mb-1" 
-                style={{ color: plan.color }}
-              >
-                {plan.name}
-              </div>
-              {plan.features.includes(feature) ? (
-                <Check 
-                  className="mx-auto text-[#37AFE1]" 
-                  size={16}
-                />
-              ) : (
-                <X 
-                  className="mx-auto text-gray-300" 
-                  size={16}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    ))}
-  </div>
-
   {/* Desktop View - Traditional Table */}
   <div className="hidden lg:block overflow-x-auto">
-    <table className="w-full min-w-[900px]">
+    <table className="w-full">
       <thead>
         <tr className="bg-[#37AFE1]/5">
           <th className="p-2 sm:p-4 lg:p-6 text-left text-xs sm:text-base lg:text-lg">Features</th>
@@ -303,8 +267,46 @@ const PlansAndPricingPage = () => {
       </tbody>
     </table>
   </div>
-</section>
 
+  {/* Mobile View - Compact Comparison */}
+  <div className="lg:hidden">
+    <div className="grid grid-cols-4 mb-2 bg-[#37AFE1]/5 py-2">
+      <div className="col-span-1 text-xs font-semibold px-2">Features</div>
+      {plans.map(plan => (
+        <div 
+          key={plan.name} 
+          className="text-center text-xs font-semibold"
+          style={{ color: plan.color }}
+        >
+          {plan.name}
+        </div>
+      ))}
+    </div>
+    {compareFeatures.map(feature => (
+      <div key={feature} className="border-b last:border-b-0 py-2 grid grid-cols-4 items-center">
+        <div className="col-span-1 text-xs sm:text-sm font-medium text-gray-700 px-2">{feature}</div>
+        {plans.map(plan => (
+          <div 
+            key={`${plan.name}-${feature}`} 
+            className="text-center"
+          >
+            {plan.features.includes(feature) ? (
+              <Check 
+                className="mx-auto text-[#37AFE1]" 
+                size={16}
+              />
+            ) : (
+              <X 
+                className="mx-auto text-gray-300" 
+                size={16}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    ))}
+  </div>
+</section>
         {/* Closing CTA */}
         <section className="py-10 sm:py-16 lg:py-20 text-center">
           <motion.div
