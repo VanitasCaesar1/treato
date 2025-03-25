@@ -2,7 +2,7 @@ import axios, { AxiosRequestConfig, AxiosError, AxiosProgressEvent } from 'axios
 import { withAuth } from '@workos-inc/authkit-nextjs';
 
 // Make sure this points to the correct backend URL
-const API_BASE_URL =  'http://localhost:8080';
+const API_BASE_URL =  'https://backendgo-production.up.railway.app';
 
 /**
  * Determines if code is running on the client side
