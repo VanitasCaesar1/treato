@@ -250,13 +250,6 @@ const LandingPage = () => {
             delivery. Our mission is to make quality healthcare accessible,
             affordable, and convenient for everyone.
           </p>
-          <Button
-            className="mt-8 bg-[#37AFE1] hover:bg-[#2490C4] text-white"
-            size="lg"
-            href="/about"
-          >
-            Learn More About Us
-          </Button>
         </motion.div>
       </section>
     </div>
