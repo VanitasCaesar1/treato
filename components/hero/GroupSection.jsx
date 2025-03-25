@@ -1,5 +1,5 @@
 "use client";
-
+import Link from 'next/link';
 import React, { useRef, useState, useEffect } from "react";
 import {
   motion,
@@ -111,14 +111,14 @@ const LandingPage = () => {
       target: ref,
       offset: ["start end", "end start"],
     });
-
+  
     const y = useParallax(scrollYProgress, 30);
     const opacity = useTransform(
       scrollYProgress,
       [0, 0.3, 0.7, 1],
       [0.3, 1, 1, 0.3],
     );
-
+  
     return (
       <motion.div
         ref={ref}
@@ -127,35 +127,37 @@ const LandingPage = () => {
         transition={{ duration: 0.5, delay: index * 0.1 }}
         className="group"
       >
-        <Card className="h-full hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-[#37AFE1]/20">
-          <CardContent className="p-8">
-            <div className="mb-6 flex justify-center">
-              <motion.div
-                whileHover={{ scale: 1.1, rotate: 5 }}
-                className="p-3 rounded-full bg-gradient-to-br from-[#37AFE1]/10 to-[#37AFE1]/20"
-              >
-                <feature.Icon size={40} color={feature.color} />
-              </motion.div>
-            </div>
-            <h3 className="text-2xl font-bold text-[#37AFE1] mb-4 group-hover:text-[#2490C4] transition-colors">
-              {feature.title}
-            </h3>
-            <p className="text-gray-600 leading-relaxed mb-4">
-              {feature.description}
-            </p>
-            <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
-              <span className="text-sm font-semibold text-[#37AFE1]">
-                {feature.stats}
-              </span>
-              <Button
-                variant="ghost"
-                className="text-[#37AFE1] hover:text-[#2490C4] p-0 h-auto"
-              >
-                Learn more <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <Link href="/features">
+          <Card className="h-full hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-[#37AFE1]/20">
+            <CardContent className="p-8">
+              <div className="mb-6 flex justify-center">
+                <motion.div
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  className="p-3 rounded-full bg-gradient-to-br from-[#37AFE1]/10 to-[#37AFE1]/20"
+                >
+                  <feature.Icon size={40} color={feature.color} />
+                </motion.div>
+              </div>
+              <h3 className="text-2xl font-bold text-[#37AFE1] mb-4 group-hover:text-[#2490C4] transition-colors">
+                {feature.title}
+              </h3>
+              <p className="text-gray-600 leading-relaxed mb-4">
+                {feature.description}
+              </p>
+              <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+                <span className="text-sm font-semibold text-[#37AFE1]">
+                  {feature.stats}
+                </span>
+                <Button
+                  variant="ghost"
+                  className="text-[#37AFE1] hover:text-[#2490C4] p-0 h-auto"
+                >
+                  Learn more <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </motion.div>
     );
   };
