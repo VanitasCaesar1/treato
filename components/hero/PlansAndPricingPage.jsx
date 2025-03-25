@@ -19,7 +19,7 @@ const PlansAndPricingPage = () => {
   const plans = [
     {
       name: "Basic Care",
-      description: "Essential healthcare monitoring for individuals",
+      description: "Essential healthcare monitoring systems for hospitals",
       monthlyPrice: "₹900",
       yearlyPrice: "₹9,000",
       savings: "₹2,160",
@@ -30,13 +30,13 @@ const PlansAndPricingPage = () => {
         "Standard Response Time",
         "Basic Health Records"
       ],
-      bestFor: "Individuals seeking basic health tracking",
+      bestFor: "Individuals doctors and clinics",
       icon: Users,
       color: "#4ECDC4"
     },
     {
       name: "Pro Care",
-      description: "Advanced care for health-conscious individuals",
+      description: "Advanced Systems for Medium-sized Hospitals",
       monthlyPrice: "₹2,900",
       yearlyPrice: "₹29,000",
       savings: "₹5,800",
@@ -47,7 +47,7 @@ const PlansAndPricingPage = () => {
         "Personalized Care Plans",
         "Family Health Tracking"
       ],
-      bestFor: "Health-focused individuals and families",
+      bestFor: "Medium-sized hospitals and clinics",
       icon: Shield,
       color: "#FF6B6B"
     },
@@ -63,7 +63,7 @@ const PlansAndPricingPage = () => {
         "Multi-location Support",
         "White-label Options"
       ],
-      bestFor: "Large organizations and corporate wellness programs",
+      bestFor: "Large organizations and healthcare networks",
       icon: Zap,
       color: "#37AFE1"
     }
@@ -72,7 +72,6 @@ const PlansAndPricingPage = () => {
   const compareFeatures = [
     "Basic Health Monitoring",
     "Emergency Support",
-    "Community Access",
     "24/7 Doctor Chat",
     "Personalized Care Plans",
     "Family Health Tracking",
