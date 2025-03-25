@@ -118,9 +118,9 @@ const AnimatedPricing = () => {
     {
       name: "Basic Care",
       description: "Essential healthcare monitoring",
-      monthlyPrice: "₹900",
-      yearlyPrice: "₹9,000",
-      savings: "₹2,160",
+      monthlyPrice: "₹999",
+      yearlyPrice: "₹9,999",
+      savings: "₹2,000",
       features: [
         "Basic Health Monitoring",
         "Emergency Support",
@@ -132,9 +132,9 @@ const AnimatedPricing = () => {
     {
       name: "Pro Care",
       description: "Advanced care for health-conscious",
-      monthlyPrice: "₹2,900",
-      yearlyPrice: "₹29,000",
-      savings: "₹5,800",
+      monthlyPrice: "₹2,999",
+      yearlyPrice: "₹29,999",
+      savings: "₹6,000",
       features: [
         "Advanced Health Analytics",
         "Priority Care Access",

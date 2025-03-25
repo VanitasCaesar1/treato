@@ -36,8 +36,8 @@ const Navbar = () => {
             {/* Logo */}
             <div className="flex items-center">
               <Link href="/" className="flex items-center space-x-2">
-                <span className="text-3xl font-bold  bg-clip-text ">
-                  Treato<span className="text-red-600">+</span>
+                <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent ">
+                  Treato+
                 </span>
               </Link>
             </div>
