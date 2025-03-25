@@ -9,23 +9,17 @@ import Navbar from "./Navbar";
 const AboutPage = () => {
   const teamMembers = [
     {
-      name: "Dr. Emily Chen",
+      name: "A. Srinu",
       role: "Chief Medical Officer",
-      bio: "Leading healthcare innovator with 15 years of experience in digital health solutions.",
+      bio: "Been in healthcare buisness with more than 15 years of experience.",
       image: "/api/placeholder/400/400"
     },
     {
-      name: "Alex Rodriguez",
+      name: "C. Chakravarthi",
       role: "Chief Technology Officer",
       bio: "Tech visionary specializing in healthcare AI and secure platform development.",
       image: "/api/placeholder/400/400"
     },
-    {
-      name: "Sarah Kim",
-      role: "Head of Patient Experience",
-      bio: "Passionate advocate for patient-centric care and technology integration.",
-      image: "/api/placeholder/400/400"
-    }
   ];
 
   const values = [
@@ -40,8 +34,8 @@ const AboutPage = () => {
       icon: Shield
     },
     {
-      title: "Global Accessibility",
-      description: "Breaking down barriers to quality healthcare worldwide.",
+      title: "EMR, EHM Accessibility",
+      description: "Breaking down barriers to quality healthcare Nationwide.",
       icon: Globe
     }
   ];
