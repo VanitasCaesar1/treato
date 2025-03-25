@@ -78,7 +78,7 @@ const PoliciesPage = () => {
         },
         {
           heading: "2. Refund Process",
-          text: "Refunds are processed within 5-7 business days after approval. Original payment method will be credited."
+          text: "Refunds are credited within 5-7 business days after approval. Original payment method will be credited."
         },
         {
           heading: "3. Non-Refundable Circumstances",

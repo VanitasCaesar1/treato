@@ -253,6 +253,7 @@ const LandingPage = () => {
           <Button
             className="mt-8 bg-[#37AFE1] hover:bg-[#2490C4] text-white"
             size="lg"
+            href="/about"
           >
             Learn More About Us
           </Button>
