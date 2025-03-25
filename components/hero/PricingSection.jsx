@@ -41,6 +41,9 @@ const PricingCard = ({ plan, isSelected, onClick }) => {
 const PricingDetails = ({ selectedPlan }) => {
   const [isYearly, setIsYearly] = useState(false);
 
+  // Only show toggle for non-Enterprise plans
+  const showToggle = selectedPlan.name !== "Enterprise";
+
   return (
     <motion.div
       className="bg-white rounded-xl p-4 sm:p-8 shadow-lg border-2 border-[#37AFE1]/20"
@@ -48,41 +51,51 @@ const PricingDetails = ({ selectedPlan }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
     >
-      <div className="flex justify-center mb-6 sm:mb-8">
-        <div className="bg-[#37AFE1]/5 p-1 rounded-full inline-flex">
-          <button
-            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
-              !isYearly ? "bg-white shadow text-[#37AFE1]" : "text-gray-600"
-            }`}
-            onClick={() => setIsYearly(false)}
-          >
-            Monthly
-          </button>
-          <button
-            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
-              isYearly ? "bg-white shadow text-[#37AFE1]" : "text-gray-600"
-            }`}
-            onClick={() => setIsYearly(true)}
-          >
-            Yearly{" "}
-            <span className="text-[0.5rem] sm:text-xs bg-red-500 text-white px-1.5 sm:px-2 py-0.5 rounded-full ml-1">
-              -20%
-            </span>
-          </button>
+      {showToggle && (
+        <div className="flex justify-center mb-6 sm:mb-8">
+          <div className="bg-[#37AFE1]/5 p-1 rounded-full inline-flex">
+            <button
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
+                !isYearly ? "bg-white shadow text-[#37AFE1]" : "text-gray-600"
+              }`}
+              onClick={() => setIsYearly(false)}
+            >
+              Monthly
+            </button>
+            <button
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
+                isYearly ? "bg-white shadow text-[#37AFE1]" : "text-gray-600"
+              }`}
+              onClick={() => setIsYearly(true)}
+            >
+              Yearly{" "}
+              <span className="text-[0.5rem] sm:text-xs bg-red-500 text-white px-1.5 sm:px-2 py-0.5 rounded-full ml-1">
+                -20%
+              </span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="text-center mb-6 sm:mb-8">
-        <div className="text-2xl sm:text-4xl font-bold text-gray-900 mb-2">
-          {isYearly ? selectedPlan.yearlyPrice : selectedPlan.monthlyPrice}
-          <span className="text-sm sm:text-lg text-gray-500 ml-1 sm:ml-2">
-            /{isYearly ? "year" : "month"}
-          </span>
-        </div>
-        {isYearly && (
-          <div className="text-red-500 text-xs sm:text-sm font-medium">
-            Save {selectedPlan.savings} yearly
+        {selectedPlan.name === "Enterprise" ? (
+          <div className="text-2xl sm:text-4xl font-bold text-gray-900 mb-2">
+            Contact Us
           </div>
+        ) : (
+          <>
+            <div className="text-2xl sm:text-4xl font-bold text-gray-900 mb-2">
+              {isYearly ? selectedPlan.yearlyPrice : selectedPlan.monthlyPrice}
+              <span className="text-sm sm:text-lg text-gray-500 ml-1 sm:ml-2">
+                /{isYearly ? "year" : "month"}
+              </span>
+            </div>
+            {isYearly && (
+              <div className="text-red-500 text-xs sm:text-sm font-medium">
+                Save {selectedPlan.savings} yearly
+              </div>
+            )}
+          </>
         )}
       </div>
 
