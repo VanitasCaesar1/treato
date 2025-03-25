@@ -61,7 +61,14 @@ const PlansAndPricingPage = () => {
         "Dedicated Care Team",
         "Advanced Analytics Dashboard",
         "Multi-location Support",
-        "White-label Options"
+        "White-label Options",
+        "Basic Health Monitoring",
+        "Emergency Support",
+        "24/7 Doctor Chat",
+        "Personalized Care Plans",
+        "Family Health Tracking",
+        "Advanced Analytics",
+        "Priority Support"
       ],
       bestFor: "Large organizations and healthcare networks",
       icon: Zap,
