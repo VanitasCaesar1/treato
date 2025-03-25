@@ -10,7 +10,7 @@ const AboutPage = () => {
   const teamMembers = [
     {
       name: "A. Srinu",
-      role: "Medical Health Professional",
+      role: "Medical and Health Marketing Officer",
       bio: "Been in healthcare buisness with more than 15 years of experience.",
       image: "/api/placeholder/400/400"
     },
