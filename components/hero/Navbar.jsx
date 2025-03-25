@@ -108,7 +108,7 @@ const Navbar = () => {
               className="overflow-hidden"
             >
               <div className="px-4 pb-4 space-y-2">
-                {["About", "Features", "Pricing", "Log in"].map((item) => (
+                {["About", "Features", "Pricing", "Login"].map((item) => (
                   <motion.a
                     key={item}
                     href={`/${item.toLowerCase().replace(/\s+/g, "-")}`}
