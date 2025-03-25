@@ -90,31 +90,31 @@ const PlansAndPricingPage = () => {
     <div className="min-h-screen bg-gradient-to-b from-white to-[#37AFE1]/10">
       <Navbar />
       
-      <div className="max-w-7xl mx-auto px-4 pt-440">
+      <div className="max-w-7xl mx-auto px-4 pt-8 sm:pt-16 md:pt-24">
         {/* Hero Section */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-10 sm:mb-16"
         >
-          <div className="inline-block px-6 py-2 bg-[#37AFE1]/10 rounded-full mb-6">
-            <span className="text-[#37AFE1] font-semibold">Treato Pricing</span>
+          <div className="inline-block px-4 sm:px-6 py-1.5 sm:py-2 bg-[#37AFE1]/10 rounded-full mb-4 sm:mb-6">
+            <span className="text-[#37AFE1] font-semibold text-xs sm:text-base">Treato Pricing</span>
           </div>
-          <h1 className="text-5xl font-bold text-[#37AFE1] mb-6">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#37AFE1] mb-4 sm:mb-6">
             Flexible Plans for Every Need
           </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <p className="text-sm sm:text-xl text-gray-600 max-w-3xl mx-auto px-4 sm:px-0">
             Choose a plan that fits your healthcare requirements. 
             All plans come with a 30-day free trial and no hidden costs.
           </p>
         </motion.div>
 
         {/* Pricing Toggle */}
-        <div className="flex justify-center mb-16">
+        <div className="flex justify-center mb-10 sm:mb-16">
           <div className="bg-[#37AFE1]/5 p-1 rounded-full inline-flex">
             <button
-              className={`px-6 py-3 rounded-full text-sm font-medium transition-all ${
+              className={`px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm font-medium transition-all ${
                 !isYearly 
                   ? "bg-white shadow text-[#37AFE1]" 
                   : "text-gray-600 hover:bg-[#37AFE1]/5"
@@ -124,7 +124,7 @@ const PlansAndPricingPage = () => {
               Monthly
             </button>
             <button
-              className={`px-6 py-3 rounded-full text-sm font-medium transition-all ${
+              className={`px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm font-medium transition-all ${
                 isYearly 
                   ? "bg-white shadow text-[#37AFE1]" 
                   : "text-gray-600 hover:bg-[#37AFE1]/5"
@@ -132,7 +132,7 @@ const PlansAndPricingPage = () => {
               onClick={() => setIsYearly(true)}
             >
               Yearly{" "}
-              <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full ml-2">
+              <span className="text-[0.6rem] sm:text-xs bg-red-500 text-white px-1.5 sm:px-2 py-0.5 rounded-full ml-1 sm:ml-2">
                 -20%
               </span>
             </button>
@@ -140,7 +140,7 @@ const PlansAndPricingPage = () => {
         </div>
 
         {/* Pricing Cards */}
-        <section className="grid md:grid-cols-3 gap-8 mb-16">
+        <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-12 sm:mb-16">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.name}
@@ -150,64 +150,64 @@ const PlansAndPricingPage = () => {
               className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all"
             >
               <div 
-                className="p-6 border-b"
+                className="p-4 sm:p-6 border-b"
                 style={{ backgroundColor: `${plan.color}10` }}
               >
-                <div className="flex items-center mb-4">
+                <div className="flex items-center mb-3 sm:mb-4">
                   <div 
-                    className="p-3 rounded-full mr-4"
+                    className="p-2 sm:p-3 rounded-full mr-3 sm:mr-4"
                     style={{ 
                       backgroundColor: `${plan.color}20`,
                       color: plan.color 
                     }}
                   >
-                    <plan.icon size={30} />
+                    <plan.icon size={24} sm:size={30} />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold" style={{ color: plan.color }}>
+                    <h3 className="text-xl sm:text-2xl font-bold" style={{ color: plan.color }}>
                       {plan.name}
                     </h3>
-                    <p className="text-gray-600 text-sm">{plan.description}</p>
+                    <p className="text-gray-600 text-xs sm:text-sm">{plan.description}</p>
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-4xl font-bold mb-2" style={{ color: plan.color }}>
+                  <div className="text-3xl sm:text-4xl font-bold mb-1 sm:mb-2" style={{ color: plan.color }}>
                     {isYearly ? plan.yearlyPrice : plan.monthlyPrice}
-                    <span className="text-lg text-gray-500 ml-2">
+                    <span className="text-base sm:text-lg text-gray-500 ml-1 sm:ml-2">
                       /{isYearly ? "year" : "month"}
                     </span>
                   </div>
                   {isYearly && plan.savings && (
-                    <div className="text-red-500 text-sm font-medium">
+                    <div className="text-red-500 text-xs sm:text-sm font-medium">
                       Save {plan.savings} yearly
                     </div>
                   )}
                 </div>
               </div>
-              <div className="p-6">
-                <p className="text-gray-600 mb-4">
+              <div className="p-4 sm:p-6">
+                <p className="text-gray-600 mb-3 sm:mb-4 text-xs sm:text-base">
                   <span className="font-semibold">Best for:</span> {plan.bestFor}
                 </p>
-                <ul className="space-y-3 mb-6">
+                <ul className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
                   {plan.features.map(feature => (
-                    <li key={feature} className="flex items-center">
+                    <li key={feature} className="flex items-center text-xs sm:text-base">
                       <Check 
                         className="mr-2 text-[#37AFE1]" 
-                        size={20} 
+                        size={16} sm:size={20} 
                       />
                       <span className="text-gray-700">{feature}</span>
                     </li>
                   ))}
                 </ul>
                 <Button 
-                  className="w-full"
+                  className="w-full text-xs sm:text-base"
                   style={{ 
                     backgroundColor: plan.color, 
                     '&:hover': { backgroundColor: `${plan.color}D0` } 
                   }}
                 >
                   Choose {plan.name}
-                  <ArrowRight className="ml-2" />
+                  <ArrowRight className="ml-1 sm:ml-2 w-3 h-3 sm:w-4 sm:h-4" />
                 </Button>
               </div>
             </motion.div>
@@ -215,19 +215,19 @@ const PlansAndPricingPage = () => {
         </section>
 
         {/* Feature Comparison */}
-        <section className="bg-white rounded-xl shadow-lg p-12 mb-16">
-          <h2 className="text-3xl font-bold text-[#37AFE1] text-center mb-12">
+        <section className="bg-white rounded-xl shadow-lg p-6 sm:p-12 mb-12 sm:mb-16">
+          <h2 className="text-2xl sm:text-3xl font-bold text-[#37AFE1] text-center mb-8 sm:mb-12">
             Comprehensive Feature Comparison
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-[#37AFE1]/5">
-                  <th className="p-4 text-left">Features</th>
+                  <th className="p-2 sm:p-4 text-left text-xs sm:text-base">Features</th>
                   {plans.map(plan => (
                     <th 
                       key={plan.name} 
-                      className="p-4 text-center"
+                      className="p-2 sm:p-4 text-center text-xs sm:text-base"
                       style={{ color: plan.color }}
                     >
                       {plan.name}
@@ -238,21 +238,21 @@ const PlansAndPricingPage = () => {
               <tbody>
                 {compareFeatures.map(feature => (
                   <tr key={feature} className="border-b">
-                    <td className="p-4 text-gray-700">{feature}</td>
+                    <td className="p-2 sm:p-4 text-gray-700 text-xs sm:text-base">{feature}</td>
                     {plans.map(plan => (
                       <td 
                         key={`${plan.name}-${feature}`} 
-                        className="p-4 text-center"
+                        className="p-2 sm:p-4 text-center"
                       >
                         {plan.features.includes(feature) ? (
                           <Check 
                             className="mx-auto text-[#37AFE1]" 
-                            size={20} 
+                            size={16} sm:size={20} 
                           />
                         ) : (
                           <X 
                             className="mx-auto text-gray-300" 
-                            size={20} 
+                            size={16} sm:size={20} 
                           />
                         )}
                       </td>
@@ -265,23 +265,23 @@ const PlansAndPricingPage = () => {
         </section>
 
         {/* Closing CTA */}
-        <section className="py-16 text-center">
+        <section className="py-10 sm:py-16 text-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
-            className="bg-gradient-to-r from-[#37AFE1] to-cyan-500 text-white p-12 rounded-xl"
+            className="bg-gradient-to-r from-[#37AFE1] to-cyan-500 text-white p-6 sm:p-12 rounded-xl"
           >
-            <h2 className="text-4xl font-bold mb-6">
+            <h2 className="text-2xl sm:text-4xl font-bold mb-4 sm:mb-6">
               Still Unsure? We're Here to Help
             </h2>
-            <p className="text-xl mb-8 max-w-3xl mx-auto">
+            <p className="text-sm sm:text-xl mb-6 sm:mb-8 max-w-3xl mx-auto px-4 sm:px-0">
               Our team is ready to guide you in selecting the perfect plan 
               that meets your unique healthcare needs.
             </p>
             <Button 
               size="lg" 
-              className="bg-white text-[#37AFE1] hover:bg-gray-100"
+              className="bg-white text-[#37AFE1] hover:bg-gray-100 text-xs sm:text-base"
             >
               Contact Sales
             </Button>
