@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, HeartPulse, Shield, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "./Navbar";
-
+import Link from "next/link";
 const AboutPage = () => {
   const teamMembers = [
     {
@@ -148,7 +148,9 @@ const AboutPage = () => {
                 size="lg" 
                 className="bg-white text-[#37AFE1] hover:bg-gray-100"
               >
-                Learn More
+                <Link href="/pricing">
+                See Plans
+                </Link>
                 <ArrowRight className="ml-2" />
               </Button>
               <Button 
@@ -156,7 +158,9 @@ const AboutPage = () => {
                 variant="outline" 
                 className="border-white text-white bg-transparent hover:bg-white/10"
               >
+                <Link href="/contact">
                 Contact Us
+                </Link>
                 <ArrowRight className="ml-2" />
               </Button>
             </div>

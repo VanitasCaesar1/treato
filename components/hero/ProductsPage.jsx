@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "./Navbar";
+import Link from "next/link";
 
 const ProductsPage = () => {
   const [selectedProduct, setSelectedProduct] = useState(0);
@@ -201,7 +202,9 @@ const ProductsPage = () => {
               size="lg" 
               className="bg-white text-[#37AFE1] hover:bg-gray-100"
             >
+            <Link href="/pricing">
               Get Started
+            </Link>
             </Button>
           </motion.div>
         </section>

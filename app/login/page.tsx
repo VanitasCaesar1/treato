@@ -19,7 +19,7 @@ export default async function AuthPage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white to-blue-100">
         <Navbar />
-        <div className="container mx-auto px-4 py-24 text-center">
+        <div className="container mx-auto px-4 py-54 text-center">
           <div 
             className="bg-white rounded-xl shadow-2xl p-12 max-w-xl mx-auto"
           >

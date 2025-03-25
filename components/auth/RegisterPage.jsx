@@ -283,7 +283,7 @@ const RegistrationComponent = () => {
       <Toaster position="top-center" />
       <Card className="w-full max-w-4xl border-2 border-black rounded-3xl p-4">
         <CardContent className="flex flex-col gap-4 p-6">
-          <h1 className="text-3xl font-bold text-center">Create Account</h1>
+          <h1 className="text-3xl font-bold text-center">Create Your Doctors Account</h1>
           
           <StepProgress />
           

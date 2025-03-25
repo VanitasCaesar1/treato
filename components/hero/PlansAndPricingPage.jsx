@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "./Navbar";
+import Link from "next/link";
 
 const PlansAndPricingPage = () => {
   const [isYearly, setIsYearly] = useState(false);
@@ -324,9 +325,11 @@ const PlansAndPricingPage = () => {
             </p>
             <Button 
               size="lg" 
-              className="bg-white text-[#37AFE1] hover:bg-gray-100 text-xs sm:text-base lg:text-lg"
+              className="bg-white text-[#37AFE1] hover:bg-gray-100 text-xs sm:text-base lg:text-lg cursor-pointer"
             >
+            <Link href="/contact">
               Contact Sales
+              </Link>
             </Button>
           </motion.div>
         </section>

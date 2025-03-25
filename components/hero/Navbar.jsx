@@ -38,6 +38,7 @@ const Navbar = () => {
               <Link href="/" className="flex items-center space-x-2">
                 <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent ">
                   Treato+
+                  
                 </span>
               </Link>
             </div>
@@ -66,7 +67,7 @@ const Navbar = () => {
                 Log in
               </Link>
               <Link
-                href="/contact"
+                href="/register"
                 className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-2 rounded-xl font-medium hover:shadow-lg transition-all duration-300 hover:scale-105"
               >
                 Get Started
@@ -120,7 +121,7 @@ const Navbar = () => {
                   </motion.a>
                 ))}
                 <Link
-                  href="/contact"
+                  href="/register"
                   className="block w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-2 rounded-xl font-medium text-center hover:shadow-lg transition-all duration-300"
                 >
                   Get Started
