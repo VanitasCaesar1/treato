@@ -20,9 +20,9 @@ const PlansAndPricingPage = () => {
     {
       name: "Basic Care",
       description: "Essential healthcare monitoring systems for hospitals",
-      monthlyPrice: "₹900",
-      yearlyPrice: "₹9,000",
-      savings: "₹2,160",
+      monthlyPrice: "₹999",
+      yearlyPrice: "₹9,999",
+      savings: "₹1,999",
       features: [
         "Basic Health Monitoring",
         "Emergency Support",
@@ -37,9 +37,9 @@ const PlansAndPricingPage = () => {
     {
       name: "Pro Care",
       description: "Advanced Systems for Medium-sized Hospitals",
-      monthlyPrice: "₹2,900",
-      yearlyPrice: "₹29,000",
-      savings: "₹5,800",
+      monthlyPrice: "₹2,999",
+      yearlyPrice: "₹29,999",
+      savings: "₹6,000",
       features: [
         "Advanced Health Analytics",
         "Priority Care Access",
@@ -55,7 +55,7 @@ const PlansAndPricingPage = () => {
       name: "Enterprise",
       description: "Custom solution for organizations",
       monthlyPrice: "Contact Us",
-      yearlyPrice: "Contact Us",
+      yearlyPrice: null,
       features: [
         "Custom Healthcare Solutions",
         "Dedicated Care Team",
@@ -161,7 +161,7 @@ const PlansAndPricingPage = () => {
                       color: plan.color 
                     }}
                   >
-                    <plan.icon size={24} sm:size={30} />
+                    <plan.icon size={24} />
                   </div>
                   <div>
                     <h3 className="text-xl sm:text-2xl font-bold" style={{ color: plan.color }}>
@@ -172,12 +172,16 @@ const PlansAndPricingPage = () => {
                 </div>
                 <div className="text-center">
                   <div className="text-3xl sm:text-4xl font-bold mb-1 sm:mb-2" style={{ color: plan.color }}>
-                    {isYearly ? plan.yearlyPrice : plan.monthlyPrice}
-                    <span className="text-base sm:text-lg text-gray-500 ml-1 sm:ml-2">
-                      /{isYearly ? "year" : "month"}
-                    </span>
+                    {plan.name === "Enterprise" 
+                      ? plan.monthlyPrice 
+                      : (isYearly ? plan.yearlyPrice : plan.monthlyPrice)}
+                    {plan.name !== "Enterprise" && (
+                      <span className="text-base sm:text-lg text-gray-500 ml-1 sm:ml-2">
+                        /{isYearly ? "year" : "month"}
+                      </span>
+                    )}
                   </div>
-                  {isYearly && plan.savings && (
+                  {isYearly && plan.savings && plan.name !== "Enterprise" && (
                     <div className="text-red-500 text-xs sm:text-sm font-medium">
                       Save {plan.savings} yearly
                     </div>
@@ -193,7 +197,7 @@ const PlansAndPricingPage = () => {
                     <li key={feature} className="flex items-center text-xs sm:text-base">
                       <Check 
                         className="mr-2 text-[#37AFE1]" 
-                        size={16} sm:size={20} 
+                        size={16}
                       />
                       <span className="text-gray-700">{feature}</span>
                     </li>
@@ -202,8 +206,7 @@ const PlansAndPricingPage = () => {
                 <Button 
                   className="w-full text-xs sm:text-base"
                   style={{ 
-                    backgroundColor: plan.color, 
-                    '&:hover': { backgroundColor: `${plan.color}D0` } 
+                    backgroundColor: plan.color
                   }}
                 >
                   Choose {plan.name}
@@ -247,12 +250,12 @@ const PlansAndPricingPage = () => {
                         {plan.features.includes(feature) ? (
                           <Check 
                             className="mx-auto text-[#37AFE1]" 
-                            size={16} sm:size={20} 
+                            size={16}
                           />
                         ) : (
                           <X 
                             className="mx-auto text-gray-300" 
-                            size={16} sm:size={20} 
+                            size={16}
                           />
                         )}
                       </td>
