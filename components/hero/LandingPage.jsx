@@ -5,7 +5,7 @@ import { motion, useScroll, useTransform, useSpring } from "framer-motion";
 import Link from "next/link";
 import PricingSection from "@/components/hero/GroupSection";
 import Navbar from "./Navbar";
-
+import Footer from "./Footer";
 const useParallax = (value, distance) => {
   return useTransform(value, [0, 1], [-distance, distance]);
 };
@@ -23,6 +23,8 @@ const LandingPage = () => {
       <Navbar />
 
       <PricingSection />
+      <Footer/>
+
     </div>
   );
 };

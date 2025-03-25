@@ -47,7 +47,7 @@ const Navbar = () => {
               {["About", "Features", "Pricing", "Products"].map((item) => (
                 <motion.a
                   key={item}
-                  href={`#${item.toLowerCase()}`}
+                  href={`/${item.toLowerCase()}`}
                   className="text-gray-600 text-[18px] hover:text-blue-600 font-medium transition-colors hover:bg-white px-4 py-2 rounded-full"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}

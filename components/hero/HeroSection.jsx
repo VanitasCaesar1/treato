@@ -3,6 +3,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { motion, useScroll, useSpring } from "framer-motion";
 import { Heart, Activity, Plus } from "lucide-react";
+import toast from "react-hot-toast";
 
 const FloatingIcon = ({ icon: Icon, className, delay = 0 }) => (
   <motion.div
@@ -18,10 +19,11 @@ const FloatingIcon = ({ icon: Icon, className, delay = 0 }) => (
   </motion.div>
 );
 
-const CTAButton = ({ primary, children }) => (
+const CTAButton = ({ primary, onClick, children }) => (
   <motion.button
     whileHover={{ scale: 1.05 }}
     whileTap={{ scale: 0.95 }}
+    onClick={onClick}
     className={`
       px-8 py-4 rounded-xl text-lg font-semibold
       ${
@@ -51,6 +53,19 @@ const HeroSection = () => {
     damping: 30,
     restDelta: 0.001,
   });
+
+  const handleAlphaToast = () => {
+    toast("This app is currently in Alpha Development. Please come back and visit soon!", {
+      icon: '🚧',
+      style: {
+        borderRadius: '10px',
+        padding: '22px',
+        background: '#333',
+        color: '#fff',
+      },
+      duration: 4000
+    });
+  };
 
   const FLOATING_ICONS = [
     {
@@ -136,8 +151,12 @@ const HeroSection = () => {
             transition={{ delay: 0.4 }}
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
-            <CTAButton primary>Start Your Free Trial</CTAButton>
-            <CTAButton>Schedule Demo</CTAButton>
+            <CTAButton primary onClick={handleAlphaToast}>
+              Start Your Free Trial
+            </CTAButton>
+            <CTAButton onClick={handleAlphaToast}>
+              Schedule Demo
+            </CTAButton>
           </motion.div>
         </div>
       </div>
