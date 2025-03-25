@@ -106,11 +106,11 @@ export default async function AuthPage() {
             <div className="text-center text-sm text-gray-500 mt-6">
               <p>
                 By continuing, you agree to our{' '}
-                <Link href="/terms" className="text-blue-500 hover:underline">
+                <Link href="/policies" className="text-blue-500 hover:underline">
                   Terms of Service
                 </Link>{' '}
                 and{' '}
-                <Link href="/privacy" className="text-blue-500 hover:underline">
+                <Link href="/policies" className="text-blue-500 hover:underline">
                   Privacy Policy
                 </Link>
               </p>
