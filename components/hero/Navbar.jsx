@@ -111,7 +111,7 @@ const Navbar = () => {
                 {["About", "Features", "Pricing", "Log in"].map((item) => (
                   <motion.a
                     key={item}
-                    href={`#${item.toLowerCase().replace(/\s+/g, "-")}`}
+                    href={`/${item.toLowerCase().replace(/\s+/g, "-")}`}
                     className="block py-2 text-gray-600 hover:text-blue-600 font-medium transition-colors"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
