@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 
 const FloatingIcon = ({ icon: Icon, className, delay = 0 }) => (
   <motion.div
-    className={`absolute ${className}`}
+    className={`absolute hidden sm:block ${className}`}
     animate={{
       opacity: [0.4, 0.8, 0.4],
       scale: [1, 1.2, 1],
@@ -25,7 +25,7 @@ const CTAButton = ({ primary, onClick, children }) => (
     whileTap={{ scale: 0.95 }}
     onClick={onClick}
     className={`
-      px-8 py-4 rounded-xl text-lg font-semibold
+      w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 rounded-xl text-base sm:text-lg font-semibold
       ${
         primary
           ? "bg-red-500 text-[#FFF5CD] border border-[#FFB347]"
@@ -107,15 +107,15 @@ const HeroSection = () => {
       ))}
 
       {/* Main Content */}
-      <div className="relative z-10 w-full h-full flex flex-col items-center justify-start pt-4">
+      <div className="relative z-10 w-full h-full flex flex-col items-center justify-start pt-4 px-4">
         {/* Promotion Banner */}
         <motion.div
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="mb-16"
+          className="mb-10 sm:mb-16"
         >
-          <div className="px-8 py-3 rounded-full border border-[#FFB347] bg-white/10 backdrop-blur-sm">
-            <span className="text-[#FFF5CD] text-lg font-medium flex items-center gap-2">
+          <div className="px-4 sm:px-8 py-2 sm:py-3 rounded-full border border-[#FFB347] bg-white/10 backdrop-blur-sm">
+            <span className="text-[#FFF5CD] text-sm sm:text-lg font-medium flex items-center gap-2 justify-center">
               <SpinningPlus />
               Special Launch Offer | Save 20% Today
             </span>
@@ -127,7 +127,7 @@ const HeroSection = () => {
           <motion.h1
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="text-6xl md:text-7xl font-bold text-[#FFF5CD] mb-8"
+            className="text-4xl sm:text-6xl md:text-7xl font-bold text-[#FFF5CD] mb-6 sm:mb-8"
           >
             Your Hospitals Healthcare{" "}
             <span className="text-red-500">Simplified</span>
@@ -137,7 +137,7 @@ const HeroSection = () => {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="text-lg md:text-xl text-[#FFF5CD]/90 mb-12 leading-relaxed"
+            className="text-base sm:text-lg md:text-xl text-[#FFF5CD]/90 mb-8 sm:mb-12 leading-relaxed"
           >
             Experience healthcare reimagined with personalized diagnosis
             templates. Our platform empowers hospitals to streamline operations,
