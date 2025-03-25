@@ -98,7 +98,7 @@ const PlansAndPricingPage = () => {
           transition={{ duration: 0.6 }}
           className="text-center mb-10 sm:mb-16"
         >
-          <div className="inline-block px-4 sm:px-6 py-1.5 sm:py-2 bg-[#37AFE1]/10 rounded-full mb-4 sm:mb-6">
+          <div className="inline-block px-4 sm:px-6 py-1.5 sm:py-18 bg-[#37AFE1]/10 rounded-full mb-4 sm:mb-6">
             <span className="text-[#37AFE1] font-semibold text-xs sm:text-base">Treato Pricing</span>
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#37AFE1] mb-4 sm:mb-6">
