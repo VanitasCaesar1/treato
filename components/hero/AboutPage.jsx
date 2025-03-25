@@ -50,7 +50,7 @@ const AboutPage = () => {
     <div className="min-h-screen bg-gradient-to-b from-white to-[#37AFE1]/10">
       <Navbar />
       
-      <div className="max-w-7xl mx-auto px-4 pt-24">
+      <div className="max-w-7xl mx-auto px-4 pt-44">
         {/* Hero Section */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
