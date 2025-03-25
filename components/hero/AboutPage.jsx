@@ -160,7 +160,7 @@ const AboutPage = () => {
               <Button 
                 size="lg" 
                 variant="outline" 
-                className="border-white text-white hover:bg-white/10"
+                className="border-white text-white bg-transparent hover:bg-white/10"
               >
                 Contact Us
                 <ArrowRight className="ml-2" />
