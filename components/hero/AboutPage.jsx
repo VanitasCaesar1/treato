@@ -10,13 +10,13 @@ const AboutPage = () => {
   const teamMembers = [
     {
       name: "A. Srinu",
-      role: "Chief Executive Officer",
+      role: "Medical Health Professional",
       bio: "Been in healthcare buisness with more than 15 years of experience.",
       image: "/api/placeholder/400/400"
     },
     {
       name: "C. Chakravarthi",
-      role: "Chief Technology Officer",
+      role: "Developer",
       bio: "Tech visionary specializing in healthcare AI and secure platform development.",
       image: "/api/placeholder/400/400"
     },
