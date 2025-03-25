@@ -1,6 +1,5 @@
 import React from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 import { 
   LogIn, 
   UserPlus, 
@@ -21,10 +20,7 @@ export default async function AuthPage() {
       <div className="min-h-screen bg-gradient-to-b from-white to-blue-100">
         <Navbar />
         <div className="container mx-auto px-4 py-24 text-center">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
+          <div 
             className="bg-white rounded-xl shadow-2xl p-12 max-w-xl mx-auto"
           >
             <Shield className="mx-auto mb-6 text-blue-500" size={64} />
@@ -42,7 +38,7 @@ export default async function AuthPage() {
                 <Link href="/profile">View Profile</Link>
               </Button>
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     );
@@ -51,11 +47,9 @@ export default async function AuthPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-blue-100">
       <Navbar />
-      <div className="container mx-auto px-4 py-24">
-        <motion.div 
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+      <div className="container mx-auto px-4 py-44">
+        <div 
+  
           className="grid md:grid-cols-2 gap-12 items-center max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden"
         >
           {/* Left Side - Illustration */}
@@ -122,7 +116,7 @@ export default async function AuthPage() {
               </p>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );
