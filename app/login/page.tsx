@@ -92,15 +92,6 @@ export default async function AuthPage() {
                 <span className="mx-4 text-gray-500">or</span>
                 <div className="flex-grow border-t border-gray-300"></div>
               </div>
-
-              <Link href={signUpUrl}>
-                <Button 
-                  className="w-full py-6 bg-blue-500 hover:bg-blue-600"
-                >
-                  <UserPlus className="mr-3" />
-                  Create New Account
-                </Button>
-              </Link>
             </div>
 
             <div className="text-center text-sm text-gray-500 mt-6">
