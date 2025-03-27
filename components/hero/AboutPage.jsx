@@ -58,10 +58,11 @@ const AboutPage = () => {
           <h1 className="text-5xl font-bold text-[#37AFE1] mb-6">
             Reimagining Healthcare Through Technology
           </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <p className="text-xl text-gray-600 max-w-4xl mt-4 mx-auto">
             Treato is a revolutionary healthcare platform that combines cutting-edge technology 
             with compassionate care delivery. Our mission is to make quality healthcare accessible, 
-            affordable, and convenient for everyone.
+            affordable, and convenient for everyone. Led by Alaveli Srinu a seasoned professional 
+            in healthcare industry with more than 15 years of experience. 
           </p>
         </motion.div>
 
@@ -92,7 +93,7 @@ const AboutPage = () => {
           </div>
         </section>
 
-        {/* Team Section */}
+        {/* Team Section 
         <section className="py-16">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-[#37AFE1] mb-4">
@@ -127,7 +128,7 @@ const AboutPage = () => {
             ))}
           </div>
         </section>
-
+*/}
         {/* Call to Action */}
         <section className="py-16 text-center">
           <motion.div

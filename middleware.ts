@@ -5,7 +5,7 @@ import { authkitMiddleware } from '@workos-inc/authkit-nextjs';
 export default authkitMiddleware({
   middlewareAuth: {
     enabled: true,
-    unauthenticatedPaths: ['/', "/purchase", "/help", "/register", "/login", "/create-hospital"],
+    unauthenticatedPaths: ['/', "/purchase", "/help", "/register", "/login", "/create-hospital", "/contact"],
   },
 });
 
@@ -18,7 +18,6 @@ export const config = {
       '/profile',
       '/settings/:path*',
       '/staff',
-      '/contact/:path*',
       // Auth routes
       '/callback',
       '/api/auth/:path*',
@@ -33,6 +32,7 @@ export const config = {
       '/help',
       "/create-hospital",
       '/register',
-      '/login'
+      '/login',
+      "/contact"
     ]
 };

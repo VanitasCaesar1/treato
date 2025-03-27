@@ -121,6 +121,9 @@ const PoliciesPage = () => {
                 </button>
               ))}
             </nav>
+            <div className="mt-6 text-sm text-gray-500">
+              <p>Founder: Alaveli Srinu</p>
+            </div>
           </div>
 
           {/* Content Area */}

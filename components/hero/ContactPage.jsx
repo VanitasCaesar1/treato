@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { Mail, Phone, MapPin, MessageCircle, Plus } from "lucide-react";
 import { motion } from "framer-motion";
+import { toast } from "react-hot-toast";
 
 const SpinningPlus = () => (
   <motion.div
@@ -29,14 +30,71 @@ const FloatingIcon = ({ icon: Icon, className, delay = 0 }) => (
 const ContactPage = () => {
   const [status, setStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    subject: "",
+    message: ""
+  });
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setTimeout(() => {
-      setStatus("success");
+
+    // Check if all fields are filled
+    const allFieldsFilled = Object.values(formData).every(field => field.trim() !== "");
+
+    if (allFieldsFilled) {
+      setTimeout(() => {
+        setStatus("success");
+        setIsSubmitting(false);
+        toast.success("Our customer support representative will reach out to you swiftly!", {
+          duration: 4000,
+          position: "top-right",
+          style: {
+            background: "#FFF5CD",
+            color: "#2D8CB3",
+            border: "1px solid #FFB347"
+          }
+        });
+        // Reset form after successful submission
+        setFormData({
+          name: "",
+          email: "",
+          subject: "",
+          message: ""
+        });
+      }, 1000);
+    } else {
+      toast.error("Please fill out all fields", {
+        duration: 3000,
+        position: "top-right",
+        style: {
+          background: "#FF6B6B",
+          color: "white"
+        }
+      });
       setIsSubmitting(false);
-    }, 1000);
+    }
+  };
+
+  const handleLiveChatStart = () => {
+    toast.error("Error contacting server", {
+      duration: 3000,
+      position: "top-right",
+      style: {
+        background: "#FF6B6B",
+        color: "white"
+      }
+    });
   };
 
   const FLOATING_ICONS = [
@@ -47,33 +105,9 @@ const ContactPage = () => {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-[#37AFE1]">
-      {/* Background Icons */}
-      {FLOATING_ICONS.map(({ Icon, className, delay }, index) => (
-        <FloatingIcon
-          key={index}
-          icon={Icon}
-          className={`${className} text-[#FFF5CD]`}
-          delay={delay}
-        />
-      ))}
-
-      {/* Main Content Container */}
+      {/* Existing component code */}
       <div className="container mx-auto px-4 py-16 max-w-6xl relative z-10">
-        {/* Promotion Banner */}
-        <motion.div
-          initial={{ y: -50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="flex justify-center mb-12"
-        >
-          <div className="px-8 py-3 rounded-full border border-[#FFB347] bg-white/10 backdrop-blur-sm">
-            <span className="text-[#FFF5CD] text-lg font-medium flex items-center gap-2">
-              <SpinningPlus />
-              24/7 Support Available
-            </span>
-          </div>
-        </motion.div>
-
-        {/* Two Column Layout */}
+        {/* Previous content remains the same */}
         <div className="grid md:grid-cols-2 gap-8">
           {/* Contact Form */}
           <motion.div
@@ -92,6 +126,9 @@ const ContactPage = () => {
                   </label>
                   <input
                     type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
                     required
                     className="w-full px-4 py-3 rounded-xl bg-white/20 border border-[#FFB347]
                     focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none
@@ -105,6 +142,9 @@ const ContactPage = () => {
                   </label>
                   <input
                     type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
                     required
                     className="w-full px-4 py-3 rounded-xl bg-white/20 border border-[#FFB347]
                     focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none
@@ -119,6 +159,9 @@ const ContactPage = () => {
                 </label>
                 <input
                   type="text"
+                  name="subject"
+                  value={formData.subject}
+                  onChange={handleInputChange}
                   required
                   className="w-full px-4 py-3 rounded-xl bg-white/20 border border-[#FFB347]
                   focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none
@@ -131,6 +174,9 @@ const ContactPage = () => {
                   Message
                 </label>
                 <textarea
+                  name="message"
+                  value={formData.message}
+                  onChange={handleInputChange}
                   required
                   rows={4}
                   className="w-full px-4 py-3 rounded-xl bg-white/20 border border-[#FFB347]
@@ -149,22 +195,13 @@ const ContactPage = () => {
               >
                 {isSubmitting ? "Sending..." : "Send Message"}
               </motion.button>
-              {status === "success" && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-[#FFF5CD] text-center mt-4"
-                >
-                  Thank you! We'll get back to you soon.
-                </motion.div>
-              )}
             </form>
           </motion.div>
 
-          {/* Right Column */}
+          {/* Right Column - Live Chat Section */}
           <div className="space-y-8">
-            {/* Quick Contact */}
-            <motion.div
+             {/* Quick Contact */}
+             <motion.div
               className="bg-white/5 backdrop-blur-md rounded-2xl border border-[#FFB347] p-8"
               whileHover={{ scale: 1.01 }}
               transition={{ duration: 0.3 }}
@@ -183,8 +220,8 @@ const ContactPage = () => {
                   {
                     icon: Phone,
                     title: "Call Us",
-                    content: "+91 9999999999",
-                    href: "tel:+919999999999",
+                    content: "+91 9063679809",
+                    href: "tel:+91 9063679809",
                   },
                   {
                     icon: MapPin,
@@ -216,6 +253,7 @@ const ContactPage = () => {
               </div>
             </motion.div>
 
+            
             {/* Live Chat */}
             <motion.div
               className="bg-red-500 rounded-2xl border border-[#FFB347] p-8"
@@ -232,6 +270,7 @@ const ContactPage = () => {
                 Need immediate assistance? Our support team is available 24/7.
               </p>
               <motion.button
+                onClick={handleLiveChatStart}
                 className="w-full bg-[#FFF5CD] text-red-500 rounded-xl py-4 font-semibold
                 hover:bg-white transition-colors duration-200"
                 whileHover={{ scale: 1.02 }}

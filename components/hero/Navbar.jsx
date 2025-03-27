@@ -45,7 +45,7 @@ const Navbar = () => {
 
             {/* Navigation Links */}
             <nav className="flex items-center space-x-8">
-              {["About", "Features", "Pricing", "Products"].map((item) => (
+              {["About", "Features", "Pricing"].map((item) => (
                 <motion.a
                   key={item}
                   href={`/${item.toLowerCase()}`}
