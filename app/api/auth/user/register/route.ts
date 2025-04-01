@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8080';
     
     // Make request to backend
-    const response = await fetch(`${API_BASE_URL}/auth/doctor/register`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/doctor/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
