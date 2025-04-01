@@ -1,6 +1,5 @@
-// File: app/api/auth/register/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod'; // You may need to install this package
+import { z } from 'zod';
 
 // Define validation schema using Zod
 const registerSchema = z.object({
@@ -27,10 +26,10 @@ export async function POST(request: NextRequest) {
     const validationResult = registerSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
-        { 
-          error: "Validation error", 
-          details: validationResult.error.format() 
-        }, 
+        {
+          error: "Validation error",
+          details: validationResult.error.format()
+        },
         { status: 400 }
       );
     }
@@ -49,14 +48,14 @@ export async function POST(request: NextRequest) {
       address: userData.address,
       aadhaarID: userData.aadhaar_id,
       age: userData.age,
-      profilePic: "", // You might want to handle profile pic upload separately
-      imrNumber: "", // This field wasn't in the form, but appears in your backend
-      specialization: "", // Missing in the form
-      qualification: "", // Missing in the form
-      slotDuration: 30 // Default value, adjust as needed
+      profilePic: "", // Default empty
+      imrNumber: "", // Default empty
+      specialization: "", // Default empty
+      qualification: "", // Default empty
+      slotDuration: 30 // Default value
     };
-
-    // Get API base URL from environment
+    
+    // Get API base URL from environment variable
     const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8080';
     
     // Make request to backend
@@ -66,33 +65,46 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(doctorData),
+      // Add this for better error handling with cross-origin requests
+      credentials: 'include'
     });
-
-    // Parse response from backend
-    const data = await response.json();
+    
+    // Handle response format issues
+    let data;
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      data = await response.json();
+    } else {
+      // Handle non-JSON responses
+      const text = await response.text();
+      return NextResponse.json(
+        { error: `Server returned non-JSON response: ${text.substring(0, 100)}...` },
+        { status: 500 }
+      );
+    }
     
     // Handle response
     if (!response.ok) {
       // Forward error from backend
       return NextResponse.json(
-        { error: data.error || "Registration failed" }, 
+        { error: data.error || "Registration failed" },
         { status: response.status }
       );
     }
     
     // Return success response
     return NextResponse.json(
-      { 
-        message: "Registration successful", 
+      {
+        message: "Registration successful",
         user_id: data.user_id,
-        doctor_id: data.doctor_id 
-      }, 
+        doctor_id: data.doctor_id
+      },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Registration API error:", error);
     return NextResponse.json(
-      { error: "Internal server error" }, 
+      { error: `Internal server error: ${error.message}` },
       { status: 500 }
     );
   }
