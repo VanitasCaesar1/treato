@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@radix-ui/react-label";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import { Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
 
 const RegistrationComponent = () => {
@@ -162,88 +162,93 @@ const RegistrationComponent = () => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErrors(prev => ({ ...prev, general: "" }));
+ // Extract this part from your RegistrationComponent and replace the fetch call
 
-    // Validate all fields
-    const newErrors = {};
-    Object.keys(formData).forEach(key => {
-      if (key === "general") return; // Skip general error field
-      
-      const errorMessage = validateField(key, formData[key]);
-      if (errorMessage) {
-        newErrors[key] = errorMessage;
-      }
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setErrors(prev => ({ ...prev, general: "" }));
+
+  // Validate all fields
+  const newErrors = {};
+  Object.keys(formData).forEach(key => {
+    if (key === "general") return; // Skip general error field
+    
+    const errorMessage = validateField(key, formData[key]);
+    if (errorMessage) {
+      newErrors[key] = errorMessage;
+    }
+  });
+
+  // If there are any errors, update state and prevent submission
+  if (Object.keys(newErrors).length > 0) {
+    setErrors(prev => ({ ...prev, ...newErrors }));
+    toast.error("Please fix the errors in the form");
+    return;
+  }
+
+  setIsSubmitting(true);
+
+  try {
+    // Use the appropriate endpoint based on user type
+    const endpoint = "/api/auth/user/register"; // or "/api/auth/register" for doctors
+    
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: formData.email,
+        password: formData.password,
+        username: formData.username,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        mobile_no: formData.mobileNo,
+        location: formData.location,
+        aadhaar_id: formData.aadhaarId,
+        age: parseInt(formData.age),
+        blood_group: formData.bloodGroup,
+        address: formData.address
+      }),
     });
 
-    // If there are any errors, update state and prevent submission
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(prev => ({ ...prev, ...newErrors }));
-      toast.error("Please fix the errors in the form");
-      return;
-    }
+    const data = await response.json();
 
-    setIsSubmitting(true);
-
-    try {
-      const response = await fetch("/auth/user/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          username: formData.username,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          mobile_no: formData.mobileNo,
-          location: formData.location,
-          aadhaar_id: formData.aadhaarId,
-          age: parseInt(formData.age),
-          blood_group: formData.bloodGroup,
-          address: formData.address
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success("Registration successful! Redirecting to login...");
-        // Give the toast time to be seen before redirecting
-        setTimeout(() => {
-          router.push("/login");
-        }, 2000);
+    if (response.ok) {
+      toast.success("Registration successful! Redirecting to login...");
+      // Give the toast time to be seen before redirecting
+      setTimeout(() => {
+        router.push("/login");
+      }, 2000);
+    } else {
+      // Handle specific API error messages
+      const errorMessage = data.error || "Registration failed";
+      toast.error(errorMessage);
+      
+      // Map API errors to form fields when possible
+      if (errorMessage.includes("email")) {
+        setErrors(prev => ({ ...prev, email: errorMessage }));
+      } else if (errorMessage.includes("username")) {
+        setErrors(prev => ({ ...prev, username: errorMessage }));
+      } else if (errorMessage.includes("Aadhaar")) {
+        setErrors(prev => ({ ...prev, aadhaarId: errorMessage }));
+      } else if (errorMessage.includes("password")) {
+        setErrors(prev => ({ ...prev, password: errorMessage }));
       } else {
-        // Handle specific API error messages
-        const errorMessage = data.error || "Registration failed";
-        toast.error(errorMessage);
-        
-        // Map API errors to form fields when possible
-        if (errorMessage.includes("email")) {
-          setErrors(prev => ({ ...prev, email: errorMessage }));
-        } else if (errorMessage.includes("username")) {
-          setErrors(prev => ({ ...prev, username: errorMessage }));
-        } else if (errorMessage.includes("Aadhaar")) {
-          setErrors(prev => ({ ...prev, aadhaarId: errorMessage }));
-        } else if (errorMessage.includes("password")) {
-          setErrors(prev => ({ ...prev, password: errorMessage }));
-        } else {
-          setErrors(prev => ({ ...prev, general: errorMessage }));
-        }
+        setErrors(prev => ({ ...prev, general: errorMessage }));
       }
-    } catch (error) {
-      console.error("Registration error:", error);
-      toast.error("Network error. Please try again.");
-      setErrors(prev => ({ 
-        ...prev, 
-        general: "Network error. Please try again." 
-      }));
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+  } catch (error) {
+    console.error("Registration error:", error);
+    toast.error("Network error. Please try again.");
+    setErrors(prev => ({ 
+      ...prev, 
+      general: "Network error. Please try again." 
+    }));
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   // Progress bar
   const StepProgress = () => {
@@ -280,7 +285,6 @@ const RegistrationComponent = () => {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[#4CC9FE] p-4">
-      <Toaster position="top-center" />
       <Card className="w-full max-w-4xl border-2 border-black rounded-3xl p-4">
         <CardContent className="flex flex-col gap-4 p-6">
           <h1 className="text-3xl font-bold text-center">Create Your Doctors Account</h1>
