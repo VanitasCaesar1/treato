@@ -8,7 +8,7 @@ const registerSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   first_name: z.string().min(1, "First name is required"),
   last_name: z.string().min(1, "Last name is required"),
-  mobile_no: z.string().regex(/^\+?[0-9]{10}$/, "Invalid mobile number format"),
+  mobile_no: z.string().regex(/^\+?[0-9]{10,15}$/, "Invalid mobile number format"),
   location: z.string().min(1, "Location is required"),
   aadhaar_id: z.string().regex(/^[0-9]{12}$/, "Aadhaar ID must be 12 digits"),
   age: z.number().min(18, "Age must be at least 18").max(120, "Age must be less than 120"),
@@ -58,34 +58,33 @@ export async function POST(request: NextRequest) {
     // Get API base URL from environment variable
     const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8080';
     
-    // Make request to backend
+    // Make request to backend - this lets your Go backend handle WorkOS
     const response = await fetch(`${API_BASE_URL}/api/auth/doctor/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(doctorData),
-      // Add this for better error handling with cross-origin requests
-      credentials: 'include'
     });
     
-    // Handle response format issues
-    let data;
+    // Handle response
     const contentType = response.headers.get("content-type");
+    let data;
+    
     if (contentType && contentType.includes("application/json")) {
       data = await response.json();
     } else {
       // Handle non-JSON responses
       const text = await response.text();
+      console.error("Non-JSON response:", text);
       return NextResponse.json(
-        { error: `Server returned non-JSON response: ${text.substring(0, 100)}...` },
+        { error: "Server returned an invalid response" },
         { status: 500 }
       );
     }
     
-    // Handle response
     if (!response.ok) {
-      // Forward error from backend
+      console.error("Backend error:", data);
       return NextResponse.json(
         { error: data.error || "Registration failed" },
         { status: response.status }
@@ -101,6 +100,7 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
+    
   } catch (error: any) {
     console.error("Registration API error:", error);
     return NextResponse.json(
