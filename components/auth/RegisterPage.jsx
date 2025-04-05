@@ -206,7 +206,7 @@ const RegistrationComponent = () => {
 
     try {
       // Call the API route
-      const response = await fetch("/api/auth/doctor-register", {
+      const response = await fetch("/api/auth/doctor/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
