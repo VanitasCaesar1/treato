@@ -20,7 +20,6 @@ export const config = {
       '/staff',
       // Auth routes
       '/callback',
-      '/api/auth/:path*',
       '/api/user/:path*',
       '/api/hospital/:path*',
       '/api/patients/:path*',
@@ -34,5 +33,6 @@ export const config = {
       '/register',
       '/login',
       "/contact"
+      
     ]
 };

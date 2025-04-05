@@ -56,7 +56,6 @@ const RegistrationComponent = () => {
   const validatePassword = (password) => {
     if (!password) return "Password is required";
     if (password.length < 8) return "Password must be at least 8 characters long";
-    // Add more password strength requirements if needed
     return "";
   };
 
@@ -73,16 +72,16 @@ const RegistrationComponent = () => {
   };
 
   const validateMobileNo = (mobileNo) => {
-    const mobileRegex = /^\+?[0-9]{10}$/;
+    const mobileRegex = /^\d{10}$/;
     if (!mobileNo) return "Mobile number is required";
-    if (!mobileRegex.test(mobileNo)) return "Invalid mobile number format";
+    if (!mobileRegex.test(mobileNo)) return "Mobile number must be exactly 10 digits";
     return "";
   };
 
   const validateAadhaarId = (aadhaarId) => {
-    const aadhaarRegex = /^[0-9]{12}$/;
+    const aadhaarRegex = /^\d{12}$/;
     if (!aadhaarId) return "Aadhaar ID is required";
-    if (!aadhaarRegex.test(aadhaarId)) return "Aadhaar ID must be 12 digits";
+    if (!aadhaarRegex.test(aadhaarId)) return "Aadhaar ID must be exactly 12 digits (no spaces or hyphens)";
     return "";
   };
 
@@ -113,6 +112,25 @@ const RegistrationComponent = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // Special handling for Aadhaar ID - strip out any non-digit characters
+    if (name === "aadhaarId") {
+      const digitsOnly = value.replace(/\D/g, '');
+      setFormData(prev => ({
+        ...prev,
+        [name]: digitsOnly
+      }));
+      
+      // Validate with cleaned input
+      const errorMessage = validateField(name, digitsOnly);
+      setErrors(prev => ({
+        ...prev,
+        [name]: errorMessage
+      }));
+      return;
+    }
+    
+    // Normal handling for other fields
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -162,93 +180,89 @@ const RegistrationComponent = () => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
- // Extract this part from your RegistrationComponent and replace the fetch call
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrors(prev => ({ ...prev, general: "" }));
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setErrors(prev => ({ ...prev, general: "" }));
-
-  // Validate all fields
-  const newErrors = {};
-  Object.keys(formData).forEach(key => {
-    if (key === "general") return; // Skip general error field
-    
-    const errorMessage = validateField(key, formData[key]);
-    if (errorMessage) {
-      newErrors[key] = errorMessage;
-    }
-  });
-
-  // If there are any errors, update state and prevent submission
-  if (Object.keys(newErrors).length > 0) {
-    setErrors(prev => ({ ...prev, ...newErrors }));
-    toast.error("Please fix the errors in the form");
-    return;
-  }
-
-  setIsSubmitting(true);
-
-  try {
-    // Use the appropriate endpoint based on user type
-    const endpoint = "/api/auth/user/register"; // or "/api/auth/register" for doctors
-    
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: formData.email,
-        password: formData.password,
-        username: formData.username,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        mobile_no: formData.mobileNo,
-        location: formData.location,
-        aadhaar_id: formData.aadhaarId,
-        age: parseInt(formData.age),
-        blood_group: formData.bloodGroup,
-        address: formData.address
-      }),
+    // Validate all fields
+    const newErrors = {};
+    Object.keys(formData).forEach(key => {
+      if (key === "general") return; // Skip general error field
+      
+      const errorMessage = validateField(key, formData[key]);
+      if (errorMessage) {
+        newErrors[key] = errorMessage;
+      }
     });
 
-    const data = await response.json();
-
-    if (response.ok) {
-      toast.success("Registration successful! Redirecting to login...");
-      // Give the toast time to be seen before redirecting
-      setTimeout(() => {
-        router.push("/login");
-      }, 2000);
-    } else {
-      // Handle specific API error messages
-      const errorMessage = data.error || "Registration failed";
-      toast.error(errorMessage);
-      
-      // Map API errors to form fields when possible
-      if (errorMessage.includes("email")) {
-        setErrors(prev => ({ ...prev, email: errorMessage }));
-      } else if (errorMessage.includes("username")) {
-        setErrors(prev => ({ ...prev, username: errorMessage }));
-      } else if (errorMessage.includes("Aadhaar")) {
-        setErrors(prev => ({ ...prev, aadhaarId: errorMessage }));
-      } else if (errorMessage.includes("password")) {
-        setErrors(prev => ({ ...prev, password: errorMessage }));
-      } else {
-        setErrors(prev => ({ ...prev, general: errorMessage }));
-      }
+    // If there are any errors, update state and prevent submission
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(prev => ({ ...prev, ...newErrors }));
+      toast.error("Please fix the errors in the form");
+      return;
     }
-  } catch (error) {
-    console.error("Registration error:", error);
-    toast.error("Network error. Please try again.");
-    setErrors(prev => ({ 
-      ...prev, 
-      general: "Network error. Please try again." 
-    }));
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+
+    setIsSubmitting(true);
+
+    try {
+      // Call the API route
+      const response = await fetch("/api/auth/doctor-register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          username: formData.username,
+          mobile_no: formData.mobileNo,
+          location: formData.location,
+          aadhaar_id: formData.aadhaarId, // Make sure this is digits only
+          age: parseInt(formData.age),
+          blood_group: formData.bloodGroup,
+          address: formData.address
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success("Registration successful! Redirecting to login...");
+        // Give the toast time to be seen before redirecting
+        setTimeout(() => {
+          router.push("/login");
+        }, 2000);
+      } else {
+        // Handle specific API error messages
+        const errorMessage = data.error || "Registration failed";
+        toast.error(errorMessage);
+        
+        // Map API errors to form fields when possible
+        if (errorMessage.includes("email")) {
+          setErrors(prev => ({ ...prev, email: errorMessage }));
+        } else if (errorMessage.includes("username")) {
+          setErrors(prev => ({ ...prev, username: errorMessage }));
+        } else if (errorMessage.includes("Aadhaar")) {
+          setErrors(prev => ({ ...prev, aadhaarId: errorMessage }));
+        } else if (errorMessage.includes("password")) {
+          setErrors(prev => ({ ...prev, password: errorMessage }));
+        } else {
+          setErrors(prev => ({ ...prev, general: errorMessage }));
+        }
+      }
+    } catch (error) {
+      console.error("Registration error:", error);
+      toast.error("Network error. Please try again.");
+      setErrors(prev => ({ 
+        ...prev, 
+        general: "Network error. Please try again." 
+      }));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Progress bar
   const StepProgress = () => {
@@ -557,12 +571,13 @@ const handleSubmit = async (e) => {
                 <div className="space-y-2">
                   <Label htmlFor="aadhaarId">Aadhaar ID*</Label>
                   <input
-                    type="text"
+                    type="number"
                     id="aadhaarId"
                     name="aadhaarId"
                     value={formData.aadhaarId}
                     onChange={handleChange}
-                    placeholder="12-digit Aadhaar number"
+                    placeholder="12-digit Aadhaar number (digits only)"
+                    maxLength={12}
                     className={`w-full p-2 border-2 rounded-2xl ${
                       errors.aadhaarId 
                         ? "border-red-500 bg-red-50" 
