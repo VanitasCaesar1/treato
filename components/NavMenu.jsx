@@ -1,12 +1,14 @@
 "use client";
 import React, { useState, useRef } from "react";
 import Link from "next/link";
-import { PlusCircle, Menu, Book, DollarSign } from "lucide-react";
+import { PlusCircle, Menu, Book, DollarSign, UserPlus } from "lucide-react";
 import CreateAppointment from "./CreateAppointment";
+import CreatePatient from './CreatePatient';
 
 const NavMenu = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isAppointmentOpen, setIsAppointmentOpen] = useState(false);
+  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const dropdownRef = useRef(null);
   const timeoutRef = useRef(null);
 
@@ -27,6 +29,12 @@ const NavMenu = () => {
       title: "Create Appointment",
       icon: PlusCircle,
       onClick: () => setIsAppointmentOpen(true),
+    },
+    {
+      type: "button",
+      title: "Create Patient",
+      icon: UserPlus,
+      onClick: () => setIsPatientModalOpen(true),
     },
     {
       type: "dropdown",
@@ -143,6 +151,12 @@ const NavMenu = () => {
       <CreateAppointment
         isOpen={isAppointmentOpen}
         onClose={() => setIsAppointmentOpen(false)}
+      />
+
+      {/* Added CreatePatient modal */}
+      <CreatePatient
+        isOpen={isPatientModalOpen}
+        onClose={() => setIsPatientModalOpen(false)}
       />
     </>
   );
