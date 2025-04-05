@@ -61,13 +61,13 @@ export async function POST(request: NextRequest) {
     };
     
     // Get API base URL from environment variable
-    const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8080';
+    const NEXT_PUBLIC_API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
     
     // For debugging - log the actual payload being sent
     console.log("Sending doctor registration data:", JSON.stringify(doctorData));
     
     // Make request to backend
-    const response = await fetch(`${API_BASE_URL}/api/auth/doctor/register`, {
+    const response = await fetch(`${NEXT_PUBLIC_API_BASE_URL}/api/auth/doctor/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
