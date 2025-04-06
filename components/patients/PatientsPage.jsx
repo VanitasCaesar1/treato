@@ -187,7 +187,7 @@ export default function PatientsPage() {
             </p>
           </div>
           <Button 
-            className="bg-[#FFB347] text-black hover:bg-gray-800 rounded-full px-6 gap-2"
+            className="bg-[#FFB347] text-black hover:bg-amber-500 rounded-full px-6 gap-2"
             onClick={handleNewPatient}
           >
             <UserPlus className="h-4 w-4" />
@@ -250,8 +250,9 @@ export default function PatientsPage() {
 
           {/* Table header */}
           <div className="px-6 py-3 bg-gray-50/50 border-b border-gray-100">
-            <div className="grid grid-cols-[auto_2fr_1fr_1fr_1fr_100px] gap-4 items-center">
-              <div className="text-xs font-medium text-gray-500 ml-2">Patient</div>
+            <div className="grid grid-cols-[80px_1.5fr_2fr_1fr_1fr_1fr_1fr] gap-4 items-center">
+              <div className="text-xs font-medium text-gray-500">Patient</div>
+              <div></div> {/* Empty column for patient name */}
               <div className="text-xs font-medium text-gray-500">Contact Information</div>
               <div className="text-xs font-medium text-gray-500">Age/Blood Group</div>
               <div className="text-xs font-medium text-gray-500">Last Visit</div>
@@ -274,33 +275,35 @@ export default function PatientsPage() {
                   <div
                     key={patient._id || patient.patient_id}
                     ref={isLastElement ? lastPatientElementRef : null}
-                    className="px-6 py-4 grid grid-cols-[auto_2fr_1fr_1fr_1fr_100px] gap-4 items-center border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors duration-200"
+                    className="px-6 py-4 grid grid-cols-[80px_1.5fr_2fr_1fr_1fr_1fr_1fr] gap-4 items-center border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors duration-200"
                   >
-                    {/* Patient info with avatar */}
-                    <div className="flex items-center gap-3">
+                    {/* Patient avatar */}
+                    <div className="flex justify-center">
                       <Avatar className="h-10 w-10 border border-gray-200">
                         <AvatarImage src={patient.avatar_url} alt={patient.name} />
                         <AvatarFallback className="bg-gray-100 text-gray-600">
                           {getInitials(patient.name)}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
-                        <Link
-                          href={`/patients/${patient._id || patient.patient_id}`}
-                          className="text-sm font-medium text-gray-900 hover:text-gray-700 flex items-center gap-1 group"
-                          onClick={() => {
-                            toast.loading(`Loading ${patient.name}'s record...`, {
-                              id: `loading-${patient._id || patient.patient_id}`,
-                            });
-                            // This would be dismissed in the patient detail page
-                          }}
-                        >
-                          {patient.name}
-                          <ChevronRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                        </Link>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          ID: {(patient._id || patient.patient_id)?.substring(0, 8) || 'N/A'}
-                        </div>
+                    </div>
+                    
+                    {/* Patient name and ID */}
+                    <div>
+                      <Link
+                        href={`/patients/${patient._id || patient.patient_id}`}
+                        className="text-sm font-medium text-gray-900 hover:text-gray-700 flex items-center gap-1 group"
+                        onClick={() => {
+                          toast.loading(`Loading ${patient.name}'s record...`, {
+                            id: `loading-${patient._id || patient.patient_id}`,
+                          });
+                          // This would be dismissed in the patient detail page
+                        }}
+                      >
+                        {patient.name}
+                        <ChevronRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                      </Link>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        ID: {(patient._id || patient.patient_id)?.substring(0, 8) || 'N/A'}
                       </div>
                     </div>
 
@@ -322,7 +325,7 @@ export default function PatientsPage() {
                         {patient.age ? `${patient.age} years` : 'N/A'}
                       </div>
                       {patient.blood_group && (
-                        <Badge className="mt-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-full">
+                        <Badge className="mt-1 bg-red-50 text-red-600 hover:bg-red-50 rounded-full px-3 py-0.5 font-normal">
                           {patient.blood_group}
                         </Badge>
                       )}
@@ -363,7 +366,7 @@ export default function PatientsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                        className="h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                         asChild
                       >
                         <Link 

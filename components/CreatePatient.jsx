@@ -152,7 +152,7 @@ const CreatePatient = ({ isOpen, onClose }) => {
   
   const validateForm = () => {
     // Validate required fields
-    const requiredFields = ["name", "email", "mobile"];
+    const requiredFields = ["name", "email", "mobile", "gender", "age"];
     for (const field of requiredFields) {
       if (!formData[field]) {
         toast.error(`Please provide ${field.replace("_", " ")}`);
@@ -274,7 +274,7 @@ const CreatePatient = ({ isOpen, onClose }) => {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Gender
+                    Gender <span className="text-red-500">*</span>
                   </label>
                   <select
                     name="gender"
@@ -286,13 +286,12 @@ const CreatePatient = ({ isOpen, onClose }) => {
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
-                    <option value="Prefer not to say">Prefer not to say</option>
                   </select>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Age
+                    Age <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -438,7 +437,6 @@ const CreatePatient = ({ isOpen, onClose }) => {
               </div>
             </div>
             
-            {/* Remaining code sections (Medical History, Allergies, etc.) unchanged */}
             {/* Medical History */}
             <div className="border rounded-lg p-4">
               <h3 className="text-lg font-medium mb-4">Medical History</h3>
