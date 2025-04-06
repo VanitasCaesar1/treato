@@ -7,6 +7,7 @@ const CreatePatient = ({ isOpen, onClose }) => {
     name: "",
     email: "",
     mobile: "",
+    gender: "",
     age: "",
     blood_group: "",
     address: "",
@@ -273,6 +274,24 @@ const CreatePatient = ({ isOpen, onClose }) => {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Gender
+                  </label>
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Age
                   </label>
                   <input
@@ -419,6 +438,7 @@ const CreatePatient = ({ isOpen, onClose }) => {
               </div>
             </div>
             
+            {/* Remaining code sections (Medical History, Allergies, etc.) unchanged */}
             {/* Medical History */}
             <div className="border rounded-lg p-4">
               <h3 className="text-lg font-medium mb-4">Medical History</h3>

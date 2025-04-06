@@ -9,29 +9,29 @@ export async function POST(req) {
   try {
     // Get auth data from WorkOS - this runs server-side only
     const { user, organizationId, role } = await withAuth();
-    
     if (!user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
-    
+
     // Get the request body data
     const patientData = await req.json();
-    
-    // Format the patient data according to the MongoDB schema
+
+    // Format the patient data according to the backend's expected structure
     const formattedData = {
       name: patientData.name,
       email: patientData.email,
       mobile: patientData.mobile,
+      gender: patientData.gender || undefined,
       age: patientData.age ? parseInt(patientData.age) : undefined,
       blood_group: patientData.blood_group || undefined,
       address: patientData.address || undefined,
       aadhaar_id: patientData.aadhaar_id || undefined,
       medical_history: patientData.medical_history?.map(item => ({
         condition: item.condition,
-        diagnosed_date: new Date(item.diagnosed_date),
+        diagnosed_date: item.diagnosed_date ? new Date(item.diagnosed_date) : undefined,
         notes: item.notes || undefined
       })) || [],
       allergies: patientData.allergies || [],
@@ -49,28 +49,25 @@ export async function POST(req) {
       hospital_visits: patientData.hospital_visits?.map(visit => ({
         hospital_id: visit.hospital_id,
         hospital_name: visit.hospital_name,
-        visit_date: new Date(visit.visit_date),
+        visit_date: visit.visit_date ? new Date(visit.visit_date) : undefined,
         reason: visit.reason || undefined
-      })) || [],
-      created_by: user.id, // Store who created the record
-      created_at: new Date(), // Required field
-      updated_at: new Date() // Add updated_at for tracking modifications
+      })) || []
     };
-    
-    // Make the request to your backend API
+
+    // Make the request to your backend API using the path from the backend code
     const response = await axios.post(
-      `${API_BASE_URL}/api/patients/create`,
+      `${API_BASE_URL}/api/patients/create`, // Updated endpoint path
       formattedData,
       {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.id}`,
+          'Authorization': `Bearer ${user.id}`, // This will be the authID in the backend
           ...(organizationId && { 'X-Organization-ID': organizationId }),
           ...(role && { 'X-Role': role })
         }
       }
     );
-    
+
     return NextResponse.json(response.data, { status: 201 });
   } catch (error) {
     console.error('Error creating patient:', error);
@@ -82,10 +79,10 @@ export async function POST(req) {
         { status: 401 }
       );
     }
-    
-    // Handle API response errors
+
+    // Handle API response errors with more details
     return NextResponse.json(
-      { 
+      {
         error: error.response?.data?.error || 'Failed to create patient',
         details: error.message
       },
