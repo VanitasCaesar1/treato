@@ -47,11 +47,11 @@ export async function POST(request: NextRequest) {
       password: userData.password,
       name: `${userData.first_name} ${userData.last_name}`,
       username: userData.username,
-      mobile: userData.mobile_no, // Ensuring this matches the DB column name
+      mobile: userData.mobile_no,
       bloodGroup: userData.blood_group,
       location: userData.location,
       address: userData.address,
-      aadhaarId: userData.aadhaar_id, // This should match the Go struct field name
+      AadhaarID: userData.aadhaar_id, // Updated from aadhaarId to AadhaarID to match Go struct
       age: userData.age,
       profilePic: "", // Default empty
       imrNumber: "", // Default empty
