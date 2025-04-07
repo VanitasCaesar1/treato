@@ -4,16 +4,23 @@ import { usePathname } from "next/navigation";
 
 const NavigationLink = ({ item }) => {
   const pathname = usePathname();
-  const isActive =
-    pathname === item.href ||
+  
+  // Modified isActive logic to handle Dashboard special case
+  const isActive = 
+    // For dashboard, only match exact path
+    (item.href === "/dashboard" && pathname === "/dashboard") ||
+    // For the root path
     (item.href === "/" && pathname === "") ||
-    (item.href !== "/" && pathname.startsWith(item.href));
+    // For other paths, allow matching subpaths but exclude /dashboard from matching everything
+    (item.href !== "/" && 
+     item.href !== "/dashboard" && 
+     pathname.startsWith(item.href));
 
   return (
     <Link
       href={item.href}
       className={`group flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 ease-in-out relative
-            ${isActive ? "bg-white/10 shadow-sm" : "hover:bg-[#4CC9FE]"}`}
+        ${isActive ? "bg-white/10 shadow-sm" : "hover:bg-[#4CC9FE]"}`}
     >
       {isActive && (
         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#FFB347] rounded-r-full shadow-[0_0_8px_rgba(130,234,91,0.5)]" />
