@@ -356,6 +356,7 @@ const CreatePatient = ({ isOpen, onClose }) => {
                   <input
                     type="tel"
                     name="mobile"
+                    maxLength={10}
                     value={formData.mobile}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
