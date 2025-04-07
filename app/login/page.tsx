@@ -35,7 +35,7 @@ export default async function AuthPage() {
                 <Link href="/dashboard">Go to Dashboard</Link>
               </Button>
               <Button>
-                <Link href="/profile">View Profile</Link>
+                <Link href="/dashboard/profile">View Profile</Link>
               </Button>
             </div>
           </div>
