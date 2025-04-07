@@ -141,12 +141,7 @@ export default function PatientsPage() {
   // Handle new patient creation
   const handleNewPatient = () => {
     setShowCreateModal(true);
-    
-    // Show toast notification
-    toast.success('Opening patient creation form', {
-      duration: 500,
-      position: 'top-right',
-    });
+  
   };
 
   // Get initials for avatar fallback
