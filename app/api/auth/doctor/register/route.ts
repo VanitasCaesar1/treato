@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       bloodGroup: userData.blood_group,
       location: userData.location,
       address: userData.address,
-      AadhaarID: userData.aadhaar_id, // Updated from aadhaarId to AadhaarID to match Go struct
+      aadhaar_id: userData.aadhaar_id, // Updated from aadhaarId to AadhaarID to match Go struct
       age: userData.age,
       profilePic: "", // Default empty
       imrNumber: "", // Default empty
