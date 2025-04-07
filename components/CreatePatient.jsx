@@ -1,3 +1,4 @@
+// components/CreatePatient.jsx
 import React, { useState } from "react";
 import { X, Loader2, Plus, Trash } from "lucide-react";
 import toast from "react-hot-toast";

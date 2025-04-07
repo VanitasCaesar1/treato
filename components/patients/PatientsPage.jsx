@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import CreatePatient from "@/components/CreatePatient"; // Adjust the path as needed
 import {
   Select,
   SelectContent,
@@ -37,6 +38,7 @@ export default function PatientsPage() {
   const [filterBloodGroup, setFilterBloodGroup] = useState("all");
   const [error, setError] = useState(null);
   const [totalPatients, setTotalPatients] = useState(0);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const observer = useRef();
 
   // This function will handle fetching patients with pagination
@@ -138,12 +140,11 @@ export default function PatientsPage() {
 
   // Handle new patient creation
   const handleNewPatient = () => {
-    // Redirect to patient creation page
-    window.location.href = "/patients/create";
+    setShowCreateModal(true);
     
     // Show toast notification
-    toast.success('Navigating to create new patient', {
-      duration: 2000,
+    toast.success('Opening patient creation form', {
+      duration: 500,
       position: 'top-right',
     });
   };
@@ -396,6 +397,10 @@ export default function PatientsPage() {
           </div>
         </div>
       </div>
+      <CreatePatient 
+  isOpen={showCreateModal} 
+  onClose={() => setShowCreateModal(false)} 
+/>
     </div>
   );
 }
