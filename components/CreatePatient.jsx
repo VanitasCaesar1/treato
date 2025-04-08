@@ -430,6 +430,7 @@ const CreatePatient = ({ isOpen, onClose }) => {
                   </label>
                   <input
                     type="tel"
+                    maxLength={10}
                     value={formData.emergency_contact.phone}
                     onChange={(e) => handleNestedChange("emergency_contact", "phone", e.target.value)}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -557,83 +558,6 @@ const CreatePatient = ({ isOpen, onClose }) => {
               </div>
             </div>
             
-            {/* Hospital Visits */}
-            <div className="border rounded-lg p-4">
-              <h3 className="text-lg font-medium mb-4">Hospital Visits</h3>
-              
-              {/* Display added hospital visits */}
-              {formData.hospital_visits.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Previous Visits:</h4>
-                  <div className="space-y-2">
-                    {formData.hospital_visits.map((visit, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 border rounded-lg">
-                        <div>
-                          <span className="font-medium">{visit.hospital_name}</span>
-                          <span className="text-sm text-gray-500 ml-2">
-                            Date: {new Date(visit.visit_date).toLocaleDateString()}
-                          </span>
-                          {visit.reason && <p className="text-sm text-gray-600 mt-1">{visit.reason}</p>}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeHospitalVisit(index)}
-                          className="p-1 text-red-500 hover:bg-red-50 rounded-full"
-                        >
-                          <Trash className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Add new hospital visit */}
-              <div className="border rounded-lg p-3 bg-gray-50">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Add Hospital Visit</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <input
-                      type="text"
-                      value={hospitalVisit.hospital_name}
-                      onChange={(e) => handleHospitalVisitChange("hospital_name", e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Hospital name"
-                    />
-                  </div>
-                  
-                  <div>
-                    <input
-                      type="date"
-                      value={hospitalVisit.visit_date}
-                      onChange={(e) => handleHospitalVisitChange("visit_date", e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  
-                  <div className="sm:col-span-2">
-                    <textarea
-                      value={hospitalVisit.reason}
-                      onChange={(e) => handleHospitalVisitChange("reason", e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Reason for visit (optional)"
-                      rows="2"
-                    />
-                  </div>
-                </div>
-                
-                <div className="mt-3 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={addHospitalVisit}
-                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center text-sm"
-                  >
-                    <Plus className="h-3 w-3 mr-1" /> Add Visit
-                  </button>
-                </div>
-              </div>
-            </div>
-            
             {/* Insurance Information */}
             <div className="border rounded-lg p-4">
               <h3 className="text-lg font-medium mb-4">Insurance Information</h3>
@@ -657,6 +581,7 @@ const CreatePatient = ({ isOpen, onClose }) => {
                   </label>
                   <input
                     type="text"
+                    maxLength={24}
                     value={formData.insurance.policy_number}
                     onChange={(e) => handleNestedChange("insurance", "policy_number", e.target.value)}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
