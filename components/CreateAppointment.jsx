@@ -11,20 +11,21 @@ import {
   isToday,
 } from "date-fns";
 import { Search, ChevronLeft, ChevronRight, X, Loader2, User } from "lucide-react";
-import PatientSearch from "./PatientSearch";
+import PatientSearch from "@/components/PatientSearch"
 import toast from "react-hot-toast";
 
 const CreateAppointment = ({ isOpen, onClose }) => {
-  const [step, setStep] = useState(3); // Starting at step 3 to match the screenshot
+  // Existing state setup from your code
+  const [step, setStep] = useState(1); // Changed to start at step 1 to test patient search
   const [currentDate, setCurrentDate] = useState(new Date());
   const [formData, setFormData] = useState({
     patient: null,
     doctor: null,
     date: null,
-    time: "14:00", // Default selected time to match screenshot
+    time: "14:00",
     reason: "",
-    feeType: "recurring", // Default to "Follow-up Visit" to match screenshot
-    paymentMethod: "online", // Default to "Online Payment" to match screenshot
+    feeType: "recurring",
+    paymentMethod: "online",
   });
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -213,20 +214,24 @@ const CreateAppointment = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleSelectPatient = (patient) => {
-    setFormData((prev) => ({ 
-      ...prev, 
-      patient: {
-        id: patient.PatientID || patient._id,
-        name: patient.Name || patient.name,
-        age: patient.Age || patient.age,
-        phone: patient.Mobile || patient.mobile,
-        // Map other fields as needed
-      } 
-    }));
-    toast.success(`Selected patient: ${patient.Name || patient.name}`);
-    setStep(2);
-  };
+    // The handleSelectPatient function needs to be updated to match our new PatientSearch component
+    const handleSelectPatient = (patient) => {
+      setFormData((prev) => ({ 
+        ...prev, 
+        patient: {
+          id: patient.PatientID || patient._id,
+          name: patient.Name || patient.name,
+          age: patient.Age || patient.age,
+          phone: patient.Mobile || patient.mobile || patient.Phone || patient.phone,
+          email: patient.Email || patient.email,
+          gender: patient.Gender || patient.gender,
+          bloodGroup: patient.BloodGroup || patient.bloodGroup,
+        } 
+      }));
+      toast.success(`Selected patient: ${patient.Name || patient.name}`);
+      setStep(2);
+    };
+  
 
   const handleNextStep = () => {
     if (!validateForm()) return;
@@ -309,7 +314,7 @@ const CreateAppointment = ({ isOpen, onClose }) => {
       case 1:
         return (
           <div className="space-y-4">
-            {/* Patient Selection */}
+            {/* Our updated PatientSearch component */}
             <PatientSearch 
               onSelectPatient={handleSelectPatient}
               selectedPatient={formData.patient}
