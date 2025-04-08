@@ -354,7 +354,7 @@ const CreatePatient = ({ isOpen, onClose }) => {
                     Mobile Number <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="tel"
+                    type="number"
                     name="mobile"
                     maxLength={10}
                     value={formData.mobile}
@@ -429,7 +429,7 @@ const CreatePatient = ({ isOpen, onClose }) => {
                     Phone Number
                   </label>
                   <input
-                    type="tel"
+                    type="number"
                     maxLength={10}
                     value={formData.emergency_contact.phone}
                     onChange={(e) => handleNestedChange("emergency_contact", "phone", e.target.value)}
