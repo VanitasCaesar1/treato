@@ -297,6 +297,7 @@ const CreatePatient = ({ isOpen, onClose }) => {
                   <input
                     type="number"
                     name="age"
+                    maxLength={3}
                     value={formData.age}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -386,6 +387,7 @@ const CreatePatient = ({ isOpen, onClose }) => {
                     name="address"
                     value={formData.address}
                     onChange={handleChange}
+                    maxLength={128}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter physical address"
                     rows="3"
@@ -408,6 +410,7 @@ const CreatePatient = ({ isOpen, onClose }) => {
                     onChange={(e) => handleNestedChange("emergency_contact", "name", e.target.value)}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter emergency contact name"
+                    maxLength={32}
                   />
                 </div>
                 
@@ -421,6 +424,7 @@ const CreatePatient = ({ isOpen, onClose }) => {
                     onChange={(e) => handleNestedChange("emergency_contact", "relationship", e.target.value)}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="E.g., Spouse, Parent, Child"
+                    maxLength={32}
                   />
                 </div>
                 
@@ -500,6 +504,7 @@ const CreatePatient = ({ isOpen, onClose }) => {
                       onChange={(e) => handleMedicalConditionChange("notes", e.target.value)}
                       className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Additional notes (optional)"
+                      maxLength={128}
                       rows="2"
                     />
                   </div>

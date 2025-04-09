@@ -18,6 +18,10 @@ export const config = {
       '/profile',
       '/settings/:path*',
       '/staff',
+      "/patients/:path*",
+      "/doctors/:path*",
+      "/appointments/:path*",
+      "/hospital/:path*",
       // Auth routes
       '/callback',
       '/api/user/:path*',

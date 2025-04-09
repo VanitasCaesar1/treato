@@ -356,6 +356,7 @@ const RegistrationComponent = () => {
                       type="number"
                       id="age"
                       name="age"
+                      maxLength={3}
                       value={formData.age}
                       onChange={handleChange}
                       className={`w-full p-2 border-2 rounded-2xl ${
@@ -402,6 +403,7 @@ const RegistrationComponent = () => {
                       id="mobileNo"
                       name="mobileNo"
                       value={formData.mobileNo}
+                      maxLength={10}
                       onChange={handleChange}
                       placeholder="10-digit number"
                       className={`w-full p-2 border-2 rounded-2xl ${
@@ -530,6 +532,7 @@ const RegistrationComponent = () => {
                       type="text"
                       id="location"
                       name="location"
+                      maxLength={32}
                       value={formData.location}
                       onChange={handleChange}
                       className={`w-full p-2 border-2 rounded-2xl ${
@@ -547,6 +550,7 @@ const RegistrationComponent = () => {
                     <input
                       type="text"
                       id="address"
+                      maxLength={128}
                       name="address"
                       value={formData.address}
                       onChange={handleChange}

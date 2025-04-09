@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,11 +17,9 @@ import {
 import {
   Search,
   Filter,
-  User,
   UserPlus,
   Phone,
   Mail,
-  Calendar,
   ChevronRight,
   ClipboardList,
   AlertTriangle,
@@ -30,6 +29,7 @@ import toast from "react-hot-toast";
 const ITEMS_PER_PAGE = 10;
 
 export default function PatientsPage() {
+  const router = useRouter();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -141,8 +141,23 @@ export default function PatientsPage() {
   // Handle new patient creation
   const handleNewPatient = () => {
     setShowCreateModal(true);
-  
   };
+
+  // Handle navigation to patient details
+// Handle navigation to patient details
+// Handle navigation to patient details
+const navigateToPatient = async (patientId, patientName) => {
+  const toastId = toast.loading(`Loading ${patientName}'s record...`);
+  
+  try {
+    await router.push(`/patients/${patientId}`);
+    toast.dismiss(toastId);
+  } catch (error) {
+    console.error("Navigation error:", error);
+    toast.error(`Failed to load patient record: ${error.message}`);
+    toast.dismiss(toastId);
+  }
+};
 
   // Get initials for avatar fallback
   const getInitials = (name) => {
@@ -267,9 +282,11 @@ export default function PatientsPage() {
               patients.map((patient, index) => {
                 // Check if this is the last element to observe for infinite scroll
                 const isLastElement = patients.length === index + 1;
+                const patientId = patient._id || patient.patient_id;
+                
                 return (
                   <div
-                    key={patient._id || patient.patient_id}
+                    key={patientId}
                     ref={isLastElement ? lastPatientElementRef : null}
                     className="px-6 py-4 grid grid-cols-[80px_1.5fr_2fr_1fr_1fr_1fr_1fr] gap-4 items-center border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors duration-200"
                   >
@@ -285,21 +302,15 @@ export default function PatientsPage() {
                     
                     {/* Patient name and ID */}
                     <div>
-                      <Link
-                        href={`/patients/${patient._id || patient.patient_id}`}
+                      <button
+                        onClick={() => navigateToPatient(patientId, patient.name)}
                         className="text-sm font-medium text-gray-900 hover:text-gray-700 flex items-center gap-1 group"
-                        onClick={() => {
-                          toast.loading(`Loading ${patient.name}'s record...`, {
-                            id: `loading-${patient._id || patient.patient_id}`,
-                          });
-                          // This would be dismissed in the patient detail page
-                        }}
                       >
                         {patient.name}
                         <ChevronRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                      </Link>
+                      </button>
                       <div className="text-xs text-gray-500 mt-0.5">
-                        ID: {(patient._id || patient.patient_id)?.substring(0, 8) || 'N/A'}
+                        ID: {patientId?.substring(0, 8) || 'N/A'}
                       </div>
                     </div>
 
@@ -363,18 +374,9 @@ export default function PatientsPage() {
                         variant="ghost"
                         size="sm"
                         className="h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                        asChild
+                        onClick={() => navigateToPatient(patientId, patient.name)}
                       >
-                        <Link 
-                          href={`/patients/${patient._id || patient.patient_id}`}
-                          onClick={() => {
-                            toast.loading(`Loading ${patient.name}'s record...`, {
-                              id: `loading-${patient._id || patient.patient_id}`,
-                            });
-                          }}
-                        >
-                          View Patient
-                        </Link>
+                        View Patient
                       </Button>
                     </div>
                   </div>
@@ -393,9 +395,13 @@ export default function PatientsPage() {
         </div>
       </div>
       <CreatePatient 
-  isOpen={showCreateModal} 
-  onClose={() => setShowCreateModal(false)} 
-/>
+        isOpen={showCreateModal} 
+        onClose={() => setShowCreateModal(false)} 
+        onPatientCreated={() => {
+          fetchPatients(1, true);
+          toast.success("Patient created successfully!");
+        }}
+      />
     </div>
   );
 }
