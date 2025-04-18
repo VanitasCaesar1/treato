@@ -48,7 +48,7 @@ export async function GET(
       return NextResponse.json(
         { code: 'AUTH_REQUIRED', error: 'Not authenticated' },
         { status: 401 }
-      );
+      );0
     }
     return NextResponse.json(
       { error: error.response?.data?.error || 'Failed to retrieve doctor appointments' },
