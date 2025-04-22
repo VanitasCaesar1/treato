@@ -145,29 +145,22 @@ export default function PatientsPage() {
 
   // Handle navigation to patient details
 
-const navigateToPatient = async (patientId, patientName) => {
-  const toastId = toast.loading(`Loading ${patientName}'s record...`);
-  
+// Inside the PatientsPage component, replace the navigateToPatient function with this:
+
+const navigateToPatient = (patientId, patientName) => {
   try {
-    const response = await fetch(`/api/patients/${patientId}`);
+    // Display loading toast
+    const toastId = toast.loading(`Loading ${patientName}'s record...`);
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to fetch patient details');
-    }
+    // Simply navigate to the patient details page
+    router.push(`/dashboard/patients/${patientId}`);
     
-    const data = await response.json();
-    
-    if (data.success) {
+    // Dismiss loading toast after navigation starts
+    setTimeout(() => {
       toast.dismiss(toastId);
-      router.push(`/patients/${patientId}`);
-    } else {
-      throw new Error(data.message || 'Failed to load patient details');
-    }
-  }
-  catch (error) {
-    toast.dismiss(toastId);
-    toast.error(error.message || "Failed to load patient details", {
+    }, 500);
+  } catch (error) {
+    toast.error("Failed to navigate to patient details", {
       duration: 4000,
       position: 'top-right',
       style: {
@@ -180,7 +173,7 @@ const navigateToPatient = async (patientId, patientName) => {
         secondary: '#FFFAEE',
       },
     });
-  }  
+  }
 };
 
   // Get initials for avatar fallback

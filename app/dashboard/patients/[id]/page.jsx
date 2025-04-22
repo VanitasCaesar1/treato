@@ -49,7 +49,9 @@ import toast from "react-hot-toast";
 
 export default function PatientDetailsPage({ params }) {
   const router = useRouter();
-  const id = params.id; // Get the id from the params
+  // Unwrap params using React.use()
+  const unwrappedParams = React.use(params);
+  const id = unwrappedParams.id; // Get the id from unwrapped params
   
   const [patient, setPatient] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -64,6 +66,7 @@ export default function PatientDetailsPage({ params }) {
     address: "",
     aadhaar_id: "",
     allergies: [],
+    allergiesText: "" // Add a new field to store the raw text input
   });
 
   // Fetch patient data
@@ -95,6 +98,7 @@ export default function PatientDetailsPage({ params }) {
           address: data.patient.address || "",
           aadhaar_id: data.patient.aadhaar_id || "",
           allergies: data.patient.allergies || [],
+          allergiesText: data.patient.allergies?.join(", ") || "" // Initialize the text input
         });
         
         setLoading(false);
@@ -125,55 +129,87 @@ export default function PatientDetailsPage({ params }) {
 
   // Handle allergies input (comma-separated list)
   const handleAllergiesChange = (e) => {
-    const allergiesString = e.target.value;
-    const allergiesArray = allergiesString.split(",").map(item => item.trim()).filter(item => item !== "");
-    setFormData(prev => ({ ...prev, allergies: allergiesArray }));
+    const allergiesText = e.target.value;
+    
+    // Store the raw text input
+    setFormData(prev => ({ 
+      ...prev, 
+      allergiesText: allergiesText,
+      // Update the allergies array but only when saving
+      allergies: allergiesText.split(",").map(item => item.trim()).filter(item => item !== "")
+    }));
   };
 
-  // Save patient data
-  const handleSave = async () => {
-    try {
-      const toastId = toast.loading("Updating patient information...");
-      
-      const updateData = {
-        name: formData.name,
-        email: formData.email,
-        mobile: formData.mobile,
-        age: parseInt(formData.age) || 0,
-        blood_group: formData.blood_group,
-        address: formData.address,
-        aadhaar_id: formData.aadhaar_id,
-        allergies: formData.allergies,
-      };
-      
-      const response = await fetch(`/api/patients/${id}`, {
-        method: 'PUT', 
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updateData),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update patient');
-      }
-      
-      // Update local patient state with new data
-      setPatient(prev => ({ ...prev, ...updateData }));
-      setIsEditing(false);
-      
-      toast.success("Patient information updated successfully", {
-        id: toastId,
-      });
-    } catch (error) {
-      console.error("Error updating patient:", error);
-      
-      toast.error(error.message || "Failed to update patient information", {
-        position: 'top-right',
-      });
+  // Modify the handleSave function in your PatientDetailsPage component
+const handleSave = async () => {
+  try {
+    const toastId = toast.loading("Updating patient information...");
+    
+    // Process allergies from text input when saving
+    const allergiesArray = formData.allergiesText
+      .split(",")
+      .map(item => item.trim())
+      .filter(item => item !== "");
+    
+    // Make sure we include patient_id in the update data
+    const updateData = {
+      name: formData.name,
+      email: formData.email,
+      mobile: formData.mobile,
+      age: parseInt(formData.age) || 0,
+      blood_group: formData.blood_group,
+      address: formData.address,
+      aadhaar_id: formData.aadhaar_id,
+      allergies: allergiesArray,
+      // Ensure patient_id is included if it exists in the patient object
+      ...(patient.patient_id && { patient_id: patient.patient_id })
+    };
+    
+    console.log("Sending update data:", updateData);
+    console.log(`PUT request to: /api/patients/${id}`);
+    
+    const response = await fetch(`/api/patients/${id}`, {
+      method: 'PUT', 
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updateData),
+    });
+    
+    // Log the full response for debugging
+    const responseData = await response.json();
+    console.log("Response status:", response.status);
+    console.log("Response data:", responseData);
+    
+    if (!response.ok) {
+      throw new Error(responseData.error || 'Failed to update patient');
     }
-  };
+    
+    // Update local patient state with new data
+    setPatient(prev => ({ ...prev, ...updateData }));
+    setIsEditing(false);
+    
+    toast.success("Patient information updated successfully", {
+      id: toastId,
+    });
+  } catch (error) {
+    console.error("Error updating patient:", error);
+    
+    toast.error(error.message || "Failed to update patient information", {
+      position: 'top-right',
+    });
+  }
+};
+
+// Optional: Add debug logging at component mount to verify correct IDs
+useEffect(() => {
+  if (patient) {
+    console.log("Patient ID from params:", id);
+    console.log("Patient ID from data:", patient.patient_id);
+    console.log("Patient _id from data:", patient._id);
+  }
+}, [patient, id]);
+
 
   // Cancel editing
   const handleCancel = () => {
@@ -188,6 +224,7 @@ export default function PatientDetailsPage({ params }) {
         address: patient.address || "",
         aadhaar_id: patient.aadhaar_id || "",
         allergies: patient.allergies || [],
+        allergiesText: patient.allergies?.join(", ") || ""
       });
     }
     setIsEditing(false);
@@ -276,7 +313,7 @@ export default function PatientDetailsPage({ params }) {
         {/* Back button and page header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
-            <Link href="/patients" className="inline-flex items-center text-gray-500 hover:text-gray-700 mb-2">
+            <Link href="/dashboard/patients" className="inline-flex items-center text-gray-500 hover:text-gray-700 mb-2">
               <ChevronLeft className="h-4 w-4 mr-1" />
               Back to Patients List
             </Link>
@@ -492,8 +529,9 @@ export default function PatientDetailsPage({ params }) {
             {isEditing ? (
               <div>
                 <Textarea
+                  name="allergiesText"
                   placeholder="Enter allergies separated by commas"
-                  value={formData.allergies?.join(", ") || ""}
+                  value={formData.allergiesText}
                   onChange={handleAllergiesChange}
                   className="min-h-[60px]"
                 />
