@@ -116,6 +116,35 @@ const CreateHospitalForm = () => {
     return true;
   };
 
+  // Enhanced validation for hospital name - key fix for WorkOS validation
+  const validateHospitalName = () => {
+    if (!formData.name) {
+      setError('Hospital name is required');
+      return false;
+    }
+    
+    // WorkOS has restrictions on organization names
+    // Adding validation to prevent common issues
+    if (formData.name.length < 2) {
+      setError('Hospital name must be at least 2 characters');
+      return false;
+    }
+    
+    if (formData.name.length > 64) {
+      setError('Hospital name cannot exceed 64 characters');
+      return false;
+    }
+    
+    // Check for special characters that might cause issues
+    const specialCharsRegex = /[<>{}\\^~[\]`]/;
+    if (specialCharsRegex.test(formData.name)) {
+      setError('Hospital name contains invalid special characters');
+      return false;
+    }
+    
+    return true;
+  };
+
   // Validate current step fields
   const validateStepFields = (currentStep) => {
     let isValid = true;
@@ -125,6 +154,11 @@ const CreateHospitalForm = () => {
       // Validate basic info fields
       if (!formData.name || !formData.email || !formData.number || !formData.licenseNumber) {
         setError('Please fill in all required fields');
+        isValid = false;
+      } else if (!validateHospitalName()) {
+        isValid = false;
+      } else if (!validateEmail(formData.email)) {
+        setError('Please enter a valid email address');
         isValid = false;
       }
     } else if (currentStep === 2) {
@@ -140,9 +174,14 @@ const CreateHospitalForm = () => {
     return isValid;
   };
 
+  // Email validation function
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   // Handle form submission
-   // Handle form submission - updated to use clientApi instead of makeApiRequest
-   const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
@@ -165,15 +204,22 @@ const CreateHospitalForm = () => {
       const formDataToSubmit = new FormData();
       
       // Add all hospital details
-      formDataToSubmit.append('name', formData.name);
-      formDataToSubmit.append('email', formData.email);
-      formDataToSubmit.append('number', formData.number.replace(/\D/g, '') ? parseInt(formData.number.replace(/\D/g, ''), 10) : formData.number);
-      formDataToSubmit.append('address', formData.address);
-      formDataToSubmit.append('licenseNumber', formData.licenseNumber);
+      formDataToSubmit.append('name', formData.name.trim());
+      formDataToSubmit.append('email', formData.email.trim());
+      
+      // Parse number properly
+      const parsedNumber = formData.number.replace(/\D/g, '');
+      formDataToSubmit.append('number', parsedNumber ? parseInt(parsedNumber, 10) : formData.number);
+      
+      formDataToSubmit.append('address', formData.address.trim());
+      formDataToSubmit.append('licenseNumber', formData.licenseNumber.trim());
       formDataToSubmit.append('startTime', formatTimeForBackend(formData.startTime));
       formDataToSubmit.append('endTime', formatTimeForBackend(formData.endTime));
-      formDataToSubmit.append('location', formData.location);
-      formDataToSubmit.append('speciality', formData.speciality);
+      formDataToSubmit.append('location', formData.location.trim());
+      
+      if (formData.speciality) {
+        formDataToSubmit.append('speciality', formData.speciality.trim());
+      }
       
       // Add all selected images
       selectedFiles.forEach(({ file }) => {
@@ -194,7 +240,18 @@ const CreateHospitalForm = () => {
       setStep(3); // Move to success step
     } catch (err) {
       console.error('Failed to create hospital:', err);
-      const errorMessage = err.response?.data?.error || 'Failed to create hospital. Please try again.';
+      let errorMessage = 'Failed to create hospital. Please try again.';
+      
+      // Extract the error message from the response if available
+      if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+        
+        // Special handling for WorkOS organization validation errors
+        if (errorMessage.includes('Validation failed') && errorMessage.includes('422')) {
+          errorMessage = 'Hospital name validation failed. Please check for special characters or length issues.';
+        }
+      }
+      
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -287,11 +344,15 @@ const CreateHospitalForm = () => {
             value={formData.name}
             onChange={handleInputChange}
             required
-            placeholder="Enter hospital name"
+            placeholder="Enter hospital name (2-64 characters)"
             className={`w-full p-2 border-2 rounded-2xl ${
               !formData.name ? "border-red-500 bg-red-50" : "border-black"
             }`}
           />
+          <p className="text-xs text-gray-500">
+            Use only letters, numbers and standard punctuation. 
+            Avoid special characters like &lt; &gt; { } \ ^ ~ [ ] `
+          </p>
         </div>
         
         <div className="space-y-2">
@@ -305,7 +366,7 @@ const CreateHospitalForm = () => {
             required
             placeholder="hospital@example.com"
             className={`w-full p-2 border-2 rounded-2xl ${
-              !formData.email ? "border-red-500 bg-red-50" : "border-black"
+              !formData.email || !validateEmail(formData.email) ? "border-red-500 bg-red-50" : "border-black"
             }`}
           />
         </div>
