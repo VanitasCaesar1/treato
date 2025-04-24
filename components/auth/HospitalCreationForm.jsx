@@ -626,7 +626,6 @@ const CreateHospitalForm = () => {
           </form>
         </CardContent>
       </Card>
-      <Toaster position="top-center" />
     </div>
   );
 };
