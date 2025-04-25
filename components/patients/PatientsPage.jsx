@@ -204,7 +204,7 @@ const navigateToPatient = (patientId, patientName) => {
 
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
-      <div className="max-w-[1400px] mx-auto p-8">
+      <div className="max-w-[1400px] mx-auto p-12">
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-2xl font-medium text-gray-900">

@@ -1,6 +1,6 @@
 // components/CreatePatient.jsx
-import React, { useState } from "react";
-import { X, Loader2, Plus, Trash } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, Loader2, Plus, Trash, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 const CreatePatient = ({ isOpen, onClose }) => {
@@ -31,6 +31,10 @@ const CreatePatient = ({ isOpen, onClose }) => {
   });
   
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [formSubmitted, setFormSubmitted] = useState(false);
+  
   const [medicalCondition, setMedicalCondition] = useState({
     condition: "",
     diagnosed_date: "",
@@ -44,9 +48,86 @@ const CreatePatient = ({ isOpen, onClose }) => {
     reason: ""
   });
   
+  // Validate a specific field
+  const validateField = (name, value) => {
+    switch (name) {
+      case "name":
+        return !value.trim() ? "Full name is required" : "";
+      case "email":
+        return !value.trim() ? "Email is required" : 
+               !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value) ?
+               "Invalid email format" : "";
+      case "mobile":
+        return !value ? "Mobile number is required" : 
+               value.toString().length < 10 ? "Mobile number must be at least 10 digits" : "";
+      case "gender":
+        return !value ? "Gender is required" : "";
+      case "age":
+        return !value ? "Age is required" : 
+               isNaN(value) || parseInt(value) <= 0 ? "Age must be a positive number" : "";
+      case "aadhaar_id":
+        return !value ? "Aadhaar ID is required" : 
+               !/^\d{12}$/.test(value) ? "Aadhaar ID must be 12 digits" : "";
+      case "blood_group":
+        return value && !/^(A|B|AB|O)[+-]$/.test(value) ? "Invalid blood group format" : "";
+      default:
+        return "";
+    }
+  };
+  
+  // Validate the entire form
+  const validateForm = () => {
+    const newErrors = {};
+    const requiredFields = ["name", "email", "mobile", "gender", "age", "aadhaar_id"];
+    
+    // Validate all required fields
+    for (const field of requiredFields) {
+      const error = validateField(field, formData[field]);
+      if (error) {
+        newErrors[field] = error;
+      }
+    }
+    
+    // Validate optional fields that have values
+    if (formData.blood_group) {
+      const error = validateField("blood_group", formData.blood_group);
+      if (error) newErrors.blood_group = error;
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+  
+  // Handle form input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Mark field as touched
+    if (!touched[name]) {
+      setTouched(prev => ({ ...prev, [name]: true }));
+    }
+    
+    // If form was already submitted once or field was touched, validate on change
+    if (formSubmitted || touched[name]) {
+      const error = validateField(name, value);
+      setErrors(prev => ({
+        ...prev,
+        [name]: error
+      }));
+    }
+  };
+  
+  // Handle blur event for validation
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched(prev => ({ ...prev, [name]: true }));
+    
+    const error = validateField(name, value);
+    setErrors(prev => ({
+      ...prev,
+      [name]: error
+    }));
   };
   
   const handleNestedChange = (category, field, value) => {
@@ -151,48 +232,24 @@ const CreatePatient = ({ isOpen, onClose }) => {
     }));
   };
   
-  const validateForm = () => {
-    // Validate required fields
-    const requiredFields = ["name", "email", "mobile", "gender", "age"];
-    for (const field of requiredFields) {
-      if (!formData[field]) {
-        toast.error(`Please provide ${field.replace("_", " ")}`);
-        return false;
-      }
-    }
-    
-    // Validate email format
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!emailRegex.test(formData.email)) {
-      toast.error("Please provide a valid email address");
-      return false;
-    }
-    
-    // Validate mobile
-    if (formData.mobile.length < 10) {
-      toast.error("Please provide a valid mobile number");
-      return false;
-    }
-    
-    // Validate Aadhaar if provided
-    if (formData.aadhaar_id && !/^\d{12}$/.test(formData.aadhaar_id)) {
-      toast.error("Aadhaar ID must be 12 digits");
-      return false;
-    }
-    
-    // Validate blood group if provided
-    if (formData.blood_group && !/^(A|B|AB|O)[+-]$/.test(formData.blood_group)) {
-      toast.error("Please select a valid blood group");
-      return false;
-    }
-    
-    return true;
-  };
-  
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormSubmitted(true);
     
-    if (!validateForm()) return;
+    // Validate all fields
+    if (!validateForm()) {
+      // Scroll to the first error
+      const firstErrorField = Object.keys(errors)[0];
+      const errorElement = document.querySelector(`[name="${firstErrorField}"]`);
+      if (errorElement) {
+        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        errorElement.focus();
+      }
+      
+      // Show error toast
+      toast.error("Please fix the errors before submitting");
+      return;
+    }
     
     setSubmitting(true);
     
@@ -211,7 +268,13 @@ const CreatePatient = ({ isOpen, onClose }) => {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || "Failed to create patient");
+        // Handle API validation errors if they exist
+        if (data.errors && typeof data.errors === 'object') {
+          setErrors(prev => ({ ...prev, ...data.errors }));
+          throw new Error("Please fix the highlighted errors");
+        } else {
+          throw new Error(data.error || "Failed to create patient");
+        }
       }
       
       // Success toast
@@ -233,7 +296,81 @@ const CreatePatient = ({ isOpen, onClose }) => {
     }
   };
   
+  // Reset form and errors when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setErrors({});
+      setTouched({});
+      setFormSubmitted(false);
+    }
+  }, [isOpen]);
+  
   if (!isOpen) return null;
+  
+  // Helper to render form fields with consistent error handling
+  const renderField = ({ name, label, type = "text", placeholder, required = false, options, maxLength, fullWidth = false }) => {
+    const hasError = touched[name] && errors[name];
+    
+    return (
+      <div className={fullWidth ? "sm:col-span-2" : ""}>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {label} {required && <span className="text-red-500">*</span>}
+        </label>
+        
+        {type === "select" ? (
+          <select
+            name={name}
+            value={formData[name] || ""}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+              hasError ? "border-red-500 focus:ring-red-500" : "focus:ring-blue-500"
+            }`}
+          >
+            <option value="">{placeholder || `Select ${label}`}</option>
+            {options.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        ) : type === "textarea" ? (
+          <textarea
+            name={name}
+            value={formData[name] || ""}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            maxLength={maxLength}
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+              hasError ? "border-red-500 focus:ring-red-500" : "focus:ring-blue-500"
+            }`}
+            placeholder={placeholder}
+            rows="3"
+          />
+        ) : (
+          <input
+            type={type}
+            name={name}
+            value={formData[name] || ""}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            maxLength={maxLength}
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+              hasError ? "border-red-500 focus:ring-red-500" : "focus:ring-blue-500"
+            }`}
+            placeholder={placeholder}
+          />
+        )}
+        
+        {hasError && (
+          <p className="mt-1 text-sm text-red-500 flex items-start">
+            <AlertCircle className="h-3 w-3 mr-1 mt-0.5 flex-shrink-0" />
+            <span>{errors[name]}</span>
+          </p>
+        )}
+      </div>
+    );
+  };
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -255,94 +392,82 @@ const CreatePatient = ({ isOpen, onClose }) => {
         {/* Form */}
         <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Form-level errors summary */}
+            {formSubmitted && Object.keys(errors).length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex">
+                  <AlertCircle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0" />
+                  <div>
+                    <h3 className="text-sm font-medium text-red-800">
+                      Please fix the following errors:
+                    </h3>
+                    <ul className="mt-2 text-sm text-red-700 list-disc pl-5 space-y-1">
+                      {Object.entries(errors).map(([field, message]) => (
+                        <li key={field}>
+                          {message}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {/* Basic Information */}
             <div className="border rounded-lg p-4">
               <h3 className="text-lg font-medium mb-4">Basic Information</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter full name"
-                  />
-                </div>
+                {renderField({
+                  name: "name",
+                  label: "Full Name",
+                  placeholder: "Enter full name",
+                  required: true
+                })}
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Gender <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="gender"
-                    value={formData.gender}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
+                {renderField({
+                  name: "gender",
+                  label: "Gender",
+                  type: "select",
+                  required: true,
+                  options: [
+                    { value: "Male", label: "Male" },
+                    { value: "Female", label: "Female" },
+                    { value: "Other", label: "Other" }
+                  ]
+                })}
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Age <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="age"
-                    maxLength={3}
-                    value={formData.age}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter age in years"
-                  />
-                </div>
+                {renderField({
+                  name: "age",
+                  label: "Age",
+                  type: "number",
+                  placeholder: "Enter age in years",
+                  required: true,
+                  maxLength: 3
+                })}
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Blood Group
-                  </label>
-                  <select
-                    name="blood_group"
-                    value={formData.blood_group}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Blood Group</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                  </select>
-                </div>
+                {renderField({
+                  name: "blood_group",
+                  label: "Blood Group",
+                  type: "select",
+                  options: [
+                    { value: "A+", label: "A+" },
+                    { value: "A-", label: "A-" },
+                    { value: "B+", label: "B+" },
+                    { value: "B-", label: "B-" },
+                    { value: "AB+", label: "AB+" },
+                    { value: "AB-", label: "AB-" },
+                    { value: "O+", label: "O+" },
+                    { value: "O-", label: "O-" }
+                  ]
+                })}
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Aadhaar ID
-                  </label>
-                  <input
-                    type="text"
-                    name="aadhaar_id"
-                    value={formData.aadhaar_id}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter 12-digit Aadhaar ID"
-                    maxLength={12}
-                  />
-                </div>
-                
-                
+                {renderField({
+                  name: "aadhaar_id",
+                  label: "Aadhaar ID",
+                  placeholder: "Enter 12-digit Aadhaar ID",
+                  required: true,
+                  maxLength: 12
+                })}
               </div>
             </div>
             
@@ -350,49 +475,31 @@ const CreatePatient = ({ isOpen, onClose }) => {
             <div className="border rounded-lg p-4">
               <h3 className="text-lg font-medium mb-4">Contact Information</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mobile Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="mobile"
-                    maxLength={10}
-                    value={formData.mobile}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter mobile number"
-                  />
-                </div>
+                {renderField({
+                  name: "mobile",
+                  label: "Mobile Number",
+                  type: "number",
+                  placeholder: "Enter mobile number",
+                  required: true,
+                  maxLength: 10
+                })}
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter email address"
-                  />
-                </div>
+                {renderField({
+                  name: "email",
+                  label: "Email",
+                  type: "email",
+                  placeholder: "Enter email address",
+                  required: true
+                })}
                 
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Address
-                  </label>
-                  <textarea
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    maxLength={128}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter physical address"
-                    rows="3"
-                  />
-                </div>
+                {renderField({
+                  name: "address",
+                  label: "Address",
+                  type: "textarea",
+                  placeholder: "Enter physical address",
+                  maxLength: 128,
+                  fullWidth: true
+                })}
               </div>
             </div>
             
