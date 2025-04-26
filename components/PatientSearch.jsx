@@ -119,10 +119,11 @@ const PatientSearch = ({ onSelectPatient, selectedPatient }) => {
             </div>
           ) : (
             patients.map((patient) => (
+              
               <div
-                key={patient.patient_id || patient._id}
+                key={patient.patient_id}
                 className={`p-4 border-b border-gray-100 last:border-0 cursor-pointer transition-colors hover:bg-gray-50 ${
-                  selectedPatient?.id === (patient.patient_id || patient._id)
+                  selectedPatient?.patient_id === patient.patient_id
                     ? "bg-blue-50 border-l-4 border-l-blue-500"
                     : ""
                 }`}
@@ -140,7 +141,7 @@ const PatientSearch = ({ onSelectPatient, selectedPatient }) => {
                     <div className="flex items-center justify-between">
                       <div className="font-medium">{patient.name}</div>
                       <div className="text-xs text-gray-500">
-                        ID: {((patient.patient_id || patient._id)?.substring(0, 8)) || 'N/A'}
+                        ID: {patient.patient_id || 'N/A'}
                       </div>
                     </div>
                     
