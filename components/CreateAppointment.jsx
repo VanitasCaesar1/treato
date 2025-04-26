@@ -13,7 +13,6 @@ import {
 import { Search, ChevronLeft, ChevronRight, X, Loader2, User } from "lucide-react";
 import PatientSearch from "@/components/PatientSearch"
 import toast from "react-hot-toast";
-import { withAuth,} from '@workos-inc/authkit-nextjs';
 
 const CreateAppointment = ({ isOpen, onClose }) => {
   // Existing state setup from your code
@@ -34,9 +33,25 @@ const CreateAppointment = ({ isOpen, onClose }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSpeciality, setSelectedSpeciality] = useState("_all");
   const [specialities, setSpecialities] = useState([]);
+  const [organizationId, setOrganizationId] = useState(null);
   
-  // Get organizationId from useAuth
-  const { organizationId, user } = withAuth();  
+  // Fetch organization ID when component mounts
+  useEffect(() => {
+    async function fetchOrgId() {
+      try {
+        const res = await fetch('/api/auth/organization');
+        if (!res.ok) throw new Error('Failed to fetch organization info');
+        const data = await res.json();
+        setOrganizationId(data.organizationId);
+      } catch (error) {
+        console.error("Error fetching organization ID:", error);
+        toast.error("Authentication error. Please try refreshing the page.");
+      }
+    }
+    
+    fetchOrgId();
+  }, []);
+  
   // Calendar navigation functions
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
@@ -61,7 +76,7 @@ const CreateAppointment = ({ isOpen, onClose }) => {
       if (speciality) params.append("speciality", speciality);
       params.append("limit", "20");
       
-      // Add organizationId from auth context to the API request if available
+      // Add organizationId to the API request if available
       if (organizationId) {
         params.append("org_id", organizationId);
       }
@@ -77,7 +92,6 @@ const CreateAppointment = ({ isOpen, onClose }) => {
       const doctorsArray = data.doctors || [];
       
       // Transform the response to match our component's expected format
-      // Adding organizationId to each doctor object
       const formattedDoctors = doctorsArray.map(doctor => ({
         id: doctor.DoctorID || doctor.doctor_id,
         name: doctor.Name || doctor.name,
@@ -85,7 +99,6 @@ const CreateAppointment = ({ isOpen, onClose }) => {
         qualification: doctor.Qualification || doctor.qualification,
         hospitalName: doctor.HospitalName || doctor.hospital_name,
         hospitalId: doctor.HospitalID || doctor.hospital_id,
-        orgId: organizationId, // Add organizationId from auth context
         image: "/api/placeholder/32/32", // Placeholder image
       }));
       
@@ -112,21 +125,21 @@ const CreateAppointment = ({ isOpen, onClose }) => {
 
   // Initial fetch of doctors when the component mounts at step 2
   useEffect(() => {
-    if (step === 2) {
+    if (step === 2 && organizationId) {
       fetchDoctors();
     }
-  }, [step]);
+  }, [step, organizationId]);
 
   // Handle search input change with debounce
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (step === 2) {
+      if (step === 2 && organizationId) {
         fetchDoctors(searchQuery, selectedSpeciality === "_all" ? "" : selectedSpeciality);
       }
     }, 300);
     
     return () => clearTimeout(timer);
-  }, [searchQuery, selectedSpeciality, step]);
+  }, [searchQuery, selectedSpeciality, step, organizationId]);
 
   // Available time slots - these would ideally be retrieved from the backend based on doctor availability
   const timeSlots = [
@@ -201,16 +214,10 @@ const CreateAppointment = ({ isOpen, onClose }) => {
         throw new Error("Doctor ID must be in UUID format");
       }
       
-      // Use organizationId from auth context directly
-      if (!organizationId || !/^org_[A-Z0-9]{26}$/.test(organizationId)) {
-        throw new Error("Organization ID must be in ULID format (org_[A-Z0-9]{26})");
-      }
-      
       // Transform data to match the backend API expectations
       const appointmentData = {
         patient_id: formData.patient.id,
         doctor_id: formData.doctor.id,
-        org_id: organizationId, // Use organizationId from auth context
         patient_name: formData.patient.name,
         doctor_name: formData.doctor.name,
         appointment_date: formData.date ? new Date(
@@ -436,7 +443,6 @@ const CreateAppointment = ({ isOpen, onClose }) => {
                           : ""
                       }`}
                         onClick={() => {
-                          // No need to check doctor.orgId - we now use organizationId from auth context
                           // Just check the doctor ID format
                           if (!doctor.id || !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(doctor.id)) {
                             toast.error("This doctor has an invalid ID format. Please contact support.");
