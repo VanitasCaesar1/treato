@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { 
   Check, 
@@ -8,6 +9,7 @@ import {
   ArrowRight, 
   Users, 
   Shield, 
+  Loader2,
   Zap 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +18,9 @@ import Link from "next/link";
 
 const PlansAndPricingPage = () => {
   const [isYearly, setIsYearly] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState(null);
+  const [error, setError] = useState(null);
+  const router = useRouter();
 
   const plans = [
     {
@@ -88,6 +93,58 @@ const PlansAndPricingPage = () => {
     "Priority Support"
   ];
 
+  const handleChoosePlan = async (planName) => {
+    try {
+      setLoadingPlan(planName);
+      setError(null);
+      
+      // For Enterprise plan, redirect to contact page
+      if (planName === "Enterprise") {
+        router.push("/contact");
+        return;
+      }
+      
+      console.log(`Initiating payment for ${planName} (${isYearly ? 'yearly' : 'monthly'})`);
+      
+      // Initiate payment - the API will use the hardcoded userId
+      const response = await fetch('/api/payment/initiate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planName,
+          billingCycle: isYearly ? 'yearly' : 'monthly',
+          // No need to send userId as it's hardcoded on the server
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to initiate payment');
+      }
+      
+      // If redirectToContact is true, redirect to contact page
+      if (data.redirectToContact) {
+        router.push('/contact');
+        return;
+      }
+      
+      // Log success before redirect
+      console.log(`Payment initiated successfully. Redirecting to: ${data.paymentUrl}`);
+      
+      // Redirect to PhonePe payment page
+      window.location.href = data.paymentUrl;
+      
+    } catch (error) {
+      console.error('Payment error:', error);
+      setError(error.message);
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+  
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-[#37AFE1]/10">
       <Navbar />
@@ -111,6 +168,22 @@ const PlansAndPricingPage = () => {
             All plans come with a 30-day free trial and no hidden costs.
           </p>
         </motion.div>
+
+        {/* Show general error message if any */}
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <X className="h-5 w-5 text-red-500" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700">
+                  {error}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Pricing Toggle */}
         <div className="flex justify-center mb-10 sm:mb-16">
@@ -207,12 +280,21 @@ const PlansAndPricingPage = () => {
                 </ul>
                 <Button 
                   className="w-full text-xs sm:text-base lg:text-lg mt-auto"
-                  style={{ 
-                    backgroundColor: plan.color
-                  }}
+                  style={{ backgroundColor: plan.color }}
+                  onClick={() => handleChoosePlan(plan.name)}
+                  disabled={loadingPlan !== null}
                 >
-                  Choose {plan.name}
-                  <ArrowRight className="ml-1 sm:ml-2 w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+                  {loadingPlan === plan.name ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      Choose {plan.name}
+                      <ArrowRight className="ml-1 sm:ml-2 w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+                    </>
+                  )}
                 </Button>
               </div>
             </motion.div>
@@ -220,94 +302,95 @@ const PlansAndPricingPage = () => {
         </section>
 
         <section className="bg-white rounded-xl shadow-lg p-6 sm:p-12 lg:p-16 mb-12 sm:mb-16">
-  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#37AFE1] text-center mb-8 sm:mb-12 lg:mb-16">
-    Comprehensive Feature Comparison
-  </h2>
-  
-  {/* Desktop View - Traditional Table */}
-  <div className="hidden lg:block overflow-x-auto">
-    <table className="w-full">
-      <thead>
-        <tr className="bg-[#37AFE1]/5">
-          <th className="p-2 sm:p-4 lg:p-6 text-left text-xs sm:text-base lg:text-lg">Features</th>
-          {plans.map(plan => (
-            <th 
-              key={plan.name} 
-              className="p-2 sm:p-4 lg:p-6 text-center text-xs sm:text-base lg:text-lg"
-              style={{ color: plan.color }}
-            >
-              {plan.name}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {compareFeatures.map(feature => (
-          <tr key={feature} className="border-b">
-            <td className="p-2 sm:p-4 lg:p-6 text-gray-700 text-xs sm:text-base lg:text-lg">{feature}</td>
-            {plans.map(plan => (
-              <td 
-                key={`${plan.name}-${feature}`} 
-                className="p-2 sm:p-4 lg:p-6 text-center"
-              >
-                {plan.features.includes(feature) ? (
-                  <Check 
-                    className="mx-auto text-[#37AFE1]" 
-                    size={20}
-                  />
-                ) : (
-                  <X 
-                    className="mx-auto text-gray-300" 
-                    size={20}
-                  />
-                )}
-              </td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-
-  {/* Mobile View - Compact Comparison */}
-  <div className="lg:hidden">
-    <div className="grid grid-cols-4 mb-2 bg-[#37AFE1]/5 py-2">
-      <div className="col-span-1 text-xs font-semibold px-2">Features</div>
-      {plans.map(plan => (
-        <div 
-          key={plan.name} 
-          className="text-center text-xs font-semibold"
-          style={{ color: plan.color }}
-        >
-          {plan.name}
-        </div>
-      ))}
-    </div>
-    {compareFeatures.map(feature => (
-      <div key={feature} className="border-b last:border-b-0 py-2 grid grid-cols-4 items-center">
-        <div className="col-span-1 text-xs sm:text-sm font-medium text-gray-700 px-2">{feature}</div>
-        {plans.map(plan => (
-          <div 
-            key={`${plan.name}-${feature}`} 
-            className="text-center"
-          >
-            {plan.features.includes(feature) ? (
-              <Check 
-                className="mx-auto text-[#37AFE1]" 
-                size={16}
-              />
-            ) : (
-              <X 
-                className="mx-auto text-gray-300" 
-                size={16}
-              />
-            )}
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#37AFE1] text-center mb-8 sm:mb-12 lg:mb-16">
+            Comprehensive Feature Comparison
+          </h2>
+          
+          {/* Desktop View - Traditional Table */}
+          <div className="hidden lg:block overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-[#37AFE1]/5">
+                  <th className="p-2 sm:p-4 lg:p-6 text-left text-xs sm:text-base lg:text-lg">Features</th>
+                  {plans.map(plan => (
+                    <th 
+                      key={plan.name} 
+                      className="p-2 sm:p-4 lg:p-6 text-center text-xs sm:text-base lg:text-lg"
+                      style={{ color: plan.color }}
+                    >
+                      {plan.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {compareFeatures.map(feature => (
+                  <tr key={feature} className="border-b">
+                    <td className="p-2 sm:p-4 lg:p-6 text-gray-700 text-xs sm:text-base lg:text-lg">{feature}</td>
+                    {plans.map(plan => (
+                      <td 
+                        key={`${plan.name}-${feature}`} 
+                        className="p-2 sm:p-4 lg:p-6 text-center"
+                      >
+                        {plan.features.includes(feature) ? (
+                          <Check 
+                            className="mx-auto text-[#37AFE1]" 
+                            size={20}
+                          />
+                        ) : (
+                          <X 
+                            className="mx-auto text-gray-300" 
+                            size={20}
+                          />
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
-      </div>
-    ))}
-  </div>
-</section>
+
+          {/* Mobile View - Compact Comparison */}
+          <div className="lg:hidden">
+            <div className="grid grid-cols-4 mb-2 bg-[#37AFE1]/5 py-2">
+              <div className="col-span-1 text-xs font-semibold px-2">Features</div>
+              {plans.map(plan => (
+                <div 
+                  key={plan.name} 
+                  className="text-center text-xs font-semibold"
+                  style={{ color: plan.color }}
+                >
+                  {plan.name}
+                </div>
+              ))}
+            </div>
+            {compareFeatures.map(feature => (
+              <div key={feature} className="border-b last:border-b-0 py-2 grid grid-cols-4 items-center">
+                <div className="col-span-1 text-xs sm:text-sm font-medium text-gray-700 px-2">{feature}</div>
+                {plans.map(plan => (
+                  <div 
+                    key={`${plan.name}-${feature}`} 
+                    className="text-center"
+                  >
+                    {plan.features.includes(feature) ? (
+                      <Check 
+                        className="mx-auto text-[#37AFE1]" 
+                        size={16}
+                      />
+                    ) : (
+                      <X 
+                        className="mx-auto text-gray-300" 
+                        size={16}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+        
         {/* Closing CTA */}
         <section className="py-10 sm:py-16 lg:py-20 text-center">
           <motion.div
@@ -327,8 +410,8 @@ const PlansAndPricingPage = () => {
               size="lg" 
               className="bg-white text-[#37AFE1] hover:bg-gray-100 text-xs sm:text-base lg:text-lg cursor-pointer"
             >
-            <Link href="/contact">
-              Contact Sales
+              <Link href="/contact">
+                Contact Sales
               </Link>
             </Button>
           </motion.div>

@@ -5,48 +5,75 @@ import { authkitMiddleware } from '@workos-inc/authkit-nextjs';
 export default authkitMiddleware({
   middlewareAuth: {
     enabled: true,
-    unauthenticatedPaths: ['/', "/purchase", "/help", "/register", "/login", "/create-hospital", "/contact"],
+    unauthenticatedPaths: [
+      '/', 
+      "/purchase", 
+      "/help", 
+      "/register", 
+      "/login", 
+      "/create-hospital", 
+      "/contact",
+      // Payment-related public paths
+      "/plans", 
+      "/payment-success",
+      "/payment-failed",
+      // API routes that need to be publicly accessible
+      "/api/payment/callback",
+      "/api/payment/webhook"
+    ],
   },
 });
 
 // Match against all pages, with specific handling for authenticated and unauthenticated paths
 export const config = {
-    matcher: [
-      // Protected routes
-      '/dashboard',
-      '/dashboard/:path*',
-      '/profile',
-      '/profile/:path*',
-      '/records',
-      "/records/:path*",
-      '/settings',
-      '/settings/:path*',
-      '/staff',
-      '/staff/:path*',
-      '/patients',
-      "/patients/:path*",
-      '/doctors',
-      "/doctors/:path*",
-      '/appointments',
-      "/appointments/:path*",
-      '/hospital',
-      "/hospital/:path*",
-      
-      // Auth routes
-      '/callback',
-      '/api/user/:path*',
-      '/api/hospital/:path*',
-      '/api/patients/:path*',
-      '/api/doctors/:path*',
-      "/api/appointments/:path*",
-      // Public routes (need to be matched to apply middleware rules)
-      '/',
-      '/purchase',
-      '/help',
-      "/create-hospital",
-      '/register',
-      '/login',
-      "/contact"
-      
-    ]
+  matcher: [
+    // Protected routes
+    '/dashboard',
+    '/dashboard/:path*',
+    '/profile',
+    '/profile/:path*',
+    '/records',
+    "/records/:path*",
+    '/settings',
+    '/settings/:path*',
+    '/staff',
+    '/staff/:path*',
+    '/patients',
+    "/patients/:path*",
+    '/doctors',
+    "/doctors/:path*",
+    '/appointments',
+    "/appointments/:path*",
+    '/hospital',
+    "/hospital/:path*",
+    
+    // Protected API routes
+    '/api/user/:path*',
+    '/api/hospital/:path*',
+    '/api/patients/:path*',
+    '/api/doctors/:path*',
+    "/api/appointments/:path*",
+    "/api/transactions/:path*",
+    
+    // Auth routes
+    '/callback',
+    
+    // Public routes (need to be matched to apply middleware rules)
+    '/',
+    '/purchase',
+    '/plans',
+    '/help',
+    "/create-hospital",
+    '/register',
+    '/login',
+    "/contact",
+    "/payment-success",
+    "/payment-failed",
+    
+    // Public API endpoints
+    "/api/payment/callback",
+    "/api/payment/webhook",
+    "/api/payment/test-credentials",
+    "/api/payment/initiate", // This is public for testing
+  ]
 };
