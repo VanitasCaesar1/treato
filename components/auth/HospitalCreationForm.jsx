@@ -397,6 +397,7 @@ const CreateHospitalForm = () => {
             value={formData.number}
             onChange={handleInputChange}
             required
+            maxLength={10}
             placeholder="Enter phone number"
             className={`w-full p-2 border-2 rounded-2xl ${
               !formData.number ? "border-red-500 bg-red-50" : "border-black"
@@ -413,6 +414,7 @@ const CreateHospitalForm = () => {
             value={formData.licenseNumber}
             onChange={handleInputChange}
             required
+            maxLength={16}
             placeholder="Enter license number"
             className={`w-full p-2 border-2 rounded-2xl ${
               !formData.licenseNumber ? "border-red-500 bg-red-50" : "border-black"
@@ -425,6 +427,7 @@ const CreateHospitalForm = () => {
           <input
             type="text"
             id="speciality"
+            maxLength={16}
             name="speciality"
             value={formData.speciality}
             onChange={handleInputChange}
@@ -446,6 +449,7 @@ const CreateHospitalForm = () => {
             type="text"
             id="location"
             name="location"
+            maxLength={24}
             value={formData.location}
             onChange={handleInputChange}
             required
@@ -465,6 +469,7 @@ const CreateHospitalForm = () => {
             value={formData.address}
             onChange={handleInputChange}
             required
+            maxLength={64}
             placeholder="Enter full address"
             className={`w-full p-2 border-2 rounded-2xl ${
               !formData.address ? "border-red-500 bg-red-50" : "border-black"
