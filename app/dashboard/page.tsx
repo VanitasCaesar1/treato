@@ -7,7 +7,7 @@ export default async function Dashboard() {
   
   return (
     <main>
-      hw
+      <DashboardPage />
     </main>
   );
 }
