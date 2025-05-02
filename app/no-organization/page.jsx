@@ -53,6 +53,12 @@ export default function NoOrgPage() {
             >
                 Return to Home
           </a>
+          <a
+                href="/create-hospital"
+                className="block text-center bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-green-400 hover:text-amber-50 transition-colors"
+            >
+                Create Hospital
+          </a>
         </div>
       </div>
     </div>
