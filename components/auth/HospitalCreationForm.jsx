@@ -14,7 +14,8 @@ const CreateHospitalForm = () => {
   const [success, setSuccess] = useState(false);
   const fileInputRef = useRef(null);
   const totalSteps = 3;
-  
+
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -31,6 +32,22 @@ const CreateHospitalForm = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  function IsRoleAdmin() {
+    if (user?.Role === 'admin') {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+ // if (!IsRoleAdmin()) {
+   // return (
+   // <div className="flex items-center justify-center bg-white rounded-3xl p-8 shadow-destructive-foreground">
+   //     <p className="text-gray-500">Access Restricted - Please Contact Support</p>
+   //   </div>
+   // );
+
+  //}
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({
@@ -568,6 +585,8 @@ const CreateHospitalForm = () => {
       </button>
     </div>
   );
+
+  
 
   return (
     <div className="w-full max-w-5xl mx-auto">

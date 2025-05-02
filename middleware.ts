@@ -5,6 +5,7 @@ import { authkitMiddleware } from '@workos-inc/authkit-nextjs';
 export default authkitMiddleware({
   middlewareAuth: {
     enabled: true,
+
     unauthenticatedPaths: [
       '/', 
       "/purchase", 
@@ -13,6 +14,7 @@ export default authkitMiddleware({
       "/login", 
       "/create-hospital", 
       "/contact",
+      "/no-organization", // Custom error page for no organization
       // Payment-related public paths
       "/plans", 
       "/payment-success",
@@ -23,6 +25,7 @@ export default authkitMiddleware({
     ],
   },
 });
+
 
 // Match against all pages, with specific handling for authenticated and unauthenticated paths
 export const config = {
@@ -67,6 +70,7 @@ export const config = {
     '/register',
     '/login',
     "/contact",
+    "/no-organization", // Custom error page for no organization
     "/payment-success",
     "/payment-failed",
     

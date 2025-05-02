@@ -3,6 +3,8 @@ import MobileSidebar from "@/components/layout/MobileSidebar";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import MobileSearch from "@/components/layout/MobileSearch";
+import { redirect } from "next/navigation";
+import { withAuth } from '@workos-inc/authkit-nextjs';
 
 const navigation = [
   {
@@ -48,7 +50,21 @@ const navigation = [
   },
 ];
 
-const Layout = ({ children }) => {
+export default async function Layout({ children }) {
+  // withAuth is already server-side compatible
+  const { user, organizationId } = await withAuth({ ensureSignedIn: true });
+  
+  // Automatic redirection if user is not authenticated
+  if (!user) {
+    redirect("/login");
+  }
+  console.log("User:", user);
+  console.log("Organization ID:", organizationId);    
+  // If no organization ID, redirect to no-organization page
+  if (!organizationId) {
+    redirect("/no-organization");
+  }
+
   return (
     <div className="min-h-screen flex bg-gray-50">
       {/* Sidebar for larger screens */}
@@ -66,6 +82,4 @@ const Layout = ({ children }) => {
       </div>
     </div>
   );
-};
-
-export default Layout;
+}

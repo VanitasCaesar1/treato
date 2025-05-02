@@ -1,23 +1,43 @@
 // app/no-organization/page.jsx
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { withAuth } from '@workos-inc/authkit-nextjs';
 
 export default function NoOrgPage() {
   const router = useRouter();
-  const { user, isLoading } = withAuth();
-
+  const [authData, setAuthData] = useState({ user: null, isLoading: true });
+  
+  useEffect(() => {
+    // Move the withAuth call inside useEffect
+    const getAuthData = async () => {
+      try {
+        const { user, isLoading } = withAuth();
+        setAuthData({ user, isLoading });
+      } catch (error) {
+        console.error("Auth error:", error);
+        setAuthData({ user: null, isLoading: false });
+      }
+    };
+    
+    getAuthData();
+  }, []);
+  
   useEffect(() => {
     // If user is loaded and has an organization, redirect to dashboard
-    if (!isLoading && user?.organizationId) {
-      router.push('/dashboard');
-    } else if (user?.Role === 'admin') {
-        router.push('/create-hospital');
+    if (authData.user?.Role === 'admin') {
+      router.push('/create-hospital');
     }
-  }, [user, isLoading, router]);
-
+  }, [authData, router]);
+  // If user is not loaded yet, show a loading state
+  if (authData.isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    );
+  }
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">
       <div className="bg-red-50 p-8 rounded-lg shadow-md max-w-md w-full">
