@@ -66,62 +66,64 @@ const CreateAppointment = ({ isOpen, onClose }) => {
   // Get day names
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  // Fetch doctors based on search criteria
-  const fetchDoctors = async (query = "", speciality = "") => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (query) params.append("q", query);
-      if (query) params.append("by", "all"); // Search in all fields
-      if (speciality) params.append("speciality", speciality);
-      params.append("limit", "20");
-      
-      // Add organizationId to the API request if available
-      if (organizationId) {
-        params.append("org_id", organizationId);
-      }
-      
-      const response = await fetch(`/api/doctors/search?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch doctors");
-      }
-      
-      const data = await response.json();
-      
-      // Defensive programming - ensure data.doctors exists before mapping
-      const doctorsArray = data.doctors || [];
-      
-      // Transform the response to match our component's expected format
-      const formattedDoctors = doctorsArray.map(doctor => ({
-        id: doctor.DoctorID || doctor.doctor_id,
-        name: doctor.Name || doctor.name,
-        specialty: doctor.Speciality || doctor.speciality,
-        qualification: doctor.Qualification || doctor.qualification,
-        hospitalName: doctor.HospitalName || doctor.hospital_name,
-        hospitalId: doctor.HospitalID || doctor.hospital_id,
-        image: "/api/placeholder/32/32", // Placeholder image
-      }));
-      
-      setDoctors(formattedDoctors);
-      
-      // Extract unique specialities for the filter dropdown
-      if (!speciality && query === "") {
-        const uniqueSpecialities = [...new Set(doctorsArray.map(doc => doc.Speciality || doc.speciality || ""))]
-          .filter(Boolean);
-        setSpecialities(uniqueSpecialities);
-      }
-    } catch (error) {
-      console.error("Error fetching doctors:", error);
-      toast.error("Failed to fetch doctors. Please try again.");
-      // Set empty arrays to prevent UI errors
-      setDoctors([]);
-      if (!speciality && query === "") {
-        setSpecialities([]);
-      }
-    } finally {
-      setLoading(false);
+  // Updated fetchDoctors function for the CreateAppointment component
+const fetchDoctors = async (query = "", speciality = "") => {
+  setLoading(true);
+  try {
+    const params = new URLSearchParams();
+    if (query) params.append("q", query);
+    if (query) params.append("by", "all"); // Search in all fields
+    if (speciality && speciality !== "_all") params.append("speciality", speciality);
+    params.append("limit", "20");
+    
+    // Add organizationId to the API request if available
+    if (organizationId) {
+      params.append("organization_id", organizationId);
     }
-  };
+    
+    const response = await fetch(`/api/doctors/search?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error("Failed to fetch doctors");
+    }
+    
+    const data = await response.json();
+    
+    // Defensive programming - ensure data.doctors exists
+    const doctorsArray = data.doctors || [];
+    
+    // Transform the response to match our component's expected format
+    const formattedDoctors = doctorsArray.map(doctor => ({
+      id: doctor.DoctorID || doctor.doctor_id,
+      name: doctor.Name || doctor.name,
+      specialty: doctor.Speciality || doctor.speciality || doctor.specialization,
+      qualification: doctor.Qualification || doctor.qualification,
+      hospitalName: doctor.HospitalName || doctor.hospital_name || "Main Hospital", // Default value
+      hospitalId: doctor.HospitalID || doctor.hospital_id || doctor.OrganizationID || doctor.organization_id,
+      image: "/api/placeholder/32/32", // Placeholder image
+      slotDuration: doctor.SlotDuration || doctor.slot_duration || 30 // Add slot duration
+    }));
+    
+    setDoctors(formattedDoctors);
+    
+    // Extract unique specialities for the filter dropdown
+    if (!speciality || speciality === "_all") {
+      const uniqueSpecialities = [...new Set(doctorsArray.map(doc => 
+        doc.Speciality || doc.speciality || doc.specialization || ""
+      ))].filter(Boolean);
+      setSpecialities(uniqueSpecialities);
+    }
+  } catch (error) {
+    console.error("Error fetching doctors:", error);
+    toast.error("Failed to fetch doctors. Please try again.");
+    // Set empty arrays to prevent UI errors
+    setDoctors([]);
+    if (!speciality || speciality === "_all") {
+      setSpecialities([]);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Initial fetch of doctors when the component mounts at step 2
   useEffect(() => {
@@ -297,6 +299,34 @@ const CreateAppointment = ({ isOpen, onClose }) => {
     setStep(step + 1);
   };
 
+  // Update the doctor selection card to support the API response format
+const DoctorCard = ({ doctor, onSelect, isSelected }) => {
+  return (
+    <div 
+      className={`p-4 rounded-lg border cursor-pointer transition-colors duration-200 hover:bg-gray-50 ${
+        isSelected ? "border-blue-500 bg-blue-50" : ""
+      }`}
+      onClick={() => onSelect(doctor)}
+    >
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600">
+          {doctor.name.charAt(0)}
+        </div>
+        <div className="flex-1">
+          <div className="font-medium">{doctor.name}</div>
+          <div className="text-sm text-gray-500">
+            {doctor.specialty}
+          </div>
+          <div className="text-xs text-gray-500">
+            {doctor.qualification} • {doctor.slotDuration} min slots
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
   const renderCalendar = () => {
     const days = getDaysInMonth();
     const firstDayOfMonth = startOfMonth(currentDate).getDay();
@@ -423,60 +453,44 @@ const CreateAppointment = ({ isOpen, onClose }) => {
               
               {/* Doctor list */}
               <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {loading ? (
-                  <div className="text-center py-6">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto" />
-                    <p className="mt-2 text-gray-500">Loading doctors...</p>
-                  </div>
-                ) : doctors.length === 0 ? (
-                  <div className="text-center py-6 bg-gray-50 rounded-lg">
-                    <User className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-                    <p className="text-gray-500">No doctors found. Try changing your search criteria.</p>
-                  </div>
-                ) : (
-                  doctors.map((doctor) => (
-                    <div 
-                      key={doctor.id}
-                      className={`p-4 rounded-lg border cursor-pointer transition-colors duration-200 hover:bg-gray-50 ${
-                        formData.doctor?.id === doctor.id
-                          ? "border-blue-500 bg-blue-50"
-                          : ""
-                      }`}
-                        onClick={() => {
-                          // Just check the doctor ID format
-                          if (!doctor.id || !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(doctor.id)) {
-                            toast.error("This doctor has an invalid ID format. Please contact support.");
-                            return;
-                          }
-                          
-                          // If check passes, update the form data
-                          setFormData((prev) => ({ 
-                            ...prev, 
-                            doctor: {
-                              ...doctor
-                            } 
-                          }));
-                          toast.success(`Selected doctor: ${doctor.name}`);
-                          setStep(3);
-                        }}
-                      >
-                        <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600">
-                          {doctor.name.charAt(0)}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium">{doctor.name}</div>
-                          <div className="text-sm text-gray-500">
-                            {doctor.specialty}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {doctor.qualification} • {doctor.hospitalName}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
+              // In your JSX for step 2, replace your doctor list rendering with this:
+{loading ? (
+  <div className="text-center py-6">
+    <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto" />
+    <p className="mt-2 text-gray-500">Loading doctors...</p>
+  </div>
+) : doctors.length === 0 ? (
+  <div className="text-center py-6 bg-gray-50 rounded-lg">
+    <User className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+    <p className="text-gray-500">No doctors found. Try changing your search criteria.</p>
+  </div>
+) : (
+  doctors.map((doctor) => (
+    <DoctorCard
+      key={doctor.id}
+      doctor={doctor}
+      isSelected={formData.doctor?.id === doctor.id}
+      onSelect={(doctor) => {
+        // UUID validation is flexible to handle both formats
+        const idPattern = /^[0-9a-fA-F-]{8,36}$/;
+        if (!doctor.id || !idPattern.test(doctor.id)) {
+          toast.error("This doctor has an invalid ID format. Please contact support.");
+          return;
+        }
+        
+        setFormData((prev) => ({ 
+          ...prev, 
+          doctor: {
+            ...doctor
+          } 
+        }));
+        toast.success(`Selected doctor: ${doctor.name}`);
+        setStep(3);
+      }}
+    />
+  ))
+)}
+
               </div>
             </div>
           </div>

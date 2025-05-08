@@ -4,7 +4,7 @@ import { withAuth } from '@workos-inc/authkit-nextjs';
 
 /**
  * GET /api/doctors/search
- * Searches for doctors based on various criteria
+ * Searches for doctors based on various criteria within user's organization
  */
 export async function GET(req) {
   try {
@@ -22,7 +22,8 @@ export async function GET(req) {
     const searchQuery = searchParams.get('q');
     const searchBy = searchParams.get('by') || 'name';
     const speciality = searchParams.get('speciality');
-    const hospitalId = searchParams.get('hospital_id');
+    // Change hospital_id to organization_id
+    const organizationId_param = searchParams.get('organization_id') || organizationId;
     const limit = searchParams.get('limit') || '20';
     const offset = searchParams.get('offset') || '0';
 
@@ -31,7 +32,7 @@ export async function GET(req) {
     if (searchQuery) queryParams.q = searchQuery;
     if (searchBy) queryParams.by = searchBy;
     if (speciality) queryParams.speciality = speciality;
-    if (hospitalId) queryParams.hospital_id = hospitalId;
+    if (organizationId_param) queryParams.organization_id = organizationId_param;
     if (limit) queryParams.limit = limit;
     if (offset) queryParams.offset = offset;
 
@@ -52,8 +53,8 @@ export async function GET(req) {
       Speciality: formatSpecialization(doctor.specialization || doctor.Speciality),
       Qualification: doctor.qualification || doctor.Qualification,
       Age: doctor.age || doctor.Age,
-      HospitalName: doctor.hospital_name || doctor.HospitalName || "General Hospital",
-      HospitalID: doctor.hospital_id || doctor.HospitalID || "00000000-0000-0000-0000-000000000001"
+      OrganizationID: doctor.organization_id || doctor.OrganizationID || organizationId,
+      SlotDuration: doctor.slot_duration || doctor.SlotDuration || 30
     })) || [];
 
     // Ensure pagination is properly formatted
@@ -70,6 +71,11 @@ export async function GET(req) {
   } catch (error) {
     console.error('Error searching doctors:', error);
     
+    // Get limit and offset from request for error response
+    const searchParams = req.nextUrl.searchParams;
+    const limit = searchParams.get('limit') || '20';
+    const offset = searchParams.get('offset') || '0';
+    
     // Return a meaningful error response with proper structure
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(
@@ -83,7 +89,7 @@ export async function GET(req) {
       {
         error: error.response?.data?.error || 'Failed to search doctors',
         doctors: [], // Empty array instead of null
-        pagination: { total: 0, limit: parseInt(limit || 20), offset: parseInt(offset || 0) }
+        pagination: { total: 0, limit: parseInt(limit), offset: parseInt(offset) }
       },
       { status: error.response?.status || 500 }
     );
