@@ -391,7 +391,7 @@ const CreateHospitalForm = () => {
         <div className="space-y-2">
           <Label htmlFor="number">Phone Number*</Label>
           <input
-            type="tel"
+            type="number"
             id="number"
             name="number"
             value={formData.number}
