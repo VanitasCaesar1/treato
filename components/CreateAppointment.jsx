@@ -453,43 +453,42 @@ const DoctorCard = ({ doctor, onSelect, isSelected }) => {
               
               {/* Doctor list */}
               <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              // In your JSX for step 2, replace your doctor list rendering with this:
-{loading ? (
-  <div className="text-center py-6">
-    <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto" />
-    <p className="mt-2 text-gray-500">Loading doctors...</p>
-  </div>
-) : doctors.length === 0 ? (
-  <div className="text-center py-6 bg-gray-50 rounded-lg">
-    <User className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-    <p className="text-gray-500">No doctors found. Try changing your search criteria.</p>
-  </div>
-) : (
-  doctors.map((doctor) => (
-    <DoctorCard
-      key={doctor.id}
-      doctor={doctor}
-      isSelected={formData.doctor?.id === doctor.id}
-      onSelect={(doctor) => {
-        // UUID validation is flexible to handle both formats
-        const idPattern = /^[0-9a-fA-F-]{8,36}$/;
-        if (!doctor.id || !idPattern.test(doctor.id)) {
-          toast.error("This doctor has an invalid ID format. Please contact support.");
-          return;
-        }
+                {loading ? (
+                  <div className="text-center py-6">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto" />
+                    <p className="mt-2 text-gray-500">Loading doctors...</p>
+                  </div>
+                ) : doctors.length === 0 ? (
+              <div className="text-center py-6 bg-gray-50 rounded-lg">
+                <User className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+                <p className="text-gray-500">No doctors found. Try changing your search criteria.</p>
+              </div>
+                ) : (
+              doctors.map((doctor) => (
+                <DoctorCard
+                  key={doctor.id}
+                  doctor={doctor}
+                  isSelected={formData.doctor?.id === doctor.id}
+                  onSelect={(doctor) => {
+                  // UUID validation is flexible to handle both formats
+                  const idPattern = /^[0-9a-fA-F-]{8,36}$/;
+                  if (!doctor.id || !idPattern.test(doctor.id)) {
+                  toast.error("This doctor has an invalid ID format. Please contact support.");
+                return;
+            }
         
-        setFormData((prev) => ({ 
-          ...prev, 
-          doctor: {
+          setFormData((prev) => ({ 
+            ...prev, 
+            doctor: {
             ...doctor
-          } 
-        }));
-        toast.success(`Selected doctor: ${doctor.name}`);
-        setStep(3);
-      }}
-    />
-  ))
-)}
+            } 
+          }));
+            toast.success(`Selected doctor: ${doctor.name}`);
+          setStep(3);
+        }}
+      />
+    ))
+  )}
 
               </div>
             </div>
