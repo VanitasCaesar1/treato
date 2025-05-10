@@ -15,7 +15,7 @@ export async function GET(
     // Get auth data from WorkOS
     const { accessToken, sessionId, organizationId } = await withAuth();
     // Forward the request to the GoFiber backend with auth headers
-    const feesData = await api.get(`/api/doctor/fees?doctorId=${id}`, null, {
+    const feesData = await api.get(`/api/doctors/fees?doctorId=${id}`, null, {
       headers: {
         'Authorization': accessToken ? `Bearer ${accessToken}` : '',
         'X-Session-ID': sessionId || '',

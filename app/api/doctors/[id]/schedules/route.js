@@ -16,7 +16,7 @@ export async function GET(
     const { accessToken, sessionId, organizationId } = await withAuth();
     
     // Forward the request to the GoFiber backend with auth headers
-    const schedulesData = await api.get(`/api/doctor/schedules?doctorId=${id}`, null, {
+    const schedulesData = await api.get(`/api/doctors/schedules?doctorId=${id}`, null, {
       headers: {
         'Authorization': accessToken ? `Bearer ${accessToken}` : '',
         'X-Session-ID': sessionId || '',

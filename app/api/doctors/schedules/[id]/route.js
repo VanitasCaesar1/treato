@@ -12,7 +12,7 @@ export async function DELETE(request, context) {
     // Get auth data from WorkOS
     const { accessToken, sessionId, organizationId } = await withAuth();
     // Forward the request to the GoFiber backend with auth headers
-    const response = await api.delete(`/api/doctor/schedule/${id}`, null, {
+    const response = await api.delete(`/api/doctors/schedule/${id}`, null, {
       headers: {
         'Authorization': accessToken ? `Bearer ${accessToken}` : '',
         'X-Session-ID': sessionId || '',
