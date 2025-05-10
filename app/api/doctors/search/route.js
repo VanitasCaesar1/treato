@@ -9,7 +9,7 @@ import { withAuth } from '@workos-inc/authkit-nextjs';
 export async function GET(req) {
   try {
     // Get auth data from WorkOS
-    const { user, organizationId, role, accessToken, sessionId } = await withAuth();
+    const { user, organizationId, role, accessToken, sessionId, } = await withAuth();
     if (!user) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -42,7 +42,7 @@ export async function GET(req) {
         'Authorization': accessToken ? `Bearer ${accessToken}` : '',
         'X-Session-ID': sessionId || '',
         'X-Organization-ID': organizationId || '',
-        'X-User-Role': role || '' // Add the role as a header
+        'X-User-Role': role || '' 
       }
     });
 

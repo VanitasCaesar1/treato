@@ -1,35 +1,46 @@
-import { NextRequest, NextResponse } from 'next/server';
+// File: /app/api/auth/organization/route.js
+import { NextResponse } from 'next/server';
 import { withAuth } from '@workos-inc/authkit-nextjs';
 
-export async function GET(req: NextRequest) {
+/**
+ * GET /api/auth/organization
+ * Retrieves the authenticated user's organization ID
+ */
+export async function GET() {
   try {
-    // Get auth data from WorkOS - this runs server-side only
-    const { user, organizationId, role } = await withAuth();
+    // Get auth data from WorkOS
+    const { organizationId, user } = await withAuth();
     
     if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Not authenticated" },
         { status: 401 }
       );
     }
-    
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: "No organization associated with this user" },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json({
       organizationId,
-      role
+      userId: user.id
     });
-  } catch (error: any) {
-    console.error('Authentication error:', error);
+  } catch (error) {
+    console.error('Error retrieving organization information:', error);
     
-    // Handle authentication errors
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(
-        { code: 'AUTH_REQUIRED', error: 'Not authenticated' },
+        { error: 'Not authenticated' },
         { status: 401 }
       );
     }
     
     return NextResponse.json(
-      { error: 'Authentication failed' },
+      { error: error.message || 'Failed to retrieve organization information' },
       { status: 500 }
     );
   }

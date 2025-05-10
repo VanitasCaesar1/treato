@@ -33,24 +33,6 @@ const CreateAppointment = ({ isOpen, onClose }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSpeciality, setSelectedSpeciality] = useState("_all");
   const [specialities, setSpecialities] = useState([]);
-  const [organizationId, setOrganizationId] = useState(null);
-  
-  // Fetch organization ID when component mounts
-  useEffect(() => {
-    async function fetchOrgId() {
-      try {
-        const res = await fetch('/api/auth/organization');
-        if (!res.ok) throw new Error('Failed to fetch organization info');
-        const data = await res.json();
-        setOrganizationId(data.organizationId);
-      } catch (error) {
-        console.error("Error fetching organization ID:", error);
-        toast.error("Authentication error. Please try refreshing the page.");
-      }
-    }
-    
-    fetchOrgId();
-  }, []);
   
   // Calendar navigation functions
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
@@ -66,82 +48,77 @@ const CreateAppointment = ({ isOpen, onClose }) => {
   // Get day names
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  // Updated fetchDoctors function for the CreateAppointment component
-const fetchDoctors = async (query = "", speciality = "") => {
-  setLoading(true);
-  try {
-    const params = new URLSearchParams();
-    if (query) params.append("q", query);
-    if (query) params.append("by", "all"); // Search in all fields
-    if (speciality && speciality !== "_all") params.append("speciality", speciality);
-    params.append("limit", "20");
-    
-    // Add organizationId to the API request if available
-    if (organizationId) {
-      params.append("organization_id", organizationId);
+  // Updated fetchDoctors function that doesn't rely on stored organizationId
+  const fetchDoctors = async (query = "", speciality = "") => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (query) params.append("q", query);
+      if (query) params.append("by", "all"); // Search in all fields
+      if (speciality && speciality !== "_all") params.append("speciality", speciality);
+      params.append("limit", "20");
+      
+      const response = await fetch(`/api/doctors/search?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch doctors");
+      }
+      
+      const data = await response.json();
+      
+      // Defensive programming - ensure data.doctors exists
+      const doctorsArray = data.doctors || [];
+      
+      // Transform the response to match our component's expected format
+      const formattedDoctors = doctorsArray.map(doctor => ({
+        id: doctor.DoctorID || doctor.doctor_id,
+        name: doctor.Name || doctor.name,
+        specialty: doctor.Speciality || doctor.speciality || doctor.specialization,
+        qualification: doctor.Qualification || doctor.qualification,
+        hospitalName: doctor.HospitalName || doctor.hospital_name || "Main Hospital", // Default value
+        hospitalId: doctor.HospitalID || doctor.hospital_id || doctor.OrganizationID || doctor.organization_id,
+        image: "/api/placeholder/32/32", // Placeholder image
+        slotDuration: doctor.SlotDuration || doctor.slot_duration || 30 // Add slot duration
+      }));
+      
+      setDoctors(formattedDoctors);
+      
+      // Extract unique specialities for the filter dropdown
+      if (!speciality || speciality === "_all") {
+        const uniqueSpecialities = [...new Set(doctorsArray.map(doc => 
+          doc.Speciality || doc.speciality || doc.specialization || ""
+        ))].filter(Boolean);
+        setSpecialities(uniqueSpecialities);
+      }
+    } catch (error) {
+      console.error("Error fetching doctors:", error);
+      toast.error("Failed to fetch doctors. Please try again.");
+      // Set empty arrays to prevent UI errors
+      setDoctors([]);
+      if (!speciality || speciality === "_all") {
+        setSpecialities([]);
+      }
+    } finally {
+      setLoading(false);
     }
-    
-    const response = await fetch(`/api/doctors/search?${params.toString()}`);
-    if (!response.ok) {
-      throw new Error("Failed to fetch doctors");
-    }
-    
-    const data = await response.json();
-    
-    // Defensive programming - ensure data.doctors exists
-    const doctorsArray = data.doctors || [];
-    
-    // Transform the response to match our component's expected format
-    const formattedDoctors = doctorsArray.map(doctor => ({
-      id: doctor.DoctorID || doctor.doctor_id,
-      name: doctor.Name || doctor.name,
-      specialty: doctor.Speciality || doctor.speciality || doctor.specialization,
-      qualification: doctor.Qualification || doctor.qualification,
-      hospitalName: doctor.HospitalName || doctor.hospital_name || "Main Hospital", // Default value
-      hospitalId: doctor.HospitalID || doctor.hospital_id || doctor.OrganizationID || doctor.organization_id,
-      image: "/api/placeholder/32/32", // Placeholder image
-      slotDuration: doctor.SlotDuration || doctor.slot_duration || 30 // Add slot duration
-    }));
-    
-    setDoctors(formattedDoctors);
-    
-    // Extract unique specialities for the filter dropdown
-    if (!speciality || speciality === "_all") {
-      const uniqueSpecialities = [...new Set(doctorsArray.map(doc => 
-        doc.Speciality || doc.speciality || doc.specialization || ""
-      ))].filter(Boolean);
-      setSpecialities(uniqueSpecialities);
-    }
-  } catch (error) {
-    console.error("Error fetching doctors:", error);
-    toast.error("Failed to fetch doctors. Please try again.");
-    // Set empty arrays to prevent UI errors
-    setDoctors([]);
-    if (!speciality || speciality === "_all") {
-      setSpecialities([]);
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Initial fetch of doctors when the component mounts at step 2
   useEffect(() => {
-    if (step === 2 && organizationId) {
+    if (step === 2) {
       fetchDoctors();
     }
-  }, [step, organizationId]);
+  }, [step]);
 
   // Handle search input change with debounce
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (step === 2 && organizationId) {
+      if (step === 2) {
         fetchDoctors(searchQuery, selectedSpeciality === "_all" ? "" : selectedSpeciality);
       }
     }, 300);
     
     return () => clearTimeout(timer);
-  }, [searchQuery, selectedSpeciality, step, organizationId]);
+  }, [searchQuery, selectedSpeciality, step]);
 
   // Available time slots - these would ideally be retrieved from the backend based on doctor availability
   const timeSlots = [
