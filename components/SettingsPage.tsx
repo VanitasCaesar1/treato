@@ -62,6 +62,7 @@ interface Schedule {
 interface Fees {
   doctorID: string;
   hospitalID: string;
+  organizationID?: string;
   doctorName?: string;
   recurringFees: number;
   defaultFees: number;
@@ -81,7 +82,7 @@ const DoctorSettings: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchFilter, setSearchFilter] = useState<string>('name');
-  const [specialityFilter, setSpecialityFilter] = useState<string>("all"); // Changed from empty string to "all"
+  const [specialityFilter, setSpecialityFilter] = useState<string>("all");
   const [specialities, setSpecialities] = useState<string[]>([]);
   
   // Form states
@@ -100,6 +101,10 @@ const DoctorSettings: React.FC = () => {
   
   // Focus states for fee inputs
   const [focusedFeeInput, setFocusedFeeInput] = useState<string | null>(null);
+
+  const organizationID = useMemo(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('organizationID') || '' : '';
+  }, []);
 
   const hospitalID = useMemo(() => {
     return typeof window !== 'undefined' ? localStorage.getItem('hospitalID') || '' : '';
@@ -185,7 +190,7 @@ const DoctorSettings: React.FC = () => {
       const schedulesData = await schedulesResponse.json();
       console.log("Raw schedules data received:", schedulesData);
       
-      // Process and normalize the schedules data - FIXED LOGIC
+      // Process and normalize the schedules data
       let schedulesArray = [];
       
       if (Array.isArray(schedulesData)) {
@@ -193,11 +198,8 @@ const DoctorSettings: React.FC = () => {
       } else if (schedulesData?.data && Array.isArray(schedulesData.data)) {
         schedulesArray = schedulesData.data;
       } else if (typeof schedulesData === 'object' && schedulesData !== null) {
-        // Handle case where the response might be a single object or has another structure
         schedulesArray = [schedulesData];
       }
-      
-      console.log("Processed schedules array:", schedulesArray);
       
       // Ensure each schedule has properly formatted properties and IDs
       const normalizedSchedules = schedulesArray.map(schedule => ({
@@ -211,22 +213,59 @@ const DoctorSettings: React.FC = () => {
                   typeof schedule.is_active === 'boolean' ? schedule.is_active : true
       }));
       
-      console.log("Normalized schedules:", normalizedSchedules);
-      setSchedules(normalizedSchedules);;
+      setSchedules(normalizedSchedules);
       
-      // Fetch fees (keeping this part the same as in your original code)
+      // Fetch fees
       const feesResponse = await fetch(`/api/doctors/${doctorId}/fees`);
       if (!feesResponse.ok) {
         const errorData = await feesResponse.json();
         throw new Error(`Error fetching fees: ${errorData.error || feesResponse.status}`);
       }
-      
+
       const feesData = await feesResponse.json();
-      const feesArray = Array.isArray(feesData) ? feesData : 
-                      (feesData?.data && Array.isArray(feesData.data)) ? 
-                      feesData.data : [];
+      console.log("Raw fees data received:", feesData);
       
-      setFees(feesArray);
+      // Process fees data - handle various response structures
+      let feesArray = [];
+      if (Array.isArray(feesData)) {
+        feesArray = feesData;
+      } else if (feesData?.data && Array.isArray(feesData.data)) {
+        feesArray = feesData.data;
+      } else if (typeof feesData === 'object' && feesData !== null) {
+        // If it's a single object, wrap it in an array
+        feesArray = [feesData];
+      }
+      
+      // Normalize the fees data structure
+      const normalizedFees = feesArray.map(fee => ({
+        id: fee.id || fee._id || '',
+        doctorID: fee.doctorID || fee.doctor_id || '',
+        hospitalID: fee.hospitalID || fee.hospital_id || '',
+        organizationID: fee.organizationID || fee.organization_id || '',
+        recurringFees: Number(fee.recurringFees || fee.recurring_fees || 0),
+        defaultFees: Number(fee.defaultFees || fee.default_fees || 0),
+        emergencyFees: Number(fee.emergencyFees || fee.emergency_fees || 0),
+        createdAt: fee.createdAt || fee.created_at || new Date().toISOString()
+      }));
+      
+      console.log("Normalized fees:", normalizedFees);
+      setFees(normalizedFees);
+      
+      // Update the fee form with existing values if available
+      if (normalizedFees.length > 0) {
+        setNewFees({
+          recurringFees: normalizedFees[0].recurringFees,
+          defaultFees: normalizedFees[0].defaultFees,
+          emergencyFees: normalizedFees[0].emergencyFees
+        });
+      } else {
+        // Reset to defaults if no fees found
+        setNewFees({
+          recurringFees: 0,
+          defaultFees: 0,
+          emergencyFees: 0
+        });
+      }
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
@@ -253,7 +292,7 @@ const DoctorSettings: React.FC = () => {
       // Ensure doctorID is correctly passed
       const scheduleData = {
         ...newSchedule,
-        doctorID: selectedDoctor.doctor_id || selectedDoctor.DoctorID // Only include if needed based on your app requirements
+        doctorID: selectedDoctor.doctor_id || selectedDoctor.DoctorID
       };
       
       const response = await fetch('/api/doctors/schedules', {
@@ -318,6 +357,7 @@ const DoctorSettings: React.FC = () => {
       setLoading(false);
     }
   };
+  
   const handleUpdateFees = async () => {
     if (!selectedDoctor) {
       toast.error('Please select a doctor first');
@@ -327,7 +367,7 @@ const DoctorSettings: React.FC = () => {
     try {
       setLoading(true);
       
-      // Ensure consistent access to doctor ID - use exactly as stored in the doctor object
+      // Get doctor ID
       const doctorId = selectedDoctor.doctor_id || selectedDoctor.DoctorID;
       
       if (!doctorId) {
@@ -337,9 +377,10 @@ const DoctorSettings: React.FC = () => {
       
       const existingFee = fees.length > 0 ? fees[0] : null;
       
-      // Format fee values as numbers and explicitly include doctorID
+      // Format fee values as numbers and include organizationID
       const feesData = {
-        doctorID: doctorId, // This is the key fix - ensuring doctorID is always included
+        doctorID: doctorId,
+        organizationID: organizationID, // This is critical - use the organizationID from localStorage
         recurringFees: Number(newFees.recurringFees) || 0,
         defaultFees: Number(newFees.defaultFees) || 0,
         emergencyFees: Number(newFees.emergencyFees) || 0,
@@ -359,7 +400,7 @@ const DoctorSettings: React.FC = () => {
           })
         });
       } else {
-        // Create new fees - directly using the feesData with doctorID
+        // Create new fees
         response = await fetch('/api/doctors/fees', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -387,17 +428,25 @@ const DoctorSettings: React.FC = () => {
     }
   };
 
-  // Handle fees deletion
-  const handleDeleteFees = async (feesId: string) => {
+  // Handle fees deletion - FIXED to use both doctor ID and organization ID
+  const handleDeleteFees = async () => {
+    if (!selectedDoctor) return;
     if (!confirm('Are you sure you want to delete these fees?')) return;
     
     try {
       setLoading(true);
-      const response = await fetch(`/api/doctors/fees/${feesId}`, {
+      const doctorId = selectedDoctor.doctor_id || selectedDoctor.DoctorID;
+      
+      // Since our backend uses composite primary key (doctor_id, organization_id),
+      // we need to make sure our API route handles this properly
+      const response = await fetch(`/api/doctors/${doctorId}/fees`, {
         method: 'DELETE'
       });
       
-      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+      }
       
       await fetchDoctorData();
       toast.success('Fees deleted successfully');
@@ -464,22 +513,10 @@ const DoctorSettings: React.FC = () => {
       <div className={`animate-spin ${sizeClasses[size]} border-2 border-gray-500 border-t-transparent rounded-full`} />
     );
   };
-
-  // Update fees state when existing fees change
-  useEffect(() => {
-    if (fees.length > 0) {
-      setNewFees({
-        recurringFees: fees[0].recurringFees || 0,
-        defaultFees: fees[0].defaultFees || 0,
-        emergencyFees: fees[0].emergencyFees || 0
-      });
-    }
-  }, [fees]);
   
   // Helper function to handle fee input display based on focus
   const getDisplayValue = (field, value) => {
-    // Return empty string if the value is null or 0
-    if (value === null || value === 0) {
+    if (value === null || value === undefined || value === 0) {
       return '';
     }
     return value;
@@ -738,99 +775,87 @@ const DoctorSettings: React.FC = () => {
                   <TabsContent value="fees" className="mt-6">
                     <h3 className="text-xl font-semibold mb-4">Consultation Fees</h3>
 
-{/* Add/Update Fees Form */}
-<Card className="mb-6">
-  <CardHeader className="pb-2">
-    <CardTitle className="text-base">Set Consultation Fees</CardTitle>
-  </CardHeader>
-  <CardContent>
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div>
-        <Label>Default Fees</Label>
-        <div className="relative mt-1">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">₹</span>
-          <Input
-            type="text"
-            placeholder="Enter amount"
-            value={getDisplayValue('defaultFees', newFees.defaultFees)}
-            onChange={(e) => {
-              // Handle empty input as null, otherwise convert to number
-              const inputValue = e.target.value === '' ? null : 
-                isNaN(Number(e.target.value)) ? newFees.defaultFees : Number(e.target.value);
-              setNewFees({...newFees, defaultFees: inputValue});
-            }}
-            onFocus={() => setFocusedFeeInput('defaultFees')}
-            onBlur={() => setFocusedFeeInput(null)}
-            className="pl-8"
-          />
-        </div>
-      </div>
-      
-      <div>
-        <Label>Recurring Fees</Label>
-        <div className="relative mt-1">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">₹</span>
-          <Input
-            type="text"
-            min="0"
-            placeholder="Enter amount"
-            value={getDisplayValue('recurringFees', newFees.recurringFees)}
-            onChange={(e) => {
-              // Handle empty input as null, otherwise convert to number
-              const inputValue = e.target.value === '' ? null : 
-                isNaN(Number(e.target.value)) ? newFees.recurringFees : Number(e.target.value);
-              setNewFees({...newFees, recurringFees: inputValue});
-            }}
-            onFocus={() => setFocusedFeeInput('recurringFees')}
-            onBlur={() => setFocusedFeeInput(null)}
-            className="pl-8"
-          />
-        </div>
-      </div>
-      
-      <div>
-        <Label>Emergency Fees</Label>
-        <div className="relative mt-1">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">₹</span>
-          <Input
-            type="text"
-            min="0"
-            placeholder="Enter amount"
-            value={getDisplayValue('emergencyFees', newFees.emergencyFees)}
-            onChange={(e) => {
-              // Handle empty input as null, otherwise convert to number
-              const inputValue = e.target.value === '' ? null : 
-                isNaN(Number(e.target.value)) ? newFees.emergencyFees : Number(e.target.value);
-              setNewFees({...newFees, emergencyFees: inputValue});
-            }}
-            onFocus={() => setFocusedFeeInput('emergencyFees')}
-            onBlur={() => setFocusedFeeInput(null)}
-            className="pl-8"
-          />
-        </div>
-      </div>
-    </div>
-  </CardContent>
-  <CardFooter>
-    <Button
-  onClick={handleUpdateFees} // Direct call without setTimeout
-  disabled={loading}
-  className="mt-2"
->
-  {loading ? (
-    <>
-      <LoadingSpinner size="sm" /><span className="ml-2">Updating...</span>
-    </>
-  ) : (
-    <>
-      <Edit size={16} className="mr-2" />
-      {fees.length > 0 ? 'Update' : 'Create'} Fees
-    </>
-  )}
-</Button>
-  </CardFooter>
-</Card>
-                    {/* Fees List */}
+                    {/* Add/Update Fees Form */}
+                    <Card className="mb-6">
+                      <CardHeader className="pb-2">
+                      <CardTitle className="text-base">{fees.length > 0 ? 'Update Fees' : 'Add Fees'}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <Label>Recurring Fees (₹)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={getDisplayValue('recurringFees', newFees.recurringFees)}
+                              onChange={(e) => setNewFees({...newFees, recurringFees: Number(e.target.value)})}
+                              onFocus={() => setFocusedFeeInput('recurringFees')}
+                              onBlur={() => setFocusedFeeInput(null)}
+                              placeholder="0"
+                              className="mt-1"
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label>Default Fees (₹)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={getDisplayValue('defaultFees', newFees.defaultFees)}
+                              onChange={(e) => setNewFees({...newFees, defaultFees: Number(e.target.value)})}
+                              onFocus={() => setFocusedFeeInput('defaultFees')}
+                              onBlur={() => setFocusedFeeInput(null)}
+                              placeholder="0"
+                              className="mt-1"
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label>Emergency Fees (₹)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={getDisplayValue('emergencyFees', newFees.emergencyFees)}
+                              onChange={(e) => setNewFees({...newFees, emergencyFees: Number(e.target.value)})}
+                              onFocus={() => setFocusedFeeInput('emergencyFees')}
+                              onBlur={() => setFocusedFeeInput(null)}
+                              placeholder="0"
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                      <CardFooter className="flex justify-between">
+                        <Button
+                          onClick={handleUpdateFees}
+                          disabled={loading}
+                        >
+                          {loading ? (
+                            <>
+                              <LoadingSpinner size="sm" /><span className="ml-2">Saving...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Edit size={16} className="mr-2" />
+                              {fees.length > 0 ? 'Update Fees' : 'Add Fees'}
+                            </>
+                          )}
+                        </Button>
+                        
+                        {fees.length > 0 && (
+                          <Button
+                            variant="destructive"
+                            onClick={handleDeleteFees}
+                            disabled={loading}
+                          >
+                            <Trash size={16} className="mr-2" />
+                            Delete Fees
+                          </Button>
+                        )}
+                      </CardFooter>
+                    </Card>
+                    
+                    {/* Fees Info */}
                     {loading && fees.length === 0 ? (
                       <div className="flex justify-center py-8">
                         <LoadingSpinner size="lg" />
@@ -838,52 +863,46 @@ const DoctorSettings: React.FC = () => {
                     ) : fees.length === 0 ? (
                       <div className="text-center py-8 bg-gray-50 rounded-lg">
                         <p className="text-gray-500">No fees configured for this doctor.</p>
-                        <p className="text-sm text-gray-400 mt-1">Set fees using the form above.</p>
+                        <p className="text-sm text-gray-400 mt-1">Add fees using the form above.</p>
                       </div>
                     ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Hospital ID</TableHead>
-                            <TableHead>Default Fees</TableHead>
-                            <TableHead>Recurring Fees</TableHead>
-                            <TableHead>Emergency Fees</TableHead>
-                            <TableHead>Created At</TableHead>
-                            <TableHead>Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {fees.map((fee, index) => (
-                            <TableRow key={index}>
-                              <TableCell className="font-medium">{fee.hospitalID}</TableCell>
-                              <TableCell>${fee.defaultFees}</TableCell>
-                              <TableCell>${fee.recurringFees}</TableCell>
-                              <TableCell>${fee.emergencyFees}</TableCell>
-                              <TableCell>{new Date(fee.createdAt).toLocaleDateString()}</TableCell>
-                              <TableCell>
-                                <Button 
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteFees(fee.id || '')}
-                                >
-                                  <Trash size={16} className="text-red-600" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">Current Fees</CardTitle>
+                          <CardDescription>Last updated: {new Date(fees[0].createdAt).toLocaleDateString()}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Fee Type</TableHead>
+                                <TableHead>Amount</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              <TableRow>
+                                <TableCell className="font-medium">Recurring Consultation</TableCell>
+                                <TableCell>₹{fees[0].recurringFees}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell className="font-medium">Default Consultation</TableCell>
+                                <TableCell>₹{fees[0].defaultFees}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell className="font-medium">Emergency Consultation</TableCell>
+                                <TableCell>₹{fees[0].emergencyFees}</TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </CardContent>
+                      </Card>
                     )}
                   </TabsContent>
                 </Tabs>
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center h-64">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <h3 className="text-xl font-medium text-gray-500">No Doctor Selected</h3>
-                <p className="text-gray-400 mt-1">Please select a doctor from the list</p>
+              <div className="text-center py-10">
+                <p className="text-gray-500">Select a doctor to view and manage their settings.</p>
               </div>
             )}
           </CardContent>
