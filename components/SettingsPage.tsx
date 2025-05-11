@@ -97,6 +97,9 @@ const DoctorSettings: React.FC = () => {
     defaultFees: 0,
     emergencyFees: 0
   });
+  
+  // Focus states for fee inputs
+  const [focusedFeeInput, setFocusedFeeInput] = useState<string | null>(null);
 
   const hospitalID = useMemo(() => {
     return typeof window !== 'undefined' ? localStorage.getItem('hospitalID') || '' : '';
@@ -250,8 +253,7 @@ const DoctorSettings: React.FC = () => {
       // Ensure doctorID is correctly passed
       const scheduleData = {
         ...newSchedule,
-        doctorID: selectedDoctor.doctor_id || selectedDoctor.DoctorID,
-        hospitalID // Only include if needed based on your app requirements
+        doctorID: selectedDoctor.doctor_id || selectedDoctor.DoctorID // Only include if needed based on your app requirements
       };
       
       const response = await fetch('/api/doctors/schedules', {
@@ -316,32 +318,48 @@ const DoctorSettings: React.FC = () => {
       setLoading(false);
     }
   };
-
-  // Handle fees update
   const handleUpdateFees = async () => {
-    if (!selectedDoctor) return;
+    if (!selectedDoctor) {
+      toast.error('Please select a doctor first');
+      return;
+    }
     
     try {
       setLoading(true);
+      
+      // Ensure consistent access to doctor ID - use exactly as stored in the doctor object
       const doctorId = selectedDoctor.doctor_id || selectedDoctor.DoctorID;
+      
+      if (!doctorId) {
+        toast.error('Invalid doctor ID');
+        return;
+      }
+      
       const existingFee = fees.length > 0 ? fees[0] : null;
       
+      // Format fee values as numbers and explicitly include doctorID
       const feesData = {
-        ...newFees,
-        doctorID: doctorId,
-        doctorName: selectedDoctor.name || selectedDoctor.Name,
-        hospitalID
+        doctorID: doctorId, // This is the key fix - ensuring doctorID is always included
+        recurringFees: Number(newFees.recurringFees) || 0,
+        defaultFees: Number(newFees.defaultFees) || 0,
+        emergencyFees: Number(newFees.emergencyFees) || 0,
       };
       
-      let response;
+      console.log('Sending fees data:', feesData);
       
+      let response;
       if (existingFee?.id) {
+        // Update existing fees
         response = await fetch(`/api/doctors/fees/${existingFee.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...feesData, feesID: existingFee.id })
+          body: JSON.stringify({ 
+            ...feesData,
+            feesID: existingFee.id 
+          })
         });
       } else {
+        // Create new fees - directly using the feesData with doctorID
         response = await fetch('/api/doctors/fees', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -349,13 +367,21 @@ const DoctorSettings: React.FC = () => {
         });
       }
       
-      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error response:', errorData);
+        throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+      }
+      
+      const responseData = await response.json();
+      console.log('Response data:', responseData);
       
       await fetchDoctorData();
-      toast.success('Fees updated successfully');
-      
-    } catch (err: any) {
-      toast.error('Failed to update fees: ' + (err.message || 'Unknown error'));
+      toast.success(existingFee ? 'Fees updated successfully' : 'Fees created successfully');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      toast.error('Failed to update fees: ' + errorMessage);
+      console.error('Error updating fees:', err);
     } finally {
       setLoading(false);
     }
@@ -449,6 +475,15 @@ const DoctorSettings: React.FC = () => {
       });
     }
   }, [fees]);
+  
+  // Helper function to handle fee input display based on focus
+  const getDisplayValue = (field, value) => {
+    // Return empty string if the value is null or 0
+    if (value === null || value === 0) {
+      return '';
+    }
+    return value;
+  };
 
   return (
     <div className="container mx-auto p-4">
@@ -593,22 +628,26 @@ const DoctorSettings: React.FC = () => {
                           
                           <div>
                             <Label>Start Time</Label>
-                            <Input
-                              type="time"
-                              value={newSchedule.startTime}
-                              onChange={(e) => setNewSchedule({...newSchedule, startTime: e.target.value})}
-                              className="mt-1"
-                            />
+                            <div className="mt-1">
+                              <Input
+                                type="time"
+                                value={newSchedule.startTime}
+                                onChange={(e) => setNewSchedule({...newSchedule, startTime: e.target.value})}
+                                className="time-input"
+                              />
+                            </div>
                           </div>
                           
                           <div>
                             <Label>End Time</Label>
-                            <Input
-                              type="time"
-                              value={newSchedule.endTime}
-                              onChange={(e) => setNewSchedule({...newSchedule, endTime: e.target.value})}
-                              className="mt-1"
-                            />
+                            <div className="mt-1">
+                              <Input
+                                type="time"
+                                value={newSchedule.endTime}
+                                onChange={(e) => setNewSchedule({...newSchedule, endTime: e.target.value})}
+                                className="time-input"
+                              />
+                            </div>
                           </div>
                           
                           <div>
@@ -698,77 +737,99 @@ const DoctorSettings: React.FC = () => {
                   {/* Fees Tab */}
                   <TabsContent value="fees" className="mt-6">
                     <h3 className="text-xl font-semibold mb-4">Consultation Fees</h3>
-                    
-                    {/* Add/Update Fees Form */}
-                    <Card className="mb-6">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Set Consultation Fees</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <Label>Default Fees</Label>
-                            <div className="relative mt-1">
-                              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">$</span>
-                              <Input
-                                type="number"
-                                min="0"
-                                value={newFees.defaultFees}
-                                onChange={(e) => setNewFees({...newFees, defaultFees: Number(e.target.value)})}
-                                className="pl-8"
-                              />
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <Label>Recurring Fees</Label>
-                            <div className="relative mt-1">
-                              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">$</span>
-                              <Input
-                                type="number"
-                                min="0"
-                                value={newFees.recurringFees}
-                                onChange={(e) => setNewFees({...newFees, recurringFees: Number(e.target.value)})}
-                                className="pl-8"
-                              />
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <Label>Emergency Fees</Label>
-                            <div className="relative mt-1">
-                              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">$</span>
-                              <Input
-                                type="number"
-                                min="0"
-                                value={newFees.emergencyFees}
-                                onChange={(e) => setNewFees({...newFees, emergencyFees: Number(e.target.value)})}
-                                className="pl-8"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                      <CardFooter>
-                        <Button
-                          onClick={handleUpdateFees}
-                          disabled={loading}
-                          className="mt-2"
-                        >
-                          {loading ? (
-                            <>
-                              <LoadingSpinner size="sm" /><span className="ml-2">Updating...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Edit size={16} className="mr-2" />
-                              {fees.length > 0 ? 'Update' : 'Create'} Fees
-                            </>
-                          )}
-                        </Button>
-                      </CardFooter>
-                    </Card>
 
+{/* Add/Update Fees Form */}
+<Card className="mb-6">
+  <CardHeader className="pb-2">
+    <CardTitle className="text-base">Set Consultation Fees</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <Label>Default Fees</Label>
+        <div className="relative mt-1">
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">₹</span>
+          <Input
+            type="text"
+            placeholder="Enter amount"
+            value={getDisplayValue('defaultFees', newFees.defaultFees)}
+            onChange={(e) => {
+              // Handle empty input as null, otherwise convert to number
+              const inputValue = e.target.value === '' ? null : 
+                isNaN(Number(e.target.value)) ? newFees.defaultFees : Number(e.target.value);
+              setNewFees({...newFees, defaultFees: inputValue});
+            }}
+            onFocus={() => setFocusedFeeInput('defaultFees')}
+            onBlur={() => setFocusedFeeInput(null)}
+            className="pl-8"
+          />
+        </div>
+      </div>
+      
+      <div>
+        <Label>Recurring Fees</Label>
+        <div className="relative mt-1">
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">₹</span>
+          <Input
+            type="text"
+            min="0"
+            placeholder="Enter amount"
+            value={getDisplayValue('recurringFees', newFees.recurringFees)}
+            onChange={(e) => {
+              // Handle empty input as null, otherwise convert to number
+              const inputValue = e.target.value === '' ? null : 
+                isNaN(Number(e.target.value)) ? newFees.recurringFees : Number(e.target.value);
+              setNewFees({...newFees, recurringFees: inputValue});
+            }}
+            onFocus={() => setFocusedFeeInput('recurringFees')}
+            onBlur={() => setFocusedFeeInput(null)}
+            className="pl-8"
+          />
+        </div>
+      </div>
+      
+      <div>
+        <Label>Emergency Fees</Label>
+        <div className="relative mt-1">
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">₹</span>
+          <Input
+            type="text"
+            min="0"
+            placeholder="Enter amount"
+            value={getDisplayValue('emergencyFees', newFees.emergencyFees)}
+            onChange={(e) => {
+              // Handle empty input as null, otherwise convert to number
+              const inputValue = e.target.value === '' ? null : 
+                isNaN(Number(e.target.value)) ? newFees.emergencyFees : Number(e.target.value);
+              setNewFees({...newFees, emergencyFees: inputValue});
+            }}
+            onFocus={() => setFocusedFeeInput('emergencyFees')}
+            onBlur={() => setFocusedFeeInput(null)}
+            className="pl-8"
+          />
+        </div>
+      </div>
+    </div>
+  </CardContent>
+  <CardFooter>
+    <Button
+  onClick={handleUpdateFees} // Direct call without setTimeout
+  disabled={loading}
+  className="mt-2"
+>
+  {loading ? (
+    <>
+      <LoadingSpinner size="sm" /><span className="ml-2">Updating...</span>
+    </>
+  ) : (
+    <>
+      <Edit size={16} className="mr-2" />
+      {fees.length > 0 ? 'Update' : 'Create'} Fees
+    </>
+  )}
+</Button>
+  </CardFooter>
+</Card>
                     {/* Fees List */}
                     {loading && fees.length === 0 ? (
                       <div className="flex justify-center py-8">
