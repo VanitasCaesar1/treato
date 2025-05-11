@@ -1,4 +1,3 @@
-// File: app/api/doctors/fees/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { api } from '@/lib/api';
 import { withAuth } from '@workos-inc/authkit-nextjs';
@@ -22,7 +21,14 @@ export async function POST(req: NextRequest) {
       );
     }
     
-  
+    // Ensure doctor ID is present and valid
+    if (!data.doctorID) {
+      return NextResponse.json(
+        { error: "Doctor ID is required" },
+        { status: 400 }
+      );
+    }
+    
     // Ensure required fee fields are present
     if (data.recurringFees === undefined && data.defaultFees === undefined && data.emergencyFees === undefined) {
       return NextResponse.json(
@@ -33,11 +39,13 @@ export async function POST(req: NextRequest) {
     
     // Format the request payload to match backend expectations
     const feesPayload = {
-      doctorID: data.doctorID,
-      recurringFees: data.recurringFees,
-      defaultFees: data.defaultFees,
-      emergencyFees: data.emergencyFees
+      doctorID: data.doctorID, // Ensure this is correctly passing a UUID
+      recurringFees: data.recurringFees !== undefined ? Number(data.recurringFees) : null,
+      defaultFees: data.defaultFees !== undefined ? Number(data.defaultFees) : null,
+      emergencyFees: data.emergencyFees !== undefined ? Number(data.emergencyFees) : null
     };
+    
+    console.log('Sending payload to backend:', feesPayload);
     
     // Forward the request to the GoFiber backend with auth headers
     const createdFees = await api.post('/api/doctors/fees', feesPayload, {
@@ -59,6 +67,7 @@ export async function POST(req: NextRequest) {
     }
     
     console.error('Error creating doctor fees:', error);
+    
     // Improved error handling with detailed message
     if (error.response) {
       return NextResponse.json(
