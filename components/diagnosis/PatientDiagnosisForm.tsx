@@ -1,4 +1,4 @@
-
+"use client"
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import ComplaintsSection from "@/components/diagnosis/ComplaintsSection";
 import DiagnosisSection from "@/components/diagnosis/DiagnosisSection";
 import NextVisitSection from "@/components/diagnosis/NextVisitSection";
 import PrescriptionSection from "@/components/diagnosis/PrescriptionSection";
-
+import { AuthkitMiddlewareAuth } from "@workos-inc/authkit-nextjs";
 interface Medication {
   name: string;
   dosage: string;

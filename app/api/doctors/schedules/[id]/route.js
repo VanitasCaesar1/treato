@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { api } from '@/lib/api';
 import { withAuth } from '@workos-inc/authkit-nextjs';
 
@@ -6,10 +6,7 @@ import { withAuth } from '@workos-inc/authkit-nextjs';
  * PUT /api/doctors/schedules/[id]
  * Updates a schedule for a doctor
  */
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(req, { params }) {
   try {
     const { id } = params;
     const data = await req.json();
@@ -27,7 +24,7 @@ export async function PUT(
     });
     
     return NextResponse.json(updatedSchedule);
-  } catch (error: any) {
+  } catch (error) {
     // Handle authentication errors
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(
@@ -48,10 +45,7 @@ export async function PUT(
  * DELETE /api/doctors/schedules/[id]
  * Deletes a schedule for a doctor
  */
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req, { params }) {
   try {
     const { id } = params;
     
@@ -68,7 +62,7 @@ export async function DELETE(
     });
     
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error) {
     // Handle authentication errors
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(

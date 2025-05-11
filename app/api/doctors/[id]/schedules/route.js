@@ -1,19 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { api } from '@/lib/api';
 import { withAuth } from '@workos-inc/authkit-nextjs';
 
 /**
  * GET /api/doctors/[id]/schedules
+ *
  * Fetches schedules for a specific doctor
  */
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request, { params }) {
   try {
-    // Fix: Await params to resolve the Next.js warning
-    const { id } = await params;
-    console.log("Fetching schedules for doctor ID:", id);
+    const doctorId = params.id;
+    console.log("Fetching schedules for doctor ID:", doctorId);
 
     // Get auth data from WorkOS
     const { accessToken, sessionId, organizationId } = await withAuth();
@@ -35,31 +32,31 @@ export async function GET(
     console.log("Sending headers:", headers);
 
     // Forward the request to the GoFiber backend with auth headers
-    console.log(`Sending request to: /api/doctors/${id}/schedules`);
-    const response = await api.get(`/api/doctors/${id}/schedules`, {
+    console.log(`Sending request to: /api/doctors/${doctorId}/schedules`);
+    const response = await api.get(`/api/doctors/${doctorId}/schedules`, {
       headers: headers
     });
 
     // Log the raw response for debugging
     console.log('Raw response:', response);
-    
+
     // Extract schedules correctly based on your API client's response structure
     // If using Axios, the parsed JSON is in response.data
     const schedules = response.data;
-    
+
     // Add additional safety check to ensure we never return null
     if (schedules === null || schedules === undefined) {
       console.warn('Schedules is null or undefined, returning empty array');
       return NextResponse.json([]);
     }
-    
+
     // Log received data for debugging
     console.log('Processed schedules from backend:', schedules);
     console.log('Type of schedules:', typeof schedules);
     console.log('Is Array:', Array.isArray(schedules));
-    
+
     return NextResponse.json(schedules);
-  } catch (error: any) {
+  } catch (error) {
     // Handle authentication errors
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(
@@ -67,7 +64,7 @@ export async function GET(
         { status: 401 }
       );
     }
-
+    
     console.error('Error fetching doctor schedules:', error);
     console.error('Error details:', error.response?.data);
     
