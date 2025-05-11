@@ -1,3 +1,4 @@
+// File: app/api/doctors/[id]/fees/route.js
 import { NextRequest, NextResponse } from 'next/server';
 import { api } from '@/lib/api';
 import { withAuth } from '@workos-inc/authkit-nextjs';
@@ -12,16 +13,20 @@ export async function GET(
 ) {
   try {
     const { id } = params;
+    
     // Get auth data from WorkOS
     const { accessToken, sessionId, organizationId } = await withAuth();
+    
     // Forward the request to the GoFiber backend with auth headers
-    const feesData = await api.get(`/api/doctors/fees?doctorId=${id}`, null, {
+    // NOTE: Changed the endpoint to match what the backend expects
+    const feesData = await api.get(`/api/doctors/${id}/fees`, null, {
       headers: {
         'Authorization': accessToken ? `Bearer ${accessToken}` : '',
         'X-Session-ID': sessionId || '',
         'X-Organization-ID': organizationId || ''
       }
     });
+    
     return NextResponse.json(feesData);
   } catch (error) {
     // Handle authentication errors
@@ -31,6 +36,7 @@ export async function GET(
         { status: 401 }
       );
     }
+    
     console.error('Error fetching doctor fees:', error);
     return NextResponse.json(
       { error: error.response?.data?.error || 'Failed to fetch doctor fees' },
