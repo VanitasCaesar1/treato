@@ -22,6 +22,8 @@ export async function POST(req: NextRequest) {
     // Get the appointment data from the request body
     const requestData = await req.json();
     
+    console.log("Received frontend request data:", JSON.stringify(requestData, null, 2));
+    
     // Handle nested patient object structure from the frontend
     const patientId = requestData.patient?.id || requestData.patient_id;
     
@@ -48,23 +50,9 @@ export async function POST(req: NextRequest) {
     // Get org_id from request or fall back to auth context
     const orgId = requestData.org_id || organizationId;
 
-    // Transform the frontend form data to match the backend expectations
-    const appointmentData = {
-      patient_id: patientId,
-      doctor_id: doctorId,
-      org_id: orgId,
-      patient_name: requestData.patient?.name || requestData.patient_name,
-      doctor_name: requestData.doctor?.name || requestData.doctor_name,
-      appointment_status: requestData.status || "pending",
-      created_at: new Date(),
-      appointment_date: createDateTimeFromParts(requestData.date, requestData.time),
-      fee_type: requestData.feeType || requestData.fee_type || "default", // Handle both naming conventions
-      payment_method: requestData.paymentMethod || requestData.payment_method || "online", // Handle both naming conventions
-      reason: requestData.reason || ""
-    };
-    
     // Validate fee_type is one of the allowed values
-    if (!["emergency", "default", "recurring"].includes(appointmentData.fee_type)) {
+    const feeType = requestData.feeType || requestData.fee_type || "default";
+    if (!["emergency", "default", "recurring"].includes(feeType)) {
       return NextResponse.json(
         { error: "Fee type must be emergency, default, or recurring" },
         { status: 400 }
@@ -72,16 +60,74 @@ export async function POST(req: NextRequest) {
     }
     
     // Ensure org_id is in the correct format
-    if (!appointmentData.org_id || !/^org_[A-Z0-9]{26}$/.test(appointmentData.org_id)) {
+    if (!orgId || !/^org_[A-Z0-9]{26}$/.test(orgId)) {
       return NextResponse.json(
         { error: "Organization ID must be in ULID format (org_[A-Z0-9]{26})" },
         { status: 400 }
       );
     }
 
+    // Convert date and time to proper appointment_date
+    const appointmentDate = createDateTimeFromParts(requestData.date, requestData.time);
+    
+    // Ensure patient_name and doctor_name are strings
+    const patientName = String(requestData.patient?.name || requestData.patient_name || "");
+    const doctorName = String(requestData.doctor?.name || requestData.doctor_name || "");
+    
+    // Transform the frontend form data to match the backend expectations
+    const appointmentData = {
+      patient_id: patientId,
+      doctor_id: doctorId,
+      org_id: orgId,
+      patient_name: patientName,
+      doctor_name: doctorName,
+      appointment_date: appointmentDate,
+      fee_type: feeType,
+      payment_method: requestData.paymentMethod || requestData.payment_method || "online",
+      reason: requestData.reason || "",
+      
+      // Add required fields with default values
+      appointment_status: "not_completed",
+      appointment_fee: 0, // Will be calculated by backend
+      is_valid: true,
+      // created_at and next_visit_date will be set by backend
+    };
+
+    console.log("Prepared appointment data:", JSON.stringify(appointmentData, null, 2));
+
+    // Check for required fields
+    const requiredFields = [
+      'patient_id', 'doctor_id', 'org_id', 'patient_name', 
+      'doctor_name', 'appointment_date', 'fee_type', 'payment_method',
+      'appointment_status', 'appointment_fee', 'is_valid'
+    ];
+    
+    const missingFields = requiredFields.filter(field => {
+      const value = appointmentData[field];
+      // Check for undefined, null, empty string, or invalid date
+      const isEmpty = value === undefined || value === null || 
+                     (typeof value === 'string' && value.trim() === '') ||
+                     (value instanceof Date && isNaN(value.getTime()));
+      
+      if (isEmpty) {
+        console.log(`Missing field: ${field}, value: ${value}`);
+      }
+      return isEmpty;
+    });
+    
+    if (missingFields.length > 0) {
+      return NextResponse.json(
+        { error: `Missing required fields: ${missingFields.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
     // Make the request to the backend API directly using axios
+    console.log("Sending request to backend:", `${API_BASE_URL}/api/appointments/create`);
+    
     const response = await axios.post(`${API_BASE_URL}/api/appointments/create`, appointmentData, {
       headers: {
+        'Content-Type': 'application/json',
         // Include auth headers
         'Authorization': `Bearer ${user.id}`,
         ...(organizationId && { 'X-Organization-ID': organizationId }),
@@ -89,9 +135,22 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    console.log("Backend response:", response.status, response.data);
+    
     return NextResponse.json(response.data);
   } catch (error: any) {
     console.error('Error creating appointment:', error);
+    
+    // Enhanced error logging for debugging
+    if (error.response) {
+      console.error('Response error data:', error.response.data);
+      console.error('Response error status:', error.response.status);
+      console.error('Response headers:', error.response.headers);
+    } else if (error.request) {
+      console.error('Request was made but no response received:', error.request);
+    } else {
+      console.error('Error setting up request:', error.message);
+    }
     
     // Handle authentication errors
     if (error.code === 'AUTH_REQUIRED') {
@@ -117,12 +176,50 @@ export async function POST(req: NextRequest) {
 }
 
 // Helper function to combine date and time strings into a single Date object
-function createDateTimeFromParts(date: Date, timeString: string): Date {
-  const [hours, minutes] = timeString.split(':').map(Number);
+function createDateTimeFromParts(date: string | Date, timeString: string | undefined): Date {
+  if (!date) {
+    // If no date is provided, use current date
+    console.warn("No date provided, using current date");
+    return new Date();
+  }
   
-  // Create a new date object with the combined date and time
   const combinedDate = new Date(date);
-  combinedDate.setHours(hours, minutes, 0, 0);
+  
+  // Validate the date is valid
+  if (isNaN(combinedDate.getTime())) {
+    console.error("Invalid date provided:", date);
+    // Return current date as fallback
+    return new Date();
+  }
+  
+  // Check if timeString is defined before trying to split it
+  if (timeString) {
+    try {
+      const [hours, minutes] = timeString.split(':').map(Number);
+      
+      // Validate hours and minutes
+      if (isNaN(hours) || hours < 0 || hours > 23) {
+        console.warn("Invalid hours in time string:", timeString);
+        // Default to current time
+        const now = new Date();
+        combinedDate.setHours(now.getHours(), now.getMinutes(), 0, 0);
+      } else if (isNaN(minutes) || minutes < 0 || minutes > 59) {
+        console.warn("Invalid minutes in time string:", timeString);
+        // Default to start of specified hour
+        combinedDate.setHours(hours, 0, 0, 0);
+      } else {
+        // Set the hours and minutes on the combined date
+        combinedDate.setHours(hours, minutes, 0, 0);
+      }
+    } catch (error) {
+      console.error("Error parsing time string:", timeString, error);
+      // Default to noon if time parsing fails
+      combinedDate.setHours(12, 0, 0, 0);
+    }
+  } else {
+    // If no time is provided, set to noon by default
+    combinedDate.setHours(12, 0, 0, 0);
+  }
   
   return combinedDate;
 }
