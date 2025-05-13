@@ -1,7 +1,7 @@
 // /app/api/appointments/org/route.js
 import { NextResponse } from "next/server";
-import { api } from "@/lib/api";
 import { withAuth } from "@workos-inc/authkit-nextjs";
+import { makeApiRequest, API_BASE_URL } from "@/lib/api";
 
 /**
  * Validates UUID format
@@ -11,16 +11,6 @@ import { withAuth } from "@workos-inc/authkit-nextjs";
 function isValidUUID(id) {
   const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
   return uuidRegex.test(id);
-}
-
-/**
- * Validates Patient ID format (8-digit alphanumeric)
- * @param {string} id - Patient ID to validate
- * @returns {boolean} - True if valid Patient ID
- */
-function isValidPatientID(id) {
-  const patientIDRegex = /^[A-Z0-9]{8}$/;
-  return patientIDRegex.test(id);
 }
 
 /**
@@ -34,64 +24,80 @@ function isValidOrgID(id) {
 }
 
 /**
+ * Validates patient ID format (8-digit alphanumeric ID)
+ * @param {string} id - Patient ID to validate
+ * @returns {boolean} - True if valid Patient ID
+ */
+function isValidPatientID(id) {
+  const patientIDRegex = /^[A-Z0-9]{8}$/;
+  return patientIDRegex.test(id);
+}
+
+/**
+ * Validates date format (YYYY-MM-DD)
+ * @param {string} date - Date string to validate
+ * @returns {boolean} - True if valid date format
+ */
+function isValidDateFormat(date) {
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  return dateRegex.test(date);
+}
+
+/**
  * Handles GET requests for organization appointments with filtering
- * @param {Request} req - The incoming request object
- * @returns {Promise<NextResponse>} The API response
  */
 export async function GET(req) {
   try {
+    // For debugging - create a request ID to trace this request
+    const requestId = `req_${Math.random().toString(36).substring(2, 15)}`;
+    console.log(`[Appointments:${requestId}] Starting request processing`);
+    
     // Authenticate the user and get their organization context
     const { accessToken, sessionId, organizationId, user } = await withAuth();
     
-    // Validate authentication
+    console.log(`[Appointments:${requestId}] Auth completed:`, {
+      userPresent: !!user,
+      orgIdPresent: !!organizationId,
+      orgIdValid: organizationId ? isValidOrgID(organizationId) : false
+    });
+    
+    // Validate authentication and organization
     if (!user) {
-      console.error("Authentication failed: No user found");
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 });
     }
     
-    // Validate organization context
     if (!organizationId) {
-      console.warn("Missing organization context for user:", user.id);
-      return NextResponse.json({ error: "Organization context required" }, { status: 400 });
+      return NextResponse.json({ 
+        error: "Missing organization ID",
+        details: "No organization context found. Please select an organization."
+      }, { status: 400 });
     }
-
-    // Validate organization ID format
+    
     if (!isValidOrgID(organizationId)) {
-      console.warn("Invalid organization ID format:", organizationId);
       return NextResponse.json({ 
         error: "Invalid organization ID format",
         details: "Organization ID must be in ULID format with org_ prefix"
       }, { status: 400 });
     }
 
-    // Get query parameters from request URL
+    // Get query parameters
     const url = new URL(req.url);
-    
-    // Extract and prepare filter parameters
     const params = {
-      appointmentId: url.searchParams.get("appointmentId"),
-      status: url.searchParams.get("status"),
-      doctorId: url.searchParams.get("doctorId"),
-      startDate: url.searchParams.get("startDate"),
-      endDate: url.searchParams.get("endDate"),
-      feeType: url.searchParams.get("feeType"),
-      isValid: url.searchParams.get("isValid"),
-      limit: parseInt(url.searchParams.get("limit") || "20", 10),
+      doctorId: url.searchParams.get("doctorId") || url.searchParams.get("doctor_id") || "all",
+      patientId: url.searchParams.get("patientId") || url.searchParams.get("patient_id") || "all",
+      appointmentStatus: url.searchParams.get("status") || url.searchParams.get("appointment_status") || "all",
+      feeType: url.searchParams.get("feeType") || url.searchParams.get("fee_type") || "all",
+      startDate: url.searchParams.get("startDate") || url.searchParams.get("start_date") || "",
+      endDate: url.searchParams.get("endDate") || url.searchParams.get("end_date") || "",
+      limit: parseInt(url.searchParams.get("limit") || "10", 10),
       offset: parseInt(url.searchParams.get("offset") || "0", 10),
-      patientId: url.searchParams.get("patientId"),
-      sortBy: url.searchParams.get("sortBy") || "appointment_date",
-      sortOrder: url.searchParams.get("sortOrder") || "desc"
+      sortBy: url.searchParams.get("sortBy") || url.searchParams.get("sort_by") || "created_at",
+      sortOrder: url.searchParams.get("sortOrder") || url.searchParams.get("sort_order") || "desc"
     };
 
-    // Validate appointmentId format if provided
-    if (params.appointmentId && !isValidUUID(params.appointmentId)) {
-      return NextResponse.json({ 
-        error: "Invalid appointment ID format",
-        details: "Appointment ID must be in UUID format"
-      }, { status: 400 });
-    }
+    console.log(`[Appointments:${requestId}] Parsed parameters:`, params);
 
-    // Validate doctorId format if provided
+    // Validate ID formats
     if (params.doctorId && params.doctorId !== "all" && !isValidUUID(params.doctorId)) {
       return NextResponse.json({ 
         error: "Invalid doctor ID format",
@@ -99,123 +105,179 @@ export async function GET(req) {
       }, { status: 400 });
     }
 
-    // Validate patientId format if provided
     if (params.patientId && params.patientId !== "all" && !isValidPatientID(params.patientId)) {
       return NextResponse.json({ 
         error: "Invalid patient ID format",
-        details: "Patient ID must be an 8-character alphanumeric string"
+        details: "Patient ID must be an 8-digit alphanumeric code"
       }, { status: 400 });
     }
 
+    // Validate appointment status
+    if (params.appointmentStatus && 
+        params.appointmentStatus !== "all" && 
+        params.appointmentStatus !== "completed" && 
+        params.appointmentStatus !== "not_completed") {
+      return NextResponse.json({ 
+        error: "Invalid appointment status",
+        details: "Status must be 'completed', 'not_completed', or 'all'"
+      }, { status: 400 });
+    }
+
+    // Validate fee type
+    if (params.feeType && 
+        params.feeType !== "all" && 
+        params.feeType !== "emergency" && 
+        params.feeType !== "default" && 
+        params.feeType !== "recurring") {
+      return NextResponse.json({ 
+        error: "Invalid fee type",
+        details: "Fee type must be 'emergency', 'default', 'recurring', or 'all'"
+      }, { status: 400 });
+    }
+
+    // Validate date format
+    if (params.startDate && !isValidDateFormat(params.startDate)) {
+      return NextResponse.json({ 
+        error: "Invalid start date format",
+        details: "Date must be in YYYY-MM-DD format"
+      }, { status: 400 });
+    }
+
+    if (params.endDate && !isValidDateFormat(params.endDate)) {
+      return NextResponse.json({ 
+        error: "Invalid end date format",
+        details: "Date must be in YYYY-MM-DD format"
+      }, { status: 400 });
+    }
+
+    // Validate limit and offset
+    if (isNaN(params.limit) || params.limit < 1 || params.limit > 100) {
+      params.limit = 10; // Default to 10 if invalid
+    }
+
+    if (isNaN(params.offset) || params.offset < 0) {
+      params.offset = 0; // Default to 0 if invalid
+    }
+
+    // Validate sort fields
+    const validSortFields = [
+      "created_at", 
+      "appointment_date", 
+      "appointment_fee", 
+      "appointment_status", 
+      "next_visit_date"
+    ];
+    
+    if (!validSortFields.includes(params.sortBy)) {
+      params.sortBy = "created_at"; // Default to created_at if invalid
+    }
+
+    // Validate sort order
+    if (params.sortOrder !== "asc" && params.sortOrder !== "desc") {
+      params.sortOrder = "desc"; // Default to descending if invalid
+    }
+
+    // Build query parameters - using backend field names
     const queryParams = new URLSearchParams();
-
-// Only add parameters that have valid values and aren't 'all'
-if (params.appointmentId) 
-  queryParams.append("appointmentID", params.appointmentId);  // CHANGE: should match backend parameter name
-
-if (params.status && params.status !== "all") 
-  queryParams.append("status", params.status);
-
-if (params.doctorId && params.doctorId !== "all") 
-  queryParams.append("doctorID", params.doctorId);  // CHANGE: should match backend parameter name
-
-if (params.patientId && params.patientId !== "all")
-  queryParams.append("patientID", params.patientId);  // CHANGE: should match backend parameter name
-
-if (params.startDate) 
-  queryParams.append("startDate", params.startDate);
-
-if (params.endDate) 
-  queryParams.append("endDate", params.endDate);
-
-if (params.feeType && params.feeType !== "all") 
-  queryParams.append("feeType", params.feeType);
-
-if (params.isValid !== null && params.isValid !== undefined && params.isValid !== "all") {
-  queryParams.append("isValid", params.isValid);
-}
-    // Add pagination and sorting parameters
+    
+    // Add valid parameters to query string with corrected field names
+    if (params.doctorId && params.doctorId !== "all") queryParams.append("doctor_id", params.doctorId);
+    if (params.patientId && params.patientId !== "all") queryParams.append("patient_id", params.patientId);
+    if (params.appointmentStatus && params.appointmentStatus !== "all") queryParams.append("appointment_status", params.appointmentStatus);
+    if (params.feeType && params.feeType !== "all") queryParams.append("fee_type", params.feeType);
+    if (params.startDate) queryParams.append("start_date", params.startDate);
+    if (params.endDate) queryParams.append("end_date", params.endDate);
+    
+    // Add pagination and sorting with corrected field names
     queryParams.append("limit", params.limit.toString());
     queryParams.append("offset", params.offset.toString());
-    queryParams.append("sortBy", params.sortBy);
-    queryParams.append("sortOrder", params.sortOrder);
+    queryParams.append("sort_by", params.sortBy);
+    queryParams.append("sort_order", params.sortOrder);
 
-    // Log the request for debugging
-    console.log(`[Appointments] Fetching org appointments with filters:`, {
-      organizationId,
-      user: user.id,
-      queryParams: Object.fromEntries(queryParams.entries())
+    // Debug - show final query string
+    console.log(`[Appointments:${requestId}] API request params:`, queryParams.toString());
+
+    // Debug - log API configuration
+    console.log(`[Appointments:${requestId}] API base URL:`, API_BASE_URL);
+
+    // Make request to backend API - VERIFY THIS ENDPOINT IS CORRECT
+    const apiUrl = `/api/appointments`;
+    
+    // Debug - log the full request details
+    console.log(`[Appointments:${requestId}] Making API request:`, {
+      url: apiUrl,
+      headers: {
+        'Authorization': accessToken ? 'Bearer [REDACTED]' : 'None',
+        'X-Session-ID': sessionId ? '[REDACTED]' : 'None',
+        'X-Organization-ID': organizationId,
+        'X-Request-ID': requestId
+      }
     });
-
-    // Make request to backend API
-    const apiUrl = `/api/appointments/org?${queryParams.toString()}`;
-    const response = await api.get(apiUrl, {
+    
+    // Use our makeApiRequest function directly instead of api.get
+    const data = await makeApiRequest(apiUrl, 'GET', Object.fromEntries(queryParams), {
       headers: {
         'Authorization': accessToken ? `Bearer ${accessToken}` : '',
         'X-Session-ID': sessionId || '',
-        'X-Organization-ID': organizationId || '',
+        'X-Organization-ID': organizationId,
+        'X-Request-ID': requestId,
         'Content-Type': 'application/json'
       },
-      timeout: 15000 // 15 second timeout
+      timeout: 15000
     });
 
-    // Process response data if needed
-    const appointments = response.data?.appointments || response.data;
-    const total = response.data?.total || 0;
+    // Debug - log response summary
+    console.log(`[Appointments:${requestId}] API response received:`, {
+      dataPresent: !!data,
+      appointmentsCount: data?.appointments?.length || 0,
+      paginationInfo: data?.pagination || 'None'
+    });
+
+    // Process and return response
+    const appointments = data?.appointments || [];
+    const pagination = data?.pagination || {
+      total: 0,
+      limit: params.limit,
+      offset: params.offset
+    };
     
-    console.log(`[Appointments] Successfully fetched ${Array.isArray(appointments) ? appointments.length : 0} appointments`);
+    console.log(`[Appointments:${requestId}] Request completed: ${appointments.length} appointments retrieved`);
     
-    // Return formatted response
     return NextResponse.json({
       appointments,
-      total,
-      page: {
-        limit: params.limit,
-        offset: params.offset,
-        hasMore: Array.isArray(appointments) && appointments.length === params.limit
+      pagination: {
+        total: pagination.total,
+        limit: pagination.limit,
+        offset: pagination.offset,
+        hasMore: appointments.length === params.limit && 
+                (pagination.offset + appointments.length) < pagination.total
       }
     });
   } catch (error) {
-    // Enhanced error handling with detailed logging
-    console.error("[Appointments] Error fetching organization appointments:", {
-      message: error.message,
-      stack: error.stack,
-      response: error.response?.data || null,
-      status: error.response?.status || null
+    // Enhanced error logging
+    console.error("[Appointments] Error:", error.message);
+    console.error("[Appointments] Error details:", {
+      code: error.code,
+      status: error.response?.status,
+      data: error.response?.data
     });
-
-    // Handle authentication errors
+    
+    // Handle specific error cases
     if (error.code === 'AUTH_REQUIRED' || error.response?.status === 401) {
-      return NextResponse.json(
-        { code: 'AUTH_REQUIRED', error: 'Authentication required' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
-
-    // Handle organization related errors
+    
     if (error.response?.status === 403) {
-      return NextResponse.json(
-        { error: 'Access denied', details: 'You do not have permission to access appointments for this organization' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
-
-    // Handle backend service unavailable
+    
     if (error.code === 'ECONNABORTED' || error.response?.status === 504) {
-      return NextResponse.json(
-        { error: 'Service unavailable', details: 'The appointment service is currently unavailable. Please try again later.' },
-        { status: 503 }
-      );
+      return NextResponse.json({ error: 'Service unavailable' }, { status: 503 });
     }
 
-    // Return appropriate error response
-    return NextResponse.json(
-      {
-        error: error.response?.data?.error || 'Failed to fetch organization appointments',
-        details: error.message,
-        code: error.code || 'UNKNOWN_ERROR'
-      },
-      { status: error.response?.status || 500 }
-    );
-  }                                                                         
+    return NextResponse.json({
+      error: error.response?.data?.error || 'Failed to fetch appointments',
+      details: error.message
+    }, { status: error.response?.status || 500 });
+  }
 }

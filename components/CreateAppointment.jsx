@@ -1,3 +1,4 @@
+"use client"
 import React, { useState, useEffect } from "react";
 import {
   format,
@@ -217,7 +218,8 @@ const CreateAppointment = ({ isOpen, onClose, onSuccess }) => {
       setAvailableTimeSlots(data.available_slots || []);
       
       if ((data.available_slots?.length === 0) && data.message) {
-        toast.info(data.message || "No available time slots for the selected date");
+        // Replace toast.info with toast.error or toast.success, whichever is more appropriate
+        toast.error(data.message || "No available time slots for the selected date");
       } else if (formData.time && !data.available_slots.includes(formData.time)) {
         // Reset selected time if it's no longer available
         setFormData(prev => ({ ...prev, time: null }));
@@ -244,7 +246,8 @@ const CreateAppointment = ({ isOpen, onClose, onSuccess }) => {
     
     if (!dayShift || !dayShift.starttime || !dayShift.endtime) {
       setAvailableTimeSlots([]);
-      toast.info(`No shift scheduled for ${dayOfWeek}`);
+      // Change from toast.info to toast.error
+      toast.error(`No shift scheduled for ${dayOfWeek}`);
       return;
     }
     
@@ -758,7 +761,6 @@ const CreateAppointment = ({ isOpen, onClose, onSuccess }) => {
               </div>
             </div>
           </div>
-
           {/* Date & Time Selection */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
