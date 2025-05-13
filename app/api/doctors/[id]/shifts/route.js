@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { withAuth } from '@workos-inc/authkit-nextjs';
 import axios from 'axios';
 
@@ -6,12 +6,12 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8
 
 /**
  * GET /api/doctors/[id]/shifts
- *
+ * 
  * Fetches shifts for a specific doctor
  */
 export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+  req,
+  { params }
 ) {
   try {
     // Get auth data from WorkOS - this runs server-side only
@@ -75,9 +75,9 @@ export async function GET(
         ]
       });
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching doctor shifts:', error);
-
+    
     // Handle authentication errors
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(
@@ -85,7 +85,7 @@ export async function GET(
         { status: 401 }
       );
     }
-
+    
     // Handle API errors
     if (error.response) {
       return NextResponse.json(
@@ -93,7 +93,7 @@ export async function GET(
         { status: error.response.status || 500 }
       );
     }
-
+    
     // Handle other errors
     return NextResponse.json(
       { error: 'Failed to fetch doctor shifts' },
