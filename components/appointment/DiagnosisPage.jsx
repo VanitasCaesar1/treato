@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import toast from "react-hot-toast";
 import {
   Accordion,
   AccordionContent,
@@ -10,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/components/ui/use-toast";
 import { 
   Select,
   SelectContent,
@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select";
 
 export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
-  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [diagnosisData, setDiagnosisData] = useState({
     appointment_id: appointmentId || "",
@@ -99,6 +98,9 @@ export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
         ],
       });
       document.getElementById("symptom-input").value = "";
+      toast.success("Symptom added successfully");
+    } else {
+      toast.error("Please enter symptom description");
     }
   };
 
@@ -121,6 +123,9 @@ export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
       });
       document.getElementById("diagnosis-input").value = "";
       document.getElementById("diagnosis-code").value = "";
+      toast.success("Diagnosis added successfully");
+    } else {
+      toast.error("Please enter diagnosis information");
     }
   };
 
@@ -158,6 +163,9 @@ export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
       document.getElementById("medication-name").value = "";
       document.getElementById("medication-dosage").value = "";
       document.getElementById("medication-instructions").value = "";
+      toast.success("Medication added successfully");
+    } else {
+      toast.error("Please enter medication name");
     }
   };
 
@@ -180,6 +188,9 @@ export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
         },
       });
       document.getElementById("lab-test-name").value = "";
+      toast.success("Lab test added successfully");
+    } else {
+      toast.error("Please enter test name");
     }
   };
 
@@ -195,54 +206,37 @@ export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
       
       // Validate required fields
       if (!dataToSubmit.appointment_id) {
-        toast({
-          title: "Error",
-          description: "Appointment ID is required",
-          variant: "destructive",
-        });
+        toast.error("Appointment ID is required");
         setIsLoading(false);
         return;
       }
       
       if (!dataToSubmit.patient_id) {
-        toast({
-          title: "Error",
-          description: "Patient ID is required",
-          variant: "destructive",
-        });
+        toast.error("Patient ID is required");
         setIsLoading(false);
         return;
       }
       
       if (!dataToSubmit.doctor_id) {
-        toast({
-          title: "Error",
-          description: "Doctor ID is required",
-          variant: "destructive",
-        });
+        toast.error("Doctor ID is required");
         setIsLoading(false);
         return;
       }
       
       if (dataToSubmit.symptoms.length === 0) {
-        toast({
-          title: "Error",
-          description: "At least one symptom is required",
-          variant: "destructive",
-        });
+        toast.error("At least one symptom is required");
         setIsLoading(false);
         return;
       }
       
       if (dataToSubmit.diagnosis_info.length === 0) {
-        toast({
-          title: "Error",
-          description: "At least one diagnosis is required",
-          variant: "destructive",
-        });
+        toast.error("At least one diagnosis is required");
         setIsLoading(false);
         return;
       }
+
+      // Show loading toast
+      const loadingToast = toast.loading("Saving diagnosis...");
 
       // Submit diagnosis data to API
       const response = await fetch("/api/diagnosis", {
@@ -253,6 +247,9 @@ export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
         body: JSON.stringify(dataToSubmit),
       });
 
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to create diagnosis");
@@ -260,19 +257,17 @@ export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
 
       const result = await response.json();
       
-      toast({
-        title: "Success",
-        description: "Diagnosis has been saved successfully",
+      toast.success("Diagnosis has been saved successfully", {
+        duration: 5000,
+        icon: '🎉',
       });
       
       // Reset form or redirect as needed
       // window.location.href = `/diagnoses/${result.diagnosis.diagnosis_id}`;
       
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
+      toast.error(error.message, {
+        duration: 5000,
       });
     } finally {
       setIsLoading(false);
