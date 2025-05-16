@@ -147,17 +147,21 @@ const NavMenu = () => {
         </div>
       </nav>
 
-      {/* Direct render of CreateAppointment without Dialog wrapper */}
-      <CreateAppointment
-        isOpen={isAppointmentOpen}
-        onClose={() => setIsAppointmentOpen(false)}
-      />
+      {/* Only render CreateAppointment when isAppointmentOpen is true */}
+      {isAppointmentOpen && (
+        <CreateAppointment
+          isOpen={isAppointmentOpen}
+          onClose={() => setIsAppointmentOpen(false)}
+        />
+      )}
 
-      {/* Added CreatePatient modal */}
-      <CreatePatient
-        isOpen={isPatientModalOpen}
-        onClose={() => setIsPatientModalOpen(false)}
-      />
+      {/* Only render CreatePatient when isPatientModalOpen is true */}
+      {isPatientModalOpen && (
+        <CreatePatient
+          isOpen={isPatientModalOpen}
+          onClose={() => setIsPatientModalOpen(false)}
+        />
+      )}
     </>
   );
 };

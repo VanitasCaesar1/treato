@@ -67,12 +67,102 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Convert date and time to proper appointment_date
-    const appointmentDate = createDateTimeFromParts(requestData.date, requestData.time);
+    // Handle the appointment date more intelligently
+    let appointmentDate;
+    
+    // Check if a complete appointment_date is provided
+    if (requestData.appointment_date) {
+      appointmentDate = new Date(requestData.appointment_date);
+    } 
+    // Otherwise try to combine date and time fields
+    else if (requestData.date) {
+      appointmentDate = createDateTimeFromParts(requestData.date, requestData.time);
+    } 
+    // Fallback - current date is not ideal but prevents errors
+    else {
+      console.warn("No appointment date information provided");
+      appointmentDate = new Date();
+    }
+    
+    // Validate the resulting date
+    if (isNaN(appointmentDate.getTime())) {
+      return NextResponse.json(
+        { error: "Invalid appointment date provided" },
+        { status: 400 }
+      );
+    }
+    
+    // Format date as YYYY-MM-DD for the availability API
+    const formattedDateOnly = appointmentDate.toISOString().split('T')[0];
+    
+    // Check doctor availability before proceeding
+    console.log(`Checking doctor ${doctorId} availability for ${formattedDateOnly}`);
+    let availableSlots;
+    try {
+      // Fetch available slots from the backend
+      const availabilityResponse = await axios.get(
+        `${API_BASE_URL}/api/doctors/${doctorId}/availability`, 
+        {
+          params: { 
+            date: formattedDateOnly,
+            org_id: organizationId  // Use organizationId from withAuth
+          },
+          headers: {
+            'Authorization': `Bearer ${user.id}`,
+            ...(organizationId && { 'X-Organization-ID': organizationId }),
+            ...(role && { 'X-Role': role })
+          }
+        }
+      );
+ // Log the entire availability response for debugging
+ console.log("Availability response:", JSON.stringify(availabilityResponse.data, null, 2));
+  
+ // Check both available_slots and raw_slots from response
+ availableSlots = availabilityResponse.data.available_slots || [];
+ const rawSlots = availabilityResponse.data.raw_slots || [];
+ 
+ console.log("Available slots:", JSON.stringify(availableSlots, null, 2));
+ console.log("Raw slots:", rawSlots);
+ 
+ if (availableSlots.length === 0 && rawSlots.length === 0) {
+   return NextResponse.json(
+     { error: "No available appointment slots for this doctor on the selected date" },
+     { status: 400 }
+   );
+ }
+} catch (error: any) {
+ console.error("Error fetching doctor availability:", error);
+ // If we can't get availability, we'll try to use the times from the request
+ // Backend will validate and reject if needed
+ availableSlots = null;
+}    // Use slot times from request first, then from available slots, then generate default
+    let slotStartTime, slotEndTime;
+    
+    if (requestData.slot_start_time && requestData.slot_end_time) {
+      // Use provided slot times if available
+      slotStartTime = requestData.slot_start_time;
+      slotEndTime = requestData.slot_end_time;
+    } else if (availableSlots && availableSlots.length > 0) {
+      // Use first available slot if we have them
+      const firstSlot = availableSlots[0];
+      slotStartTime = firstSlot.start_time;
+      slotEndTime = firstSlot.end_time;
+    } else {
+      // Generate from appointment date as fallback
+      slotStartTime = createTimeString(appointmentDate);
+      slotEndTime = createEndTimeString(appointmentDate);
+    }
     
     // Ensure patient_name and doctor_name are strings
     const patientName = String(requestData.patient?.name || requestData.patient_name || "");
     const doctorName = String(requestData.doctor?.name || requestData.doctor_name || "");
+    
+    // Create a properly formatted ISO datetime string for the backend
+    // This combines the date with the slot start time
+    const [hours, minutes] = slotStartTime.split(':').map(Number);
+    const fullAppointmentDate = new Date(appointmentDate);
+    fullAppointmentDate.setHours(hours, minutes, 0, 0);
+    const formattedFullDate = fullAppointmentDate.toISOString();
     
     // Transform the frontend form data to match the backend expectations
     const appointmentData = {
@@ -81,7 +171,7 @@ export async function POST(req: NextRequest) {
       org_id: orgId,
       patient_name: patientName,
       doctor_name: doctorName,
-      appointment_date: appointmentDate,
+      appointment_date: formattedFullDate, // Use full ISO format with time
       fee_type: feeType,
       payment_method: requestData.paymentMethod || requestData.payment_method || "online",
       reason: requestData.reason || "",
@@ -90,6 +180,11 @@ export async function POST(req: NextRequest) {
       appointment_status: "not_completed",
       appointment_fee: 0, // Will be calculated by backend
       is_valid: true,
+      
+      // Add slot start and end times
+      slot_start_time: slotStartTime,
+      slot_end_time: slotEndTime,
+      
       // created_at and next_visit_date will be set by backend
     };
 
@@ -99,7 +194,8 @@ export async function POST(req: NextRequest) {
     const requiredFields = [
       'patient_id', 'doctor_id', 'org_id', 'patient_name', 
       'doctor_name', 'appointment_date', 'fee_type', 'payment_method',
-      'appointment_status', 'appointment_fee', 'is_valid'
+      'appointment_status', 'appointment_fee', 'is_valid',
+      'slot_start_time', 'slot_end_time'
     ];
     
     const missingFields = requiredFields.filter(field => {
@@ -178,9 +274,8 @@ export async function POST(req: NextRequest) {
 // Helper function to combine date and time strings into a single Date object
 function createDateTimeFromParts(date: string | Date, timeString: string | undefined): Date {
   if (!date) {
-    // If no date is provided, use current date
-    console.warn("No date provided, using current date");
-    return new Date();
+    console.error("No date provided for appointment");
+    throw new Error("Date is required for creating an appointment");
   }
   
   const combinedDate = new Date(date);
@@ -188,8 +283,7 @@ function createDateTimeFromParts(date: string | Date, timeString: string | undef
   // Validate the date is valid
   if (isNaN(combinedDate.getTime())) {
     console.error("Invalid date provided:", date);
-    // Return current date as fallback
-    return new Date();
+    throw new Error("Invalid date format provided");
   }
   
   // Check if timeString is defined before trying to split it
@@ -200,9 +294,8 @@ function createDateTimeFromParts(date: string | Date, timeString: string | undef
       // Validate hours and minutes
       if (isNaN(hours) || hours < 0 || hours > 23) {
         console.warn("Invalid hours in time string:", timeString);
-        // Default to current time
-        const now = new Date();
-        combinedDate.setHours(now.getHours(), now.getMinutes(), 0, 0);
+        // Default to noon as a safe fallback
+        combinedDate.setHours(12, 0, 0, 0);
       } else if (isNaN(minutes) || minutes < 0 || minutes > 59) {
         console.warn("Invalid minutes in time string:", timeString);
         // Default to start of specified hour
@@ -222,4 +315,23 @@ function createDateTimeFromParts(date: string | Date, timeString: string | undef
   }
   
   return combinedDate;
+}
+
+// Helper functions for creating time strings
+function createTimeString(date: Date): string {
+  // Format: HH:MM (24-hour format)
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function createEndTimeString(date: Date): string {
+  // Default appointment duration: 30 minutes
+  const endDate = new Date(date);
+  endDate.setMinutes(date.getMinutes() + 30);
+  
+  // Format: HH:MM (24-hour format)
+  const hours = endDate.getHours().toString().padStart(2, '0');
+  const minutes = endDate.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
 }

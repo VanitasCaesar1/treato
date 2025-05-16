@@ -1,12 +1,12 @@
 "use client"
-
+// dashboard/op
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { 
   Printer, Download, Search, Clock, Package, User, 
   TimerIcon, LogOut, DollarSign, ChevronRight, Calendar, 
-  Plus, Loader2, AlertCircle, RefreshCw 
+  Plus, Loader2, AlertCircle, RefreshCw, AlarmClock
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -98,7 +98,13 @@ export default function AppointmentsPage() {
       next_visit_date: app.next_visit_date || app.nextVisitDate || '',
       is_valid: app.is_valid !== undefined ? app.is_valid : (app.isValid !== undefined ? app.isValid : true),
       created_at: app.created_at || app.createdAt || '',
-      updated_at: app.updated_at || app.updatedAt || ''
+      updated_at: app.updated_at || app.updatedAt || '',
+      // Add proper support for slot times
+      slot_start_time: app.slot_start_time || app.slotStartTime || '',
+      slot_end_time: app.slot_end_time || app.slotEndTime || '',
+      // Track if there's an existing diagnosis
+      diagnosis_id: app.diagnosis_id || app.diagnosisId || '',
+      has_diagnosis: !!app.diagnosis_id || !!app.diagnosisId || !!app.has_diagnosis,
     }));
   }, []);
 
@@ -155,19 +161,19 @@ export default function AppointmentsPage() {
       
       // Add filters only if they have meaningful values
       if (filters.status && filters.status !== "all") 
-        queryParams.append("status", filters.status);
+        queryParams.append("appointment_status", filters.status);
       
       if (filters.doctor && filters.doctor !== "all") 
-        queryParams.append("doctorId", filters.doctor);
+        queryParams.append("doctor_id", filters.doctor);
       
       if (filters.feeType && filters.feeType !== "all") 
-        queryParams.append("feeType", filters.feeType);
+        queryParams.append("fee_type", filters.feeType);
       
       if (filters.validity && filters.validity !== "all") 
-        queryParams.append("isValid", filters.validity);
+        queryParams.append("is_valid", filters.validity);
       
       if (filters.date) 
-        queryParams.append("startDate", filters.date);
+        queryParams.append("start_date", filters.date);
 
       // Add search term if available
       if (filters.searchTerm) 
@@ -176,8 +182,8 @@ export default function AppointmentsPage() {
       // Pagination parameters
       queryParams.append("limit", pagination.limit.toString());
       queryParams.append("offset", pagination.offset.toString());
-      queryParams.append("sortBy", "appointment_date");
-      queryParams.append("sortOrder", "desc");
+      queryParams.append("sort_by", "appointment_date");
+      queryParams.append("sort_order", "desc");
       
       // Make API call
       const response = await fetch(`/api/appointments/org?${queryParams.toString()}`);
@@ -262,10 +268,17 @@ export default function AppointmentsPage() {
   }, []);
 
   // Format time utility function
-  const formatTime = useCallback((dateString) => {
-    if (!dateString) return "";
+  const formatTime = useCallback((timeString) => {
+    if (!timeString) return "";
+    
+    // Check if it's already in HH:MM format
+    if (/^\d{1,2}:\d{2}$/.test(timeString)) {
+      return timeString;
+    }
+    
+    // Handle if timeString is a full date string
     try {
-      const date = new Date(dateString);
+      const date = new Date(timeString);
       if (isNaN(date.getTime())) return "Invalid";
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } catch (e) {
@@ -273,6 +286,20 @@ export default function AppointmentsPage() {
       return "Error";
     }
   }, []);
+
+  // Format time range (slot start to slot end)
+  const formatSlotTimeRange = useCallback((startTime, endTime) => {
+    if (!startTime) return "";
+    
+    const formattedStart = formatTime(startTime);
+    const formattedEnd = endTime ? formatTime(endTime) : "";
+    
+    if (formattedEnd) {
+      return `${formattedStart} - ${formattedEnd}`;
+    }
+    
+    return formattedStart;
+  }, [formatTime]);
 
   // Format date for display
   const formatDate = useCallback((dateString) => {
@@ -345,9 +372,14 @@ export default function AppointmentsPage() {
     router.push('/appointments/new');
   }, [router]);
   
-  // Handle view appointment details
-  const handleViewAppointment = useCallback((appointmentId) => {
-    router.push(`/appointments/${appointmentId}`);
+  const handleAppointmentClick = useCallback((appointment) => {
+    // If there's an existing diagnosis, go to the diagnosis page
+    if (appointment.diagnosis_id) {
+      router.push(`/dashboard/op/${appointment.diagnosis_id}`);
+    } else {
+      // Otherwise, go to create a new diagnosis for this appointment
+      router.push(`/dashboard/diagnosis/new?appointmentId=${appointment.appointment_id}`);
+    }
   }, [router]);
 
   // Fetch appointments when component mounts or filters/pagination changes
@@ -551,15 +583,14 @@ export default function AppointmentsPage() {
             </div>
           )}
 
-          {/* Table header */}
-          <div className="px-6 py-3 bg-gray-50 border-b border-gray-100 hidden md:grid" style={{ 
-            gridTemplateColumns: "0.8fr 2fr 1.2fr 1.5fr 1fr 1fr 1fr 100px" 
-          }}>
-            <div className="text-xs font-medium text-gray-500">Time</div>
+          {/* Table header with slot time range */}
+          <div className="px-6 py-3 bg-gray-50 border-b border-gray-100 hidden md:grid" 
+            style={{ gridTemplateColumns: "1.4fr 1.8fr 1.8fr 1fr 1fr 0.8fr 0.8fr 100px" }}>
+            <div className="text-xs font-medium text-gray-500">Appointment Time</div>
             <div className="text-xs font-medium text-gray-500">Patient</div>
-            <div className="text-xs font-medium text-gray-500">ID</div>
             <div className="text-xs font-medium text-gray-500">Doctor</div>
             <div className="text-xs font-medium text-gray-500">Fee</div>
+            <div className="text-xs font-medium text-gray-500">Date</div>
             <div className="text-xs font-medium text-gray-500">Status</div>
             <div className="text-xs font-medium text-gray-500">Validity</div>
             <div className="text-xs font-medium text-gray-500 text-right">Actions</div>
@@ -572,19 +603,33 @@ export default function AppointmentsPage() {
             </div>
           ) : appointments.length > 0 ? (
             <div>
-              {/* Appointment rows */}
+              {/* Appointment rows with slot time range */}
               {appointments.map((appointment, index) => (
                 <div
                   key={appointment.appointment_id || index}
                   className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors cursor-pointer"
-                  onClick={() => handleViewAppointment(appointment.appointment_id)}
+                  onClick={() => handleAppointmentClick(appointment)}
                 >
-                  {/* Mobile view */}
-                  <div className="md:hidden p-4 space-y-2">
-                    <div className="flex justify-between">
+                  {/* Mobile view with slot time range */}
+                  <div className="md:hidden p-4 space-y-3">
+                    <div className="flex justify-between items-start">
                       <div>
-                        <div className="font-medium text-gray-900">{appointment.patient_name}</div>
-                        <div className="text-sm text-gray-500">{formatDate(appointment.appointment_date)} at {formatTime(appointment.appointment_date)}</div>
+                        <div className="font-medium text-gray-900">
+                          {appointment.patient_name}
+                          {appointment.has_diagnosis && (
+                            <Badge className="ml-2 bg-blue-100 text-blue-600 border-none">Has Diagnosis</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 text-sm text-gray-700 mt-1">
+                          <AlarmClock className="h-4 w-4 text-blue-500" />
+                          <span className="font-medium">
+                            {formatSlotTimeRange(
+                              appointment.slot_start_time || appointment.appointment_date,
+                              appointment.slot_end_time
+                            )}
+                          </span>
+                          <span className="text-gray-500">on {formatDate(appointment.appointment_date)}</span>
+                        </div>
                       </div>
                       <Badge
                         className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[appointment.appointment_status]}`}
@@ -593,19 +638,12 @@ export default function AppointmentsPage() {
                       </Badge>
                     </div>
                     
-                    <div className="text-sm">
-                      <span className="text-gray-500">Doctor:</span> {appointment.doctor_name}
+                    <div className="flex justify-between text-sm">
+                      <div><span className="text-gray-500">Doctor:</span> {appointment.doctor_name}</div>
+                      <div><span className="text-gray-500">Fee:</span> ${appointment.appointment_fee}</div>
                     </div>
                     
-                    <div className="text-sm">
-                      <span className="text-gray-500">Fee:</span> ${appointment.appointment_fee} ({appointment.fee_type})
-                    </div>
-                    
-                    <div className="text-sm">
-                      <span className="text-gray-500">ID:</span> <span className="text-xs">{appointment.appointment_id}</span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center mt-2">
+                    <div className="flex items-center justify-between mt-2">
                       <Badge
                         className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${VALIDITY_STYLES[appointment.is_valid ? "true" : "false"]}`}
                       >
@@ -633,27 +671,37 @@ export default function AppointmentsPage() {
                     </div>
                   </div>
                   
-                  {/* Desktop view */}
+                  {/* Desktop view with slot time range */}
                   <div 
                     className="px-6 py-4 hidden md:grid items-center"
-                    style={{ gridTemplateColumns: "0.8fr 2fr 1.2fr 1.5fr 1fr 1fr 1fr 100px" }}
+                    style={{ gridTemplateColumns: "1.4fr 1.8fr 1.8fr 1fr 1fr 0.8fr 0.8fr 100px" }}
                   >
-                    <div className="text-sm text-gray-900">
-                      {formatTime(appointment.appointment_date)}
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        {formatDate(appointment.appointment_date)}
+                    {/* Improved time display column with slot times */}
+                    <div className="flex items-center space-x-2">
+                      <div className="bg-blue-50 rounded-full p-1.5">
+                        <AlarmClock className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {formatSlotTimeRange(
+                            appointment.slot_start_time || appointment.appointment_date, 
+                            appointment.slot_end_time
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {formatDate(appointment.appointment_date)}
+                        </div>
                       </div>
                     </div>
                     
                     <div>
-                      <Link
-                        href={`/patients/${appointment.patient_id}`}
-                        className="text-sm font-medium text-gray-900 hover:text-blue-600 flex items-center gap-1 group"
+                      <div 
+                        className="text-sm font-medium text-gray-900 hover:text-blue-600 flex items-center gap-1 group w-fit"
                         onClick={e => e.stopPropagation()}
                       >
                         {appointment.patient_name}
                         <ChevronRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                      </Link>
+                      </div>
                       <div className="text-xs text-gray-500 mt-0.5">
                         {appointment.next_visit_date && (
                           <div className="flex items-center gap-1">
@@ -663,10 +711,6 @@ export default function AppointmentsPage() {
                       </div>
                     </div>
                     
-                    <div className="text-sm text-gray-500 truncate" title={appointment.appointment_id}>
-                      {appointment.appointment_id}
-                    </div>
-                    
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-gray-400" />
                       <span className="text-sm text-gray-900">
@@ -674,9 +718,13 @@ export default function AppointmentsPage() {
                       </span>
                     </div>
                     
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-gray-900">
                       ${appointment.appointment_fee}
-                      <div className="text-xs text-gray-400">{appointment.fee_type}</div>
+                      <div className="text-xs text-gray-400 mt-0.5 capitalize">{appointment.fee_type}</div>
+                    </div>
+                    
+                    <div className="text-sm font-medium text-gray-900">
+                      {formatDate(appointment.appointment_date)}
                     </div>
                     
                     <div>
@@ -695,7 +743,7 @@ export default function AppointmentsPage() {
                       </Badge>
                     </div>
                     
-                    <div className="flex items-center justify-end gap-2" onClick={e => e.stopPropagation()}>
+                    <div className="flex justify-end space-x-1" onClick={e => e.stopPropagation()}>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -717,172 +765,120 @@ export default function AppointmentsPage() {
                 </div>
               ))}
               
-              {/* Pagination */}
-              {pagination.total > 0 && (
-                <div className="px-6 py-4 flex items-center justify-between border-t border-gray-100">
-                  <div className="text-sm text-gray-500">
-                    Showing {pagination.offset + 1} to {Math.min(pagination.offset + appointments.length, pagination.total)} of {pagination.total} appointments
-                  </div>
-                  
-                  <div className="flex items-center space-x-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="px-2 h-8 text-gray-600"
-                      disabled={pagination.offset === 0}
-                      onClick={() => handlePageChange(0)}
-                    >
-                      First
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="px-2 h-8 text-gray-600"
-                      disabled={pagination.offset === 0}
-                      onClick={() => handlePageChange(Math.max(0, pagination.offset - pagination.limit))}
-                    >
-                      Prev
-                    </Button>
-                    
-                    {paginationInfo.pageNumbers.map((page, index) => (
-                      page === "..." ? (
-                        <span key={`ellipsis-${index}`} className="px-2 h-8 flex items-center justify-center text-gray-500">
-                          ...
-                        </span> 
-                      ) : (
-                        <Button
-                          key={`page-${page}`}
-                          variant={paginationInfo.currentPage === page ? "default" : "outline"}
-                          size="sm"
-                          className={`px-3 h-8 ${
-                            paginationInfo.currentPage === page 
-                              ? "bg-blue-600 text-white hover:bg-blue-700" 
-                              : "text-gray-600"
-                          }`}
-                          onClick={() => handlePageChange((page - 1) * pagination.limit)}
-                        >
-                          {page}
-                        </Button>
-                      )
-                    ))}
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="px-2 h-8 text-gray-600"
-                      disabled={(pagination.offset + pagination.limit) >= pagination.total}
-                      onClick={() => handlePageChange(pagination.offset + pagination.limit)}
-                    >
-                      Next
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="px-2 h-8 text-gray-600"
-                      disabled={(pagination.offset + pagination.limit) >= pagination.total}
-                      onClick={() => handlePageChange(Math.floor(pagination.total / pagination.limit) * pagination.limit)}
-                    >
-                      Last
-                    </Button>
-                  </div>
+              {/* Pagination controls */}
+              <div className="p-4 flex items-center justify-between border-t border-gray-100">
+                <div className="text-sm text-gray-500">
+                  Showing {Math.min(pagination.offset + 1, pagination.total)} to {Math.min(pagination.offset + appointments.length, pagination.total)} of {pagination.total} results
                 </div>
-              )}
+                
+                <div className="flex items-center space-x-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pagination.offset === 0}
+                    onClick={() => handlePageChange(0)}
+                    className="border-gray-200 hidden sm:inline-flex"
+                  >
+                    First
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pagination.offset === 0}
+                    onClick={() => handlePageChange(Math.max(0, pagination.offset - pagination.limit))}
+                    className="border-gray-200"
+                  >
+                    Previous
+                  </Button>
+                  
+                  {paginationInfo.pageNumbers.map((page, index) => 
+                    page === "..." ? (
+                      <span key={`ellipsis-${index}`} className="px-2">...</span>
+                    ) : (
+                      <Button
+                        key={`page-${page}`}
+                        variant={page === paginationInfo.currentPage ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange((page - 1) * pagination.limit)}
+                        className={page === paginationInfo.currentPage ? "bg-blue-600 text-white hover:bg-blue-700" : "border-gray-200"}
+                      >
+                        {page}
+                      </Button>
+                    )
+                  )}
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pagination.offset + pagination.limit >= pagination.total}
+                    onClick={() => handlePageChange(pagination.offset + pagination.limit)}
+                    className="border-gray-200"
+                  >
+                    Next
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pagination.offset + pagination.limit >= pagination.total}
+                    onClick={() => handlePageChange(Math.max(0, Math.floor(pagination.total / pagination.limit) * pagination.limit))}
+                    className="border-gray-200 hidden sm:inline-flex"
+                  >
+                    Last
+                  </Button>
+                </div>
+              </div>
             </div>
           ) : (
-            // No appointments found
-            <div className="flex flex-col items-center justify-center py-12 px-4">
-              <div className="bg-gray-50 rounded-full p-3 mb-4">
-                <TimerIcon className="h-6 w-6 text-gray-400" />
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="bg-gray-100 rounded-full p-3 mb-4">
+                <Calendar className="h-6 w-6 text-gray-400" />
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-1">No appointments found</h3>
-              <p className="text-gray-500 text-center max-w-md mb-6">
-                {Object.values(filters).some(val => val !== "" && val !== "all")
-                  ? "Try adjusting your filters or search terms to see more results."
-                  : "Start by creating a new appointment using the button above."}
+              <p className="text-gray-500 mb-4 text-center max-w-md">
+                No appointments match your search criteria. Try adjusting your filters or add a new appointment.
               </p>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={resetFilters}
-                  className="border-gray-300 text-gray-700 hover:bg-gray-50"
-                  disabled={!Object.values(filters).some(val => val !== "" && val !== "all")}
-                >
-                  Clear Filters
-                </Button>
-                <Button 
-                  className="bg-blue-600 text-white hover:bg-blue-700"
-                  onClick={handleNewAppointment}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Appointment
-                </Button>
-              </div>
+              <Button 
+                className="bg-blue-600 text-white hover:bg-blue-700 rounded-lg px-4 flex items-center gap-2"
+                onClick={handleNewAppointment}
+              >
+                <Plus className="h-4 w-4" />
+                New Appointment
+              </Button>
             </div>
           )}
         </div>
-        
-        {/* Quick Actions Card */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
-          <div className="p-4 border-b border-gray-100">
-            <h2 className="text-lg font-medium text-gray-900">Quick Actions</h2>
+
+        <div className="flex justify-between items-center">
+          <div className="text-gray-500 text-sm">
+            Data refreshed {new Date().toLocaleTimeString()}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 p-4">
-            <Button
-              variant="outline"
-              className="h-auto py-3 px-4 border-gray-200 hover:bg-gray-50 flex items-center justify-start space-x-3"
-              onClick={() => router.push('/appointments/export')}
+          <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="border-gray-200 text-gray-700 hover:bg-gray-50 flex items-center gap-1"
+              onClick={fetchAppointments}
             >
-              <div className="bg-amber-50 p-2 rounded-lg">
-                <Download className="h-5 w-5 text-amber-600" />
-              </div>
-              <div className="text-left">
-                <div className="font-medium text-gray-900">Export Appointments</div>
-                <div className="text-xs text-gray-500">Download appointment data as CSV or PDF</div>
-              </div>
+              <RefreshCw className="h-3 w-3" />
+              Refresh
             </Button>
-            
-            <Button
-              variant="outline"
-              className="h-auto py-3 px-4 border-gray-200 hover:bg-gray-50 flex items-center justify-start space-x-3"
-              onClick={() => router.push('/appointments/print')}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="border-gray-200 text-gray-700 hover:bg-gray-50 flex items-center gap-1"
             >
-              <div className="bg-blue-50 p-2 rounded-lg">
-                <Printer className="h-5 w-5 text-blue-600" />
-              </div>
-              <div className="text-left">
-                <div className="font-medium text-gray-900">Print Schedule</div>
-                <div className="text-xs text-gray-500">Generate printable appointment schedules</div>
-              </div>
+              <Download className="h-3 w-3" />
+              Export
             </Button>
-            
-            <Button
-              variant="outline"
-              className="h-auto py-3 px-4 border-gray-200 hover:bg-gray-50 flex items-center justify-start space-x-3"
-              onClick={() => router.push('/appointments/report')}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="border-gray-200 text-gray-700 hover:bg-gray-50 flex items-center gap-1"
             >
-              <div className="bg-green-50 p-2 rounded-lg">
-                <DollarSign className="h-5 w-5 text-green-600" />
-              </div>
-              <div className="text-left">
-                <div className="font-medium text-gray-900">Financial Reports</div>
-                <div className="text-xs text-gray-500">View income from appointments</div>
-              </div>
-            </Button>
-            
-            <Button
-              variant="outline"
-              className="h-auto py-3 px-4 border-gray-200 hover:bg-gray-50 flex items-center justify-start space-x-3"
-              onClick={() => router.push('/appointments/sync')}
-            >
-              <div className="bg-purple-50 p-2 rounded-lg">
-                <RefreshCw className="h-5 w-5 text-purple-600" />
-              </div>
-              <div className="text-left">
-                <div className="font-medium text-gray-900">Sync Calendar</div>
-                <div className="text-xs text-gray-500">Connect with external calendar services</div>
-              </div>
+              <Printer className="h-3 w-3" />
+              Print
             </Button>
           </div>
         </div>

@@ -46,6 +46,7 @@ const CreateAppointment = ({ isOpen, onClose, onSuccess }) => {
     recurring: 0,
     emergency: 0
   });
+  
   const [loadingShifts, setLoadingShifts] = useState(false);
   const [loadingFees, setLoadingFees] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -159,36 +160,107 @@ const CreateAppointment = ({ isOpen, onClose, onSuccess }) => {
     }
   };
 
-  // New function to fetch doctor fees
-  const fetchDoctorFees = async (doctorId, orgId) => {
-    if (!doctorId || !orgId) return;
+// Function to fetch doctor fees - Fixed
+const fetchDoctorFees = async (doctorId, orgId) => {
+  if (!doctorId || !orgId) return;
+  
+  setLoadingFees(true);
+  try {
+    // API call remains the same
+    const response = await fetch(`/api/doctors/${doctorId}/fees?org_id=${orgId}`);
     
-    setLoadingFees(true);
-    try {
-      const response = await fetch(`/api/doctors/${doctorId}/fees?org_id=${orgId}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API error (${response.status}):`, errorText);
+      throw new Error(`Failed to fetch doctor fees: ${response.status}`);
+    }
+    
+    const responseData = await response.json();
+    console.log("Raw doctor fees response:", responseData);
+    
+    // Handle the array response format from the backend
+    // The backend returns an array of fee objects
+    if (Array.isArray(responseData) && responseData.length > 0) {
+      const feeData = responseData[0]; // Get the first fee object
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch doctor fees: ${response.status}`);
-      }
-      
-      const data = await response.json();
       setDoctorFees({
-        default: data.default_fee || 0,
-        recurring: data.recurring_fee || 0,
-        emergency: data.emergency_fee || 0
+        default: parseInt(feeData.default_fees ?? 1000),
+        recurring: parseInt(feeData.recurring_fees ?? 800),
+        emergency: parseInt(feeData.emergency_fees ?? 1500)
       });
-    } catch (error) {
-      console.error("Error fetching doctor fees:", error);
-      toast.error("Failed to fetch doctor's fees. Using default values.");
+      
+      console.log("Doctor fees parsed successfully:", {
+        default: parseInt(feeData.default_fees ?? 1000),
+        recurring: parseInt(feeData.recurring_fees ?? 800),
+        emergency: parseInt(feeData.emergency_fees ?? 1500)
+      });
+      return;
+    }
+    
+    // Handle empty array - use default values
+    if (Array.isArray(responseData) && responseData.length === 0) {
       setDoctorFees({
         default: 1000,
         recurring: 800,
         emergency: 1500
       });
-    } finally {
-      setLoadingFees(false);
+      console.log("No fees found. Using default values.");
+      return;
     }
-  };
+    
+    // Legacy handling for other response formats (keeping as fallback)
+    let feeData = responseData;
+    
+    // Check if data has a fee property directly
+    if (responseData.fee) {
+      setDoctorFees({
+        default: parseInt(responseData.fee.default_fees || responseData.fee.default_fee || responseData.fee || 1000),
+        recurring: parseInt(responseData.fee.recurring_fees || responseData.fee.recurring_fee || responseData.fee || 800),
+        emergency: parseInt(responseData.fee.emergency_fees || responseData.fee.emergency_fee || responseData.fee || 1500)
+      });
+      return;
+    }
+    
+    // Handle nested data structures
+    if (responseData.data) {
+      feeData = responseData.data;
+    }
+    
+    // Extract fee values using database column naming
+    const defaultFee = 
+      parseInt(feeData.default_fees ?? 
+      feeData.defaultFees ?? 
+      1000);
+      
+    const recurringFee = 
+      parseInt(feeData.recurring_fees ?? 
+      feeData.recurringFees ?? 
+      feeData.follow_up_fees ?? 
+      800);
+      
+    const emergencyFee = 
+      parseInt(feeData.emergency_fees ?? 
+      feeData.emergencyFees ?? 
+      1500);
+    
+    setDoctorFees({
+        default: defaultFee,
+        recurring: recurringFee,
+        emergency: emergencyFee
+    });
+    
+  } catch (error) {
+    console.error("Error fetching doctor fees:", error);
+    toast.error("Failed to fetch doctor's fees. Using default values.");
+    setDoctorFees({
+      default: 1000,
+      recurring: 800,
+      emergency: 1500
+    });
+  } finally {
+    setLoadingFees(false);
+  }
+};
 
   // Updated function to fetch doctor availability using the new API route
   const fetchDoctorAvailability = async (doctorId, date, orgId) => {
@@ -214,13 +286,33 @@ const CreateAppointment = ({ isOpen, onClose, onSuccess }) => {
       
       const data = await response.json();
       
-      // Update available time slots
-      setAvailableTimeSlots(data.available_slots || []);
+      // Create formatted time slots from the API response
+      let formattedSlots = [];
       
-      if ((data.available_slots?.length === 0) && data.message) {
-        // Replace toast.info with toast.error or toast.success, whichever is more appropriate
+      // Check if available_slots is an array of strings (HH:MM format)
+      if (Array.isArray(data.available_slots) && data.available_slots.length > 0) {
+        if (typeof data.available_slots[0] === 'string') {
+          // Already in correct format
+          formattedSlots = data.available_slots;
+        } else if (typeof data.available_slots[0] === 'object') {
+          // If slots are objects with start_time and end_time properties
+          formattedSlots = data.available_slots.map(slot => {
+            // Check if slot has start_time property (string format)
+            if (typeof slot.start_time === 'string') {
+              return slot.start_time;
+            }
+            // If slot has start_time as an object or other format, convert to string
+            return format(new Date(slot.start_time), 'HH:mm');
+          });
+        }
+      }
+      
+      // Update available time slots
+      setAvailableTimeSlots(formattedSlots);
+      
+      if ((formattedSlots.length === 0) && data.message) {
         toast.error(data.message || "No available time slots for the selected date");
-      } else if (formData.time && !data.available_slots.includes(formData.time)) {
+      } else if (formData.time && !formattedSlots.includes(formData.time)) {
         // Reset selected time if it's no longer available
         setFormData(prev => ({ ...prev, time: null }));
       }
@@ -439,6 +531,59 @@ const CreateAppointment = ({ isOpen, onClose, onSuccess }) => {
     setStep(step + 1);
   };
 
+// Updated fee display component for Step 3
+const FeeDisplay = () => {
+  if (loadingFees) {
+    return (
+      <div className="flex items-center text-gray-500 text-sm">
+        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+        Loading fee information...
+      </div>
+    );
+  }
+  
+  // Get the selected fee type label
+  const selectedFeeType = feeTypes.find(f => f.value === formData.feeType);
+  const feeAmount = doctorFees[formData.feeType] || 0;
+  
+  return (
+    <div className="flex flex-col space-y-3">
+      <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg text-sm border-l-4 border-blue-500">
+        <div className="flex items-center">
+          <CreditCard className="text-blue-500 w-5 h-5 mr-2 flex-shrink-0" />
+          <div>
+            <span className="font-medium">Consultation Fee: </span>
+            <span className="text-blue-700 font-semibold">₹{feeAmount}</span>
+          </div>
+        </div>
+        <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+          {selectedFeeType?.label || 'Standard Consultation'}
+        </div>
+      </div>
+      
+      {/* Payment information note */}
+      {formData.paymentMethod === "insurance" && (
+        <div className="flex items-center p-3 bg-gray-50 rounded-lg text-sm border-l-4 border-gray-300">
+          <Info className="text-gray-500 w-4 h-4 mr-2 flex-shrink-0" />
+          <div className="text-gray-600">
+            Insurance coverage may apply. Please bring your insurance card.
+          </div>
+        </div>
+      )}
+      
+      {/* Prepayment note for online payment */}
+      {formData.paymentMethod === "online" && (
+        <div className="flex items-center p-3 bg-gray-50 rounded-lg text-sm border-l-4 border-gray-300">
+          <Info className="text-gray-500 w-4 h-4 mr-2 flex-shrink-0" />
+          <div className="text-gray-600">
+            You will be prompted to make payment after booking your appointment.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
   // Updated doctor card component with better UI
   const DoctorCard = ({ doctor, onSelect, isSelected }) => {
     return (
@@ -465,160 +610,144 @@ const CreateAppointment = ({ isOpen, onClose, onSuccess }) => {
       </div>
     );
   };
+// Improved calendar rendering with better accessibility
+const renderCalendar = () => {
+  const days = getDaysInMonth();
+  const firstDayOfMonth = startOfMonth(currentDate).getDay();
 
-  // Improved calendar rendering with better accessibility
-  const renderCalendar = () => {
-    const days = getDaysInMonth();
-    const firstDayOfMonth = startOfMonth(currentDate).getDay();
-
-    // Calculate today and minimum selectable date (can't book for today if after 5 PM)
-    const now = new Date();
-    const isAfter5PM = now.getHours() >= 17;
-    const minDate = isAfter5PM ? addDays(now, 1) : now;
-    
-    // Get doctor working days
-    const doctorWorkingDays = doctorShifts
-      .filter(shift => shift.isactive)
-      .map(shift => shift.weekday);
-    
-    // Convert day names to numbers for easy comparison
-    const workingDayNumbers = doctorWorkingDays.map(dayName => {
-      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-      return dayNames.indexOf(dayName);
-    });
-
-    return (
-      <div className="w-full">
-        {/* Month navigation */}
-        <div className="flex items-center justify-between mb-4">
-          <button 
-            className="p-2 rounded-lg hover:bg-gray-100"
-            onClick={prevMonth}
-            aria-label="Previous month"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <h3 className="text-lg font-medium">
-            {format(currentDate, "MMMM yyyy")}
-          </h3>
-          <button 
-            className="p-2 rounded-lg hover:bg-gray-100"
-            onClick={nextMonth}
-            aria-label="Next month"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Week days */}
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {weekDays.map((day) => (
-            <div
-              key={day}
-              className="text-center text-sm font-medium text-gray-500 py-2"
-            >
-              {day}
-            </div>
-          ))}
-        </div>
-
-        {/* Calendar grid */}
-        <div className="grid grid-cols-7 gap-1">
-          {/* Empty cells for days before the first of the month */}
-          {Array.from({ length: firstDayOfMonth }).map((_, index) => (
-            <div key={`empty-${index}`} className="p-1" />
-          ))}
-
-          {/* Actual days */}
-          {days.map((day) => {
-            const isPastDay = day < minDate;
-            const isSelectedDay = formData.date && isSameDay(day, formData.date);
-            const dayOfWeek = getDay(day);
-            const isWorkingDay = doctorWorkingDays.length === 0 || workingDayNumbers.includes(dayOfWeek);
-            
-            return (
-              <button
-                key={day.toISOString()}
-                onClick={() => {
-                  if (!isPastDay && isWorkingDay) {
-                    setFormData((prev) => ({ ...prev, date: day, time: null }));
-                    toast.success(`Selected date: ${format(day, "MMMM d, yyyy")}`);
-                  } else if (!isWorkingDay) {
-                    toast.error(`Doctor is not available on ${format(day, "EEEE")}s`);
-                  }
-                }}
-                disabled={isPastDay || !isWorkingDay}
-                aria-label={format(day, "MMMM d, yyyy")}
-                aria-pressed={isSelectedDay}
-                className={`
-                  h-8 w-8 p-0 rounded-full transition-colors
-                  ${!isSameMonth(day, currentDate) ? "text-gray-400" : ""}
-                  ${isToday(day) ? "font-medium ring-1 ring-blue-200" : ""}
-                  ${isSelectedDay 
-                    ? "bg-blue-500 text-white hover:bg-blue-600" 
-                    : isWorkingDay ? "hover:bg-gray-100" : "bg-gray-100 text-gray-400"}
-                  ${isPastDay || !isWorkingDay ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-                `}
-              >
-                {format(day, "d")}
-              </button>
-            );
-          })}
-        </div>
+  // Calculate today's date (for preventing selection of past dates)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Set to beginning of day for proper comparison
+  
+  return (
+    <div className="w-full">
+      {/* Month navigation */}
+      <div className="flex items-center justify-between mb-4">
+        <button 
+          className="p-2 rounded-lg hover:bg-gray-100"
+          onClick={prevMonth}
+          aria-label="Previous month"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <h3 className="text-lg font-medium">
+          {format(currentDate, "MMMM yyyy")}
+        </h3>
+        <button 
+          className="p-2 rounded-lg hover:bg-gray-100"
+          onClick={nextMonth}
+          aria-label="Next month"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
-    );
-  };
 
-  // Render time slots with availability indicators
-  const renderTimeSlots = () => {
-    if (!formData.date) {
-      return (
-        <div className="flex items-center justify-center py-8 text-gray-500">
-          Please select a date first
-        </div>
-      );
-    }
-    
-    if (loadingSlots) {
-      return (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-          <span className="ml-2 text-gray-600">Loading available time slots...</span>
-        </div>
-      );
-    }
-    
-    if (availableTimeSlots.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-          <Clock className="w-10 h-10 text-gray-400 mb-2" />
-          <p>No available time slots for the selected date</p>
-          <p className="text-sm mt-1">Please select another date</p>
-        </div>
-      );
-    }
-    
-    return (
-      <div className="grid grid-cols-3 gap-2">
-        {availableTimeSlots.map((time) => (
-          <button
-            key={time}
-            className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-              formData.time === time 
-                ? "bg-blue-500 text-white" 
-                : "border hover:bg-gray-50"
-            }`}
-            onClick={() => {
-              setFormData((prev) => ({ ...prev, time }));
-              toast.success(`Selected time: ${time}`);
-            }}
+      {/* Week days */}
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {weekDays.map((day) => (
+          <div
+            key={day}
+            className="text-center text-sm font-medium text-gray-500 py-2"
           >
-            {time}
-          </button>
+            {day}
+          </div>
         ))}
       </div>
+
+      {/* Calendar grid */}
+      <div className="grid grid-cols-7 gap-1">
+        {/* Empty cells for days before the first of the month */}
+        {Array.from({ length: firstDayOfMonth }).map((_, index) => (
+          <div key={`empty-${index}`} className="p-1" />
+        ))}
+
+        {/* Actual days */}
+        {days.map((day) => {
+          // Only block dates before today (past dates)
+          const isPastDay = day < today;
+          const isSelectedDay = formData.date && isSameDay(day, formData.date);
+          
+          return (
+            <button
+              key={day.toISOString()}
+              onClick={() => {
+                if (!isPastDay) {
+                  setFormData((prev) => ({ ...prev, date: day, time: null }));
+                  toast.success(`Selected date: ${format(day, "MMMM d, yyyy")}`);
+                }
+              }}
+              disabled={isPastDay}
+              aria-label={format(day, "MMMM d, yyyy")}
+              aria-pressed={isSelectedDay}
+              className={`
+                h-8 w-8 p-0 rounded-full transition-colors
+                ${!isSameMonth(day, currentDate) ? "text-gray-400" : ""}
+                ${isToday(day) ? "font-medium ring-1 ring-blue-200" : ""}
+                ${isSelectedDay 
+                  ? "bg-blue-500 text-white hover:bg-blue-600" 
+                  : "hover:bg-gray-100"}
+                ${isPastDay ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+              `}
+            >
+              {format(day, "d")}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// Render time slots with availability indicators
+const renderTimeSlots = () => {
+  if (!formData.date) {
+    return (
+      <div className="flex items-center justify-center py-8 text-gray-500">
+        Please select a date first
+      </div>
     );
-  };
+  }
+  
+  if (loadingSlots) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+        <span className="ml-2 text-gray-600">Loading available time slots...</span>
+      </div>
+    );
+  }
+  
+  if (availableTimeSlots.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+        <Clock className="w-10 h-10 text-gray-400 mb-2" />
+        <p>No available time slots for the selected date</p>
+        <p className="text-sm mt-1">Please select another date</p>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {availableTimeSlots.map((time, index) => (
+        <button
+          key={`time-${index}-${time}`}
+          className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+            formData.time === time 
+              ? "bg-blue-500 text-white" 
+              : "border hover:bg-gray-50"
+          }`}
+          onClick={() => {
+            setFormData((prev) => ({ ...prev, time }));
+            toast.success(`Selected time: ${time}`);
+          }}
+        >
+          {time}
+        </button>
+      ))}
+    </div>
+  );
+};
 
   // Step content based on current step
   const renderStepContent = () => {
@@ -798,22 +927,22 @@ const CreateAppointment = ({ isOpen, onClose, onSuccess }) => {
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Appointment Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Appointment Type
-                </label>
-                <select
-                  value={formData.feeType}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, feeType: e.target.value }))}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {feeTypes.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label} (₹{doctorFees[type.value] || 0})
-                    </option>
-                  ))}
-                </select>
-              </div>
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    Appointment Type
+  </label>
+  <select
+    value={formData.feeType}
+    onChange={(e) => setFormData((prev) => ({ ...prev, feeType: e.target.value }))}
+    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+  >
+    {feeTypes.map((type) => (
+      <option key={type.value} value={type.value}>
+        {type.label} (₹{doctorFees[type.value] || 0})
+      </option>
+    ))}
+  </select>
+</div>
               
               {/* Payment Method */}
               <div>

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@workos-inc/authkit-nextjs';
 import axios from 'axios';
 
@@ -15,7 +15,7 @@ export async function GET(
 ) {
   try {
     // Get auth data from WorkOS - this runs server-side only
-    const { user, organizationId } = await withAuth();
+    const { user, organizationId, role } = await withAuth();
     if (!user) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -35,8 +35,9 @@ export async function GET(
         { status: 400 }
       );
     }
-
+    
     if (!orgId) {
+      console.error("Missing organization ID in request", { doctorId: params.id });
       return NextResponse.json(
         { error: "Organization ID is required" },
         { status: 400 }
@@ -55,28 +56,48 @@ export async function GET(
     const doctorId = params.id;
 
     // Validate doctor ID format (UUID)
-    if (!doctorId ||
-      !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(doctorId)) {
+    if (!doctorId || 
+        !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(doctorId)) {
       return NextResponse.json(
         { error: "Invalid doctor ID format" },
         { status: 400 }
       );
     }
 
+    console.log(`Fetching availability for doctor ${doctorId} on ${date} for org ${orgId}`);
+
     // Make the request to the backend API
     const response = await axios.get(
-      `${API_BASE_URL}/api/doctors/${doctorId}/availability?date=${date}&org_id=${orgId}`,
+      `${API_BASE_URL}/api/doctors/${doctorId}/availability`,
       {
+        params: {
+          date: date,
+          org_id: orgId
+        },
         headers: {
           'Authorization': `Bearer ${user.id}`,
-          ...(organizationId && { 'X-Organization-ID': organizationId })
+          ...(organizationId && { 'X-Organization-ID': organizationId }),
+          ...(role && { 'X-Role': role })
         }
       }
     );
 
+    console.log("Backend availability response:", JSON.stringify(response.data, null, 2));
+    
+    // Transform the response if needed to match expected frontend format
     return NextResponse.json(response.data);
   } catch (error) {
     console.error('Error fetching doctor availability:', error);
+    
+    // Enhanced error logging for debugging
+    if (error.response) {
+      console.error('Response error data:', error.response.data);
+      console.error('Response error status:', error.response.status);
+    } else if (error.request) {
+      console.error('Request was made but no response received:', error.request);
+    } else {
+      console.error('Error setting up request:', error.message);
+    }
 
     // Handle authentication errors
     if (error.code === 'AUTH_REQUIRED') {

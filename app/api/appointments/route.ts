@@ -38,7 +38,7 @@ export async function GET(req) {
 
     // Make API call to backend
     const apiUrl = orgId
-    ? `/api/appointments/organization/${orgId}?${queryParams.toString()}` // Changed from "/org/" to "/organization/"
+    ? `/api/appointments/organization/${orgId}?${queryParams.toString()}` 
     : `/api/appointments?${queryParams.toString()}`;
     
     const response = await api.get(apiUrl);
