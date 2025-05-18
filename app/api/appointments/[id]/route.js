@@ -1,153 +1,65 @@
-import { NextRequest, NextResponse } from "next/server";
-import { api } from "@/lib/api";
-import { withAuth } from "@workos-inc/authkit-nextjs";
+import { NextResponse } from 'next/server';
+import axios from 'axios';
+import { withAuth } from '@workos-inc/authkit-nextjs';
 
-// Validate ID format before making requests
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+
+// Helper function to validate ID format
 function isValidId(id) {
-  // Check if it's a valid UUID format
+  // Validate UUID format
   const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
   return uuidRegex.test(id);
 }
 
-export async function GET(
-  req,
-  { params }
-) {
+/**
+ * GET /api/appointments/[id]
+ * Gets a specific appointment by ID
+ */
+export async function GET(request, { params }) {
   try {
-    const { user } = await withAuth();
+    // Get auth data from WorkOS
+    const { user, organizationId, role } = await withAuth();
     if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    
-    const { id } = params;
-    
-    // Validate ID format before making request
-    if (!isValidId(id)) {
-      return NextResponse.json(
-        { error: "Invalid appointment ID format" },
-        { status: 400 }
-      );
-    }
-    
-    // Forward the request to the backend
-    const response = await api.get(`/api/appointments/${id}`);
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error(`Error fetching appointment ${params.id}:`, error);
-    
-    // Handle authentication errors
-    if (error.code === 'AUTH_REQUIRED') {
-      return NextResponse.json(
-        { code: 'AUTH_REQUIRED', error: 'Not authenticated' },
-        { status: 401 }
-      );
-    }
-    
-    // Check if error is specifically about ID format from backend
-    if (error.response?.data?.error?.includes('invalid appointment ID format')) {
-      return NextResponse.json(
-        { error: 'Invalid appointment ID format' },
-        { status: 400 }
-      );
-    }
-    
-    return NextResponse.json(
-      { error: error.response?.data?.error || 'Failed to fetch appointment details' },
-      { status: error.response?.status || 500 }
-    );
-  }
-}
 
-export async function PUT(
-  req,
-  { params }
-) {
-  try {
-    const { user } = await withAuth();
-    if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-    
-    const { id } = params;
+    // Make sure to await params if needed
+    const id = params.id;
     
     // Validate ID format before making request
     if (!isValidId(id)) {
-      return NextResponse.json(
-        { error: "Invalid appointment ID format" },
-        { status: 400 }
-      );
+      return NextResponse.json({ 
+        error: "Invalid appointment ID format. Expected UUID format." 
+      }, { status: 400 });
     }
-    
-    // Get the updated appointment data from the request body
-    const appointmentData = await req.json();
-    
-    // Forward the request to the backend
-    const response = await api.put(`/api/appointments/${id}`, appointmentData);
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error(`Error updating appointment ${params.id}:`, error);
-    
-    // Handle authentication errors
-    if (error.code === 'AUTH_REQUIRED') {
-      return NextResponse.json(
-        { code: 'AUTH_REQUIRED', error: 'Not authenticated' },
-        { status: 401 }
-      );
-    }
-    
-    return NextResponse.json(
-      { error: error.response?.data?.error || 'Failed to update appointment details' },
-      { status: error.response?.status || 500 }
-    );
-  }
-}
 
-export async function DELETE(
-  req,
-  { params }
-) {
-  try {
-    const { user } = await withAuth();
-    if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-    
-    const { id } = params;
-    
-    // Validate ID format before making request
-    if (!isValidId(id)) {
-      return NextResponse.json(
-        { error: "Invalid appointment ID format" },
-        { status: 400 }
-      );
-    }
-    
-    // Forward the request to the backend
-    const response = await api.delete(`/api/appointments/${id}`);
-    return NextResponse.json(response);
+    // Make request to backend API
+    const response = await axios.get(`${API_BASE_URL}/api/appointments/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${user.id}`,
+        ...(organizationId && { 'X-Organization-ID': organizationId }),
+        ...(role && { 'X-Role': role })
+      }
+    });
+
+    return NextResponse.json(response.data);
   } catch (error) {
-    console.error(`Error deleting appointment ${params.id}:`, error);
+    console.error('Error fetching appointment:', error);
     
-    // Handle authentication errors
-    if (error.code === 'AUTH_REQUIRED') {
+    if (error.response?.data) {
       return NextResponse.json(
-        { code: 'AUTH_REQUIRED', error: 'Not authenticated' },
-        { status: 401 }
+        { error: error.response.data.error || 'Failed to fetch appointment' },
+        { status: error.response.status || 400 }
       );
+    }
+    
+    if (error.code === 'AUTH_REQUIRED') {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
     
     return NextResponse.json(
-      { error: error.response?.data?.error || 'Failed to delete appointment details' },
-      { status: error.response?.status || 500 }
+      { error: 'An unexpected error occurred' },
+      { status: 500 }
     );
   }
 }

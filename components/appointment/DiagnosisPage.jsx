@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import {
   Accordion,
@@ -21,6 +21,11 @@ import {
 
 export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
   const [isLoading, setIsLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedMedicine, setSelectedMedicine] = useState(null);
+
   const [diagnosisData, setDiagnosisData] = useState({
     appointment_id: appointmentId || "",
     patient_id: patientId || "",
@@ -42,11 +47,7 @@ export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
       allergies: "",
     },
     status: "draft",
-    treatment_plan: {
-      medications: [],
-      procedures: [],
-      follow_up: "",
-    },
+    prescriptions: [], // Changed from treatment_plan to prescriptions
     lab_diagnostics: {
       tests_ordered: [],
       results: [],
@@ -129,43 +130,73 @@ export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
     }
   };
 
-  // Function to handle treatment plan changes
-  const handleTreatmentChange = (field, value) => {
-    setDiagnosisData({
-      ...diagnosisData,
-      treatment_plan: {
-        ...diagnosisData.treatment_plan,
-        [field]: value,
-      },
-    });
+  // Function to search for medicines
+  const searchMedicines = async () => {
+    if (!searchTerm.trim()) {
+      toast.error("Please enter a medicine name to search");
+      return;
+    }
+    
+    setIsSearching(true);
+    try {
+      const response = await fetch(`/api/medicines/search?term=${encodeURIComponent(searchTerm)}&limit=10`);
+      
+      if (!response.ok) {
+        throw new Error("Failed to search medicines");
+      }
+      
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (error) {
+      toast.error(error.message || "Failed to search medicines");
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
-  // Function to handle adding medication to treatment plan
-  const handleAddMedication = () => {
-    const medicationName = document.getElementById("medication-name").value;
-    const dosage = document.getElementById("medication-dosage").value;
+  // Function to select a medicine from search results
+  const selectMedicine = (medicine) => {
+    setSelectedMedicine(medicine);
+    setSearchResults([]);
+  };
+
+  // Function to handle adding prescription
+  const handleAddPrescription = () => {
+    const medicineName = selectedMedicine ? selectedMedicine.name : document.getElementById("medicine-name").value;
+    const dosagePattern = document.getElementById("dosage-pattern").value;
+    const frequency = document.getElementById("frequency").value;
+    const duration = document.getElementById("duration").value;
+    const instructions = document.getElementById("instructions").value;
     
-    if (medicationName.trim()) {
+    if (medicineName.trim()) {
       setDiagnosisData({
         ...diagnosisData,
-        treatment_plan: {
-          ...diagnosisData.treatment_plan,
-          medications: [
-            ...diagnosisData.treatment_plan.medications,
-            {
-              name: medicationName,
-              dosage: dosage,
-              instructions: document.getElementById("medication-instructions").value,
-            },
-          ],
-        },
+        prescriptions: [
+          ...diagnosisData.prescriptions,
+          {
+            name: medicineName,
+            dosage: dosagePattern,
+            frequency: frequency,
+            duration: duration,
+            instructions: instructions,
+            prescribed_at: new Date().toISOString(),
+          },
+        ],
       });
-      document.getElementById("medication-name").value = "";
-      document.getElementById("medication-dosage").value = "";
-      document.getElementById("medication-instructions").value = "";
-      toast.success("Medication added successfully");
+      
+      // Reset form fields
+      setSelectedMedicine(null);
+      setSearchTerm("");
+      document.getElementById("medicine-name").value = "";
+      document.getElementById("dosage-pattern").value = "0-1-0-0";
+      document.getElementById("frequency").value = "daily";
+      document.getElementById("duration").value = "";
+      document.getElementById("instructions").value = "";
+      
+      toast.success("Prescription added successfully");
     } else {
-      toast.error("Please enter medication name");
+      toast.error("Please enter medicine name");
     }
   };
 
@@ -596,8 +627,8 @@ export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
           </AccordionContent>
         </AccordionItem>
 
-        {/* Treatment Plan Section */}
-        <AccordionItem value="treatment">
+        {/* Prescription Section (Formerly Treatment Plan) */}
+        <AccordionItem value="prescription">
           <AccordionTrigger className="px-6 py-4 hover:bg-gray-50">
             <div className="flex items-center gap-2">
               <svg
@@ -611,68 +642,156 @@ export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
                 />
               </svg>
-              <span className="text-lg font-semibold">Treatment Plan</span>
+              <span className="text-lg font-semibold">Prescription</span>
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-6 py-4">
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="medication-name">Medication</Label>
-                  <Input id="medication-name" placeholder="Medication name" />
-                </div>
-                <div>
-                  <Label htmlFor="medication-dosage">Dosage</Label>
-                  <Input id="medication-dosage" placeholder="e.g., 500mg twice daily" />
+              {/* Medicine Search */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="md:col-span-3">
+                  <Label htmlFor="medicine-search">Search Medicine</Label>
+                  <div className="flex">
+                    <Input 
+                      id="medicine-search" 
+                      placeholder="Search by name" 
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="rounded-r-none"
+                    />
+                    <Button 
+                      type="button" 
+                      onClick={searchMedicines} 
+                      className="rounded-l-none"
+                      disabled={isSearching}
+                    >
+                      {isSearching ? "Searching..." : "Search"}
+                    </Button>
+                  </div>
                 </div>
               </div>
               
-              <div>
-                <Label htmlFor="medication-instructions">Instructions</Label>
-                <Input id="medication-instructions" placeholder="Special instructions" />
-              </div>
-              
-              <Button 
-                type="button" 
-                onClick={handleAddMedication}
-                className="w-full"
-              >
-                Add Medication
-              </Button>
-              
-              {diagnosisData.treatment_plan.medications.length > 0 && (
-                <div className="mt-4">
-                  <h3 className="font-medium mb-2">Prescribed Medications:</h3>
-                  <ul className="list-disc pl-5 space-y-2">
-                    {diagnosisData.treatment_plan.medications.map((med, index) => (
+              {/* Search Results */}
+              {searchResults.length > 0 && (
+                <div className="bg-gray-50 p-3 rounded-md max-h-40 overflow-y-auto">
+                  <h3 className="font-medium mb-2 text-sm">Search Results:</h3>
+                  <ul className="space-y-1">
+                    {searchResults.map((medicine, index) => (
                       <li key={index}>
-                        <strong>{med.name}</strong> - {med.dosage}
-                        {med.instructions && <div className="text-sm text-gray-600">Instructions: {med.instructions}</div>}
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          onClick={() => selectMedicine(medicine)}
+                          className="text-left w-full py-1 h-auto"
+                        >
+                          {medicine.name} ({medicine.company || "Unknown"})
+                        </Button>
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
               
-              <div className="pt-4">
-                <Label htmlFor="follow-up">Follow-up Instructions</Label>
-                <Textarea
-                  id="follow-up"
-                  value={diagnosisData.treatment_plan.follow_up}
-                  onChange={(e) => handleTreatmentChange("follow_up", e.target.value)}
-                  placeholder="Enter follow-up instructions"
-                  rows={3}
-                />
+              {/* Medicine Form */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="medicine-name">Medicine Name</Label>
+                  <Input 
+                    id="medicine-name" 
+                    placeholder="Enter medicine name" 
+                    value={selectedMedicine ? selectedMedicine.name : ""}
+                    readOnly={!!selectedMedicine}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="dosage-pattern">Dosage Pattern</Label>
+                  <Select defaultValue="0-1-0-0" id="dosage-pattern">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select dosage pattern" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0-1-0-0">0-1-0-0 (Once daily at noon)</SelectItem>
+                      <SelectItem value="1-0-0-0">1-0-0-0 (Once daily morning)</SelectItem>
+                      <SelectItem value="0-0-1-0">0-0-1-0 (Once daily evening)</SelectItem>
+                      <SelectItem value="0-0-0-1">0-0-0-1 (Once daily at night)</SelectItem>
+                      <SelectItem value="1-0-1-0">1-0-1-0 (Twice daily)</SelectItem>
+                      <SelectItem value="1-1-1-0">1-1-1-0 (Three times daily)</SelectItem>
+                      <SelectItem value="1-1-1-1">1-1-1-1 (Four times daily)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="frequency">Frequency</Label>
+                  <Select defaultValue="daily" id="frequency">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select frequency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="twice-daily">Twice Daily</SelectItem>
+                      <SelectItem value="every-other-day">Every Other Day</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="as-needed">As Needed (PRN)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="duration">Duration</Label>
+                  <Input id="duration" placeholder="e.g., 7 days, 2 weeks" />
+                </div>
+                
+                <div>
+                  <Label htmlFor="instructions">Instructions</Label>
+                  <Select defaultValue="with-water" id="instructions">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select instructions" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="with-water">With Water</SelectItem>
+                      <SelectItem value="with-food">With Food</SelectItem>
+                      <SelectItem value="after-food">After Food</SelectItem>
+                      <SelectItem value="before-food">Before Food</SelectItem>
+                      <SelectItem value="with-hot-water">With Hot Water</SelectItem>
+                      <SelectItem value="with-milk">With Milk</SelectItem>
+                      <SelectItem value="empty-stomach">On Empty Stomach</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <Button 
+                type="button" 
+                onClick={handleAddPrescription}
+                className="w-full"
+              >
+                Add Prescription
+              </Button>
+              
+              {diagnosisData.prescriptions.length > 0 && (
+  <div className="mt-4">
+    <h3 className="font-medium mb-2">Added Prescriptions:</h3>
+    <ul className="list-disc pl-5 space-y-1">
+      {diagnosisData.prescriptions.map((prescription, index) => (
+        <li key={index}>
+          {prescription.name} - {prescription.dosage} ({prescription.frequency}) for {prescription.duration} - {prescription.instructions}
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
             </div>
           </AccordionContent>
         </AccordionItem>
 
         {/* Lab Diagnostics Section */}
-        <AccordionItem value="lab">
+        <AccordionItem value="lab-diagnostics">
           <AccordionTrigger className="px-6 py-4 hover:bg-gray-50">
             <div className="flex items-center gap-2">
               <svg
@@ -694,9 +813,11 @@ export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
           </AccordionTrigger>
           <AccordionContent className="px-6 py-4">
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="lab-test-name">Test Name</Label>
-                <Input id="lab-test-name" placeholder="Enter test name" />
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <Label htmlFor="lab-test-name">Test Name</Label>
+                  <Input id="lab-test-name" placeholder="Enter test name" />
+                </div>
               </div>
               
               <Button 
@@ -709,7 +830,7 @@ export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
               
               {diagnosisData.lab_diagnostics.tests_ordered.length > 0 && (
                 <div className="mt-4">
-                  <h3 className="font-medium mb-2">Ordered Tests:</h3>
+                  <h3 className="font-medium mb-2">Tests Ordered:</h3>
                   <ul className="list-disc pl-5 space-y-1">
                     {diagnosisData.lab_diagnostics.tests_ordered.map((test, index) => (
                       <li key={index}>{test.name}</li>
@@ -739,34 +860,39 @@ export default function DiagnosisPage({ appointmentId, patientId, doctorId }) {
                   d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                 />
               </svg>
-              <span className="text-lg font-semibold">Additional Notes</span>
+              <span className="text-lg font-semibold">Notes</span>
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-6 py-4">
-            <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="notes">Additional Notes</Label>
               <Textarea
+                id="notes"
                 value={diagnosisData.notes}
                 onChange={(e) => setDiagnosisData({...diagnosisData, notes: e.target.value})}
                 placeholder="Enter any additional notes about the diagnosis"
-                rows={5}
+                rows={4}
               />
             </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-
-      <div className="flex justify-end gap-4 pt-4">
+      
+      <div className="flex flex-col md:flex-row gap-4 mt-8">
         <Button 
+          type="button" 
           variant="outline" 
           onClick={() => handleSubmit("draft")}
           disabled={isLoading}
+          className="flex-1"
         >
           Save as Draft
         </Button>
         <Button 
+          type="button" 
           onClick={() => handleSubmit("finalized")}
           disabled={isLoading}
-          className="bg-blue-500 hover:bg-blue-600 text-white"
+          className="flex-1"
         >
           Finalize Diagnosis
         </Button>

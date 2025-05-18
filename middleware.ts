@@ -49,6 +49,10 @@ export const config = {
     "/appointments/:path*",
     '/hospital',
     "/hospital/:path*",
+    "/diagnosis",
+    "/diagnosis/:path*",
+    '/medicines',
+    '/medicines/:path*',
     
     // Protected API routes
     '/api/user/:path*',
@@ -57,6 +61,8 @@ export const config = {
     '/api/doctors/:path*',
     "/api/appointments/:path*",
     "/api/transactions/:path*",
+    "/api/diagnosis/:path*",
+    "/api/medicines/:path*",
     
     // Auth routes
     '/callback',

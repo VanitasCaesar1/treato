@@ -78,7 +78,7 @@ export default async function Layout({ children }) {
         {/* Mobile Search - Expandable */}
         <MobileSearch />
         {/* Main Content */}
-        <main className="p-3 md:p-6">{children}</main>
+        <main className="">{children}</main>
       </div>
     </div>
   );
