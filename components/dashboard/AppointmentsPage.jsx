@@ -1,6 +1,6 @@
 "use client"
 // dashboard/op
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { 
@@ -58,6 +58,10 @@ export default function AppointmentsPage() {
   const [pagination, setPagination] = useState(DEFAULT_PAGINATION);
   const [error, setError] = useState(null);
   const [errorDetails, setErrorDetails] = useState(null);
+
+  // Create refs at the top level of component
+  const prevFiltersRef = useRef(null);
+  const prevPaginationRef = useRef(null);
 
   // Filters state
   const [filters, setFilters] = useState({
@@ -185,11 +189,13 @@ export default function AppointmentsPage() {
       queryParams.append("sort_by", "appointment_date");
       queryParams.append("sort_order", "desc");
       
+      console.log("Fetching appointments with params:", queryParams.toString());
+      
       // Make API call
       const response = await fetch(`/api/appointments/org?${queryParams.toString()}`);
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(`API Error (${response.status}): ${errorData.error || response.statusText}`);
       }
       
@@ -331,17 +337,32 @@ export default function AppointmentsPage() {
 
   // Handle search form submission
   const handleSearch = useCallback((e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
 
     // Update filters state with form values
     setFilters({...formState});
 
-    // Reset pagination
+    // Reset pagination when filters change
     setPagination(prev => ({
       ...prev,
       offset: 0
     }));
-  }, [formState]);
+    
+    // Update URL query params for better shareability
+    const newParams = new URLSearchParams();
+    
+    if (formState.searchTerm) newParams.set('search', formState.searchTerm);
+    if (formState.status !== 'all') newParams.set('status', formState.status);
+    if (formState.doctor !== 'all') newParams.set('doctorId', formState.doctor);
+    if (formState.feeType !== 'all') newParams.set('feeType', formState.feeType);
+    if (formState.validity !== 'all') newParams.set('validity', formState.validity);
+    if (formState.date) newParams.set('startDate', formState.date);
+    
+    // Use Next.js router to update the URL without refreshing the page
+    const newUrl = window.location.pathname + (newParams.toString() ? `?${newParams.toString()}` : '');
+    router.push(newUrl, { scroll: false });
+    
+  }, [formState, router]);
 
   // Reset all filters
   const resetFilters = useCallback(() => {
@@ -365,7 +386,10 @@ export default function AppointmentsPage() {
       ...prev,
       offset: 0
     }));
-  }, []);
+    
+    // Clear URL parameters
+    router.push(window.location.pathname, { scroll: false });
+  }, [router]);
 
   // Handle adding a new appointment
   const handleNewAppointment = useCallback(() => {
@@ -382,26 +406,22 @@ export default function AppointmentsPage() {
     }
   }, [router]);
 
-  // Fetch appointments when component mounts or filters/pagination changes
-  useEffect(() => {
-    fetchAppointments();
-  }, [fetchAppointments, pagination.offset, pagination.limit]);
-
   // Load initial URL parameters if any
   useEffect(() => {
     const status = searchParams.get('status') || 'all';
     const doctor = searchParams.get('doctorId') || 'all';
     const feeType = searchParams.get('feeType') || 'all';
+    const validity = searchParams.get('validity') || 'all';
     const date = searchParams.get('startDate') || '';
     const search = searchParams.get('search') || '';
     
-    if (status !== 'all' || doctor !== 'all' || feeType !== 'all' || date || search) {
+    if (status !== 'all' || doctor !== 'all' || feeType !== 'all' || validity !== 'all' || date || search) {
       const initialFilters = {
         searchTerm: search,
         status,
         doctor,
         feeType,
-        validity: 'all',
+        validity,
         date,
       };
       
@@ -410,22 +430,33 @@ export default function AppointmentsPage() {
     }
   }, [searchParams]);
 
+  // This effect will trigger whenever filters or pagination changes
+  useEffect(() => {
+    // Create a reference to the current filters and pagination
+    const currentFilters = JSON.stringify(filters);
+    const currentPagination = JSON.stringify({
+      limit: pagination.limit,
+      offset: pagination.offset
+    });
+    
+    // Only fetch if filters or pagination actually changed
+    if (prevFiltersRef.current !== currentFilters || prevPaginationRef.current !== currentPagination) {
+      // Update our refs with the current values
+      prevFiltersRef.current = currentFilters;
+      prevPaginationRef.current = currentPagination;
+      
+      // Fetch appointments
+      fetchAppointments();
+    }
+  }, [filters, pagination.limit, pagination.offset, fetchAppointments]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
           <h1 className="text-2xl font-medium text-gray-900 mb-4 sm:mb-0">Appointments</h1>
           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-            <Button 
-              className="bg-blue-600 text-white hover:bg-blue-700 rounded-lg px-4 flex items-center gap-2"
-              onClick={handleNewAppointment}
-            >
-              <Plus className="h-4 w-4" />
-              New Appointment
-            </Button>
-            <Button className="bg-amber-400 text-gray-900 hover:bg-amber-500 rounded-lg px-4">
-              More Settings
-            </Button>
+            
           </div>
         </div>
 
@@ -583,6 +614,42 @@ export default function AppointmentsPage() {
             </div>
           )}
 
+          {/* Filter summary */}
+          {(filters.status !== 'all' || 
+            filters.doctor !== 'all' || 
+            filters.feeType !== 'all' || 
+            filters.validity !== 'all' || 
+            filters.date || 
+            filters.searchTerm) && (
+            <div className="px-6 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+              <div className="text-sm text-blue-600">
+                <span className="font-medium">Filters applied:</span>{' '}
+                {filters.searchTerm && <span className="mr-2">Search: "{filters.searchTerm}"</span>}
+                {filters.status !== 'all' && <span className="mr-2">Status: {filters.status}</span>}
+                {filters.doctor !== 'all' && (
+                  <span className="mr-2">Doctor: {
+                    filters.doctor === '550e8400-e29b-41d4-a716-446655440000' 
+                      ? 'Dr. Brandon McIntyre' 
+                      : filters.doctor === '550e8400-e29b-41d4-a716-446655440001'
+                        ? 'Dr. Sarah Johnson'
+                        : filters.doctor
+                  }</span>
+                )}
+                {filters.feeType !== 'all' && <span className="mr-2">Fee Type: {filters.feeType}</span>}
+                {filters.validity !== 'all' && <span className="mr-2">Validity: {filters.validity === 'true' ? 'Valid' : 'Expired'}</span>}
+                {filters.date && <span>Date: {filters.date}</span>}
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={resetFilters}
+                className="text-blue-600 hover:bg-blue-100"
+              >
+                Clear All
+              </Button>
+            </div>
+          )}
+
           {/* Table header with slot time range */}
           <div className="px-6 py-3 bg-gray-50 border-b border-gray-100 hidden md:grid" 
             style={{ gridTemplateColumns: "1.4fr 1.8fr 1.8fr 1fr 1fr 0.8fr 0.8fr 100px" }}>
@@ -606,281 +673,201 @@ export default function AppointmentsPage() {
               {/* Appointment rows with slot time range */}
               {appointments.map((appointment, index) => (
                 <div
-                  key={appointment.appointment_id || index}
-                  className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors cursor-pointer"
-                  onClick={() => handleAppointmentClick(appointment)}
-                >
-                  {/* Mobile view with slot time range */}
-                  <div className="md:hidden p-4 space-y-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-medium text-gray-900">
-                          {appointment.patient_name}
-                          {appointment.has_diagnosis && (
-                            <Badge className="ml-2 bg-blue-100 text-blue-600 border-none">Has Diagnosis</Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 text-sm text-gray-700 mt-1">
-                          <AlarmClock className="h-4 w-4 text-blue-500" />
-                          <span className="font-medium">
-                            {formatSlotTimeRange(
-                              appointment.slot_start_time || appointment.appointment_date,
-                              appointment.slot_end_time
-                            )}
-                          </span>
-                          <span className="text-gray-500">on {formatDate(appointment.appointment_date)}</span>
-                        </div>
-                      </div>
-                      <Badge
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[appointment.appointment_status]}`}
-                      >
-                        {appointment.appointment_status === "completed" ? "Completed" : "Pending"}
-                      </Badge>
+                key={appointment.appointment_id || index}
+                className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors duration-200"
+                onClick={() => handleAppointmentClick(appointment)}
+              >
+                <div className="px-6 py-4 grid gap-4 md:gap-0 md:grid-cols-[1.4fr_1.8fr_1.8fr_1fr_1fr_0.8fr_0.8fr_100px] items-center cursor-pointer">
+                  {/* Time slot with clock icon */}
+                  <div className="flex items-center">
+                  <div className="rounded-full p-2 bg-blue-50 mr-3">
+                      <AlarmClock className="h-4 w-4 text-blue-600" />
                     </div>
-                    
-                    <div className="flex justify-between text-sm">
-                      <div><span className="text-gray-500">Doctor:</span> {appointment.doctor_name}</div>
-                      <div><span className="text-gray-500">Fee:</span> ${appointment.appointment_fee}</div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between mt-2">
-                      <Badge
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${VALIDITY_STYLES[appointment.is_valid ? "true" : "false"]}`}
-                      >
-                        {appointment.is_valid ? "Valid" : "Expired"}
-                      </Badge>
-                      
-                      <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-gray-400 hover:text-gray-900 hover:bg-gray-100"
-                          title="Print appointment details"
-                        >
-                          <Printer className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-gray-400 hover:text-gray-900 hover:bg-gray-100"
-                          title="Download appointment details"
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Desktop view with slot time range */}
-                  <div 
-                    className="px-6 py-4 hidden md:grid items-center"
-                    style={{ gridTemplateColumns: "1.4fr 1.8fr 1.8fr 1fr 1fr 0.8fr 0.8fr 100px" }}
-                  >
-                    {/* Improved time display column with slot times */}
-                    <div className="flex items-center space-x-2">
-                      <div className="bg-blue-50 rounded-full p-1.5">
-                        <AlarmClock className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {formatSlotTimeRange(
-                            appointment.slot_start_time || appointment.appointment_date, 
-                            appointment.slot_end_time
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {formatDate(appointment.appointment_date)}
-                        </div>
-                      </div>
-                    </div>
-                    
                     <div>
-                      <div 
-                        className="text-sm font-medium text-gray-900 hover:text-blue-600 flex items-center gap-1 group w-fit"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        {appointment.patient_name}
-                        <ChevronRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                      </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        {appointment.next_visit_date && (
-                          <div className="flex items-center gap-1">
-                            Next visit: {formatDate(appointment.next_visit_date)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm text-gray-900">
-                        {appointment.doctor_name}
+                      <span className="text-sm font-medium text-gray-700 block">
+                        {formatSlotTimeRange(appointment.slot_start_time, appointment.slot_end_time) || "Any time"}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {appointment.next_visit_date ? `Next: ${formatDate(appointment.next_visit_date)}` : "No follow-up"}
                       </span>
                     </div>
-                    
-                    <div className="text-sm text-gray-900">
-                      ${appointment.appointment_fee}
-                      <div className="text-xs text-gray-400 mt-0.5 capitalize">{appointment.fee_type}</div>
-                    </div>
-                    
-                    <div className="text-sm font-medium text-gray-900">
-                      {formatDate(appointment.appointment_date)}
-                    </div>
-                    
-                    <div>
-                      <Badge
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[appointment.appointment_status]}`}
-                      >
-                        {appointment.appointment_status === "completed" ? "Completed" : "Pending"}
-                      </Badge>
-                    </div>
-                    
-                    <div>
-                      <Badge
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${VALIDITY_STYLES[appointment.is_valid ? "true" : "false"]}`}
-                      >
-                        {appointment.is_valid ? "Valid" : "Expired"}
-                      </Badge>
-                    </div>
-                    
-                    <div className="flex justify-end space-x-1" onClick={e => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-gray-900 hover:bg-gray-100"
-                        title="Print appointment details"
-                      >
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-gray-900 hover:bg-gray-100"
-                        title="Download appointment details"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
+                  </div>
+                  
+                  {/* Patient info */}
+                  <div>
+                    <div className="font-medium text-gray-800">{appointment.patient_name || "Unknown Patient"}</div>
+                    <div className="text-xs text-gray-500">ID: {appointment.patient_id || "N/A"}</div>
+                  </div>
+                  
+                  {/* Doctor info */}
+                  <div>
+                    <div className="font-medium text-gray-800">{appointment.doctor_name || "Unassigned"}</div>
+                    <div className="text-xs text-gray-500">
+                      {appointment.fee_type === "emergency" ? "Emergency Consultation" : "Regular Consultation"}
                     </div>
                   </div>
-                </div>
-              ))}
-              
-              {/* Pagination controls */}
-              <div className="p-4 flex items-center justify-between border-t border-gray-100">
-                <div className="text-sm text-gray-500">
-                  Showing {Math.min(pagination.offset + 1, pagination.total)} to {Math.min(pagination.offset + appointments.length, pagination.total)} of {pagination.total} results
-                </div>
-                
-                <div className="flex items-center space-x-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={pagination.offset === 0}
-                    onClick={() => handlePageChange(0)}
-                    className="border-gray-200 hidden sm:inline-flex"
-                  >
-                    First
-                  </Button>
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={pagination.offset === 0}
-                    onClick={() => handlePageChange(Math.max(0, pagination.offset - pagination.limit))}
-                    className="border-gray-200"
-                  >
-                    Previous
-                  </Button>
+                  {/* Fee info */}
+                  <div>
+                    <div className="font-medium text-gray-800">
+                      ${typeof appointment.appointment_fee === 'number' ? appointment.appointment_fee.toFixed(2) : appointment.appointment_fee || "0.00"}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {appointment.payment_method || "Not paid"}
+                    </div>
+                  </div>
                   
-                  {paginationInfo.pageNumbers.map((page, index) => 
-                    page === "..." ? (
-                      <span key={`ellipsis-${index}`} className="px-2">...</span>
-                    ) : (
-                      <Button
-                        key={`page-${page}`}
-                        variant={page === paginationInfo.currentPage ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handlePageChange((page - 1) * pagination.limit)}
-                        className={page === paginationInfo.currentPage ? "bg-blue-600 text-white hover:bg-blue-700" : "border-gray-200"}
-                      >
-                        {page}
-                      </Button>
-                    )
-                  )}
+                  {/* Date */}
+                  <div>
+                    <div className="text-sm text-gray-700">{formatDate(appointment.appointment_date)}</div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(appointment.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={pagination.offset + pagination.limit >= pagination.total}
-                    onClick={() => handlePageChange(pagination.offset + pagination.limit)}
-                    className="border-gray-200"
-                  >
-                    Next
-                  </Button>
+                  {/* Status badge */}
+                  <div>
+                    <Badge 
+                      className={STATUS_STYLES[appointment.appointment_status] || "bg-gray-50 text-gray-600"}
+                    >
+                      {appointment.appointment_status === "completed" ? "Completed" : "Pending"}
+                    </Badge>
+                  </div>
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={pagination.offset + pagination.limit >= pagination.total}
-                    onClick={() => handlePageChange(Math.max(0, Math.floor(pagination.total / pagination.limit) * pagination.limit))}
-                    className="border-gray-200 hidden sm:inline-flex"
-                  >
-                    Last
-                  </Button>
+                  {/* Validity badge */}
+                  <div>
+                    <Badge 
+                      className={VALIDITY_STYLES[String(appointment.is_valid)] || "bg-gray-50 text-gray-600"}
+                    >
+                      {appointment.is_valid ? "Valid" : "Expired"}
+                    </Badge>
+                  </div>
+                  
+                  {/* Actions */}
+                  <div className="text-right">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAppointmentClick(appointment);
+                      }}
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-2"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
+              ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="bg-gray-100 rounded-full p-3 mb-4">
-                <Calendar className="h-6 w-6 text-gray-400" />
+            <div className="text-center py-12">
+              <div className="flex justify-center">
+                <TimerIcon className="h-12 w-12 text-gray-300" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-1">No appointments found</h3>
-              <p className="text-gray-500 mb-4 text-center max-w-md">
-                No appointments match your search criteria. Try adjusting your filters or add a new appointment.
-              </p>
-              <Button 
-                className="bg-blue-600 text-white hover:bg-blue-700 rounded-lg px-4 flex items-center gap-2"
-                onClick={handleNewAppointment}
-              >
-                <Plus className="h-4 w-4" />
-                New Appointment
-              </Button>
+              <h3 className="mt-4 text-lg font-medium text-gray-900">No appointments found</h3>
+              <p className="mt-1 text-gray-500">Try adjusting your search or filters to find what you're looking for.</p>
+              <div className="mt-6">
+                <Button 
+                  onClick={resetFilters}
+                  className="bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  Reset Filters
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {appointments.length > 0 && pagination.total > pagination.limit && (
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Showing {pagination.offset + 1} to {Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} results
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pagination.offset === 0}
+                  onClick={() => handlePageChange(0)}
+                  className="border-gray-200 text-gray-600 hover:bg-gray-50"
+                >
+                  First
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pagination.offset === 0}
+                  onClick={() => handlePageChange(Math.max(0, pagination.offset - pagination.limit))}
+                  className="border-gray-200 text-gray-600 hover:bg-gray-50"
+                >
+                  Previous
+                </Button>
+                
+                {paginationInfo.pageNumbers.map((pageNum, index) => (
+                  pageNum === "..." ? (
+                    <span key={`ellipsis-${index}`} className="px-2">...</span>
+                  ) : (
+                    <Button
+                      key={pageNum}
+                      variant={paginationInfo.currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange((pageNum - 1) * pagination.limit)}
+                      className={
+                        paginationInfo.currentPage === pageNum
+                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                          : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }
+                    >
+                      {pageNum}
+                    </Button>
+                  )
+                ))}
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pagination.offset + pagination.limit >= pagination.total}
+                  onClick={() => handlePageChange(pagination.offset + pagination.limit)}
+                  className="border-gray-200 text-gray-600 hover:bg-gray-50"
+                >
+                  Next
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pagination.offset + pagination.limit >= pagination.total}
+                  onClick={() => handlePageChange(Math.floor(pagination.total / pagination.limit) * pagination.limit)}
+                  className="border-gray-200 text-gray-600 hover:bg-gray-50"
+                >
+                  Last
+                </Button>
+              </div>
             </div>
           )}
         </div>
-
-        <div className="flex justify-between items-center">
-          <div className="text-gray-500 text-sm">
-            Data refreshed {new Date().toLocaleTimeString()}
-          </div>
-          <div className="flex space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="border-gray-200 text-gray-700 hover:bg-gray-50 flex items-center gap-1"
-              onClick={fetchAppointments}
-            >
-              <RefreshCw className="h-3 w-3" />
-              Refresh
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="border-gray-200 text-gray-700 hover:bg-gray-50 flex items-center gap-1"
-            >
-              <Download className="h-3 w-3" />
-              Export
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="border-gray-200 text-gray-700 hover:bg-gray-50 flex items-center gap-1"
-            >
-              <Printer className="h-3 w-3" />
-              Print
-            </Button>
-          </div>
+        
+        {/* Action buttons at bottom */}
+        <div className="mt-6 flex flex-wrap gap-4">
+          <Button 
+            variant="outline" 
+            className="border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          >
+            <Printer className="h-4 w-4" />
+            Print List
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            className="border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export to Excel
+          </Button>
         </div>
       </div>
     </div>

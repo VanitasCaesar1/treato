@@ -523,7 +523,7 @@ const DoctorSettings: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-4 mt-4">
       <h1 className="text-3xl font-bold mb-6">Doctor Settings</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
