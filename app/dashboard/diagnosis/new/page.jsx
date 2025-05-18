@@ -45,44 +45,50 @@ const SECTIONS_CONFIG = {
   vitals: {
     icon: <Thermometer className="h-5 w-5" />,
     title: "Vitals",
-    color: "bg-gradient-to-r from-rose-500 to-red-500",
+    color: "bg-rose-500",
+    gradient: "bg-gradient-to-r from-rose-400 to-red-400",
     bgColor: "bg-gradient-to-r from-rose-50 to-red-50",
-    borderColor: "border-rose-500"
+    accentColor: "from-rose-100 to-red-100"
   },
   symptoms: {
     icon: <Activity className="h-5 w-5" />,
     title: "Symptoms",
-    color: "bg-gradient-to-r from-blue-500 to-indigo-500",
+    color: "bg-blue-500",
+    gradient: "bg-gradient-to-r from-blue-400 to-indigo-400",
     bgColor: "bg-gradient-to-r from-blue-50 to-indigo-50",
-    borderColor: "border-blue-500"
+    accentColor: "from-blue-100 to-indigo-100"
   },
   medicalHistory: {
     icon: <FileText className="h-5 w-5" />,
     title: "Medical History",
-    color: "bg-gradient-to-r from-purple-500 to-violet-500",
+    color: "bg-purple-500",
+    gradient: "bg-gradient-to-r from-purple-400 to-violet-400",
     bgColor: "bg-gradient-to-r from-purple-50 to-violet-50",
-    borderColor: "border-purple-500"
+    accentColor: "from-purple-100 to-violet-100"
   },
   diagnosis: {
     icon: <Stethoscope className="h-5 w-5" />,
     title: "Diagnosis",
-    color: "bg-gradient-to-r from-amber-500 to-yellow-500",
+    color: "bg-amber-500",
+    gradient: "bg-gradient-to-r from-amber-400 to-yellow-400",
     bgColor: "bg-gradient-to-r from-amber-50 to-yellow-50",
-    borderColor: "border-amber-500"
+    accentColor: "from-amber-100 to-yellow-100"
   },
   treatment: {
     icon: <Shield className="h-5 w-5" />,
     title: "Prescription", // Changed from "Treatment Plan" to "Prescription"
-    color: "bg-gradient-to-r from-emerald-500 to-green-500",
+    color: "bg-emerald-500",
+    gradient: "bg-gradient-to-r from-emerald-400 to-green-400",
     bgColor: "bg-gradient-to-r from-emerald-50 to-green-50",
-    borderColor: "border-emerald-500"
+    accentColor: "from-emerald-100 to-green-100"
   },
   notes: {
     icon: <PenTool className="h-5 w-5" />,
     title: "Additional Notes",
-    color: "bg-gradient-to-r from-gray-500 to-slate-500",
+    color: "bg-gray-500",
+    gradient: "bg-gradient-to-r from-gray-400 to-slate-400",
     bgColor: "bg-gradient-to-r from-gray-50 to-slate-50",
-    borderColor: "border-gray-500"
+    accentColor: "from-gray-100 to-slate-100"
   }
 };
 
@@ -343,7 +349,7 @@ export default function DiagnosisPage() {
     <div className="flex-1 bg-gray-50 min-h-screen">
       {/* Success Alert */}
       {saveSuccess && (
-        <div className="fixed top-4 right-4 z-50 bg-green-100 border-green-400 border rounded-lg px-6 py-4 shadow-lg flex items-center gap-3 animate-in fade-in slide-in-from-top duration-300">
+        <div className="fixed top-4 right-4 z-50 bg-green-100 rounded-xl px-6 py-4 shadow-lg flex items-center gap-3 animate-in fade-in slide-in-from-top duration-300">
           <Check className="text-green-600 h-5 w-5" />
           <span className="text-green-800">Diagnosis saved successfully!</span>
         </div>
@@ -361,7 +367,7 @@ export default function DiagnosisPage() {
       <div className="flex max-w-screen-2xl mx-auto relative pb-20">
         {/* Main form area */}
         <div className="flex-1 p-6">
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form id="diagnosis-form" onSubmit={handleSubmit} className="space-y-6">
             {/* Vitals Section */}
             <SectionCard 
               config={SECTIONS_CONFIG.vitals}
@@ -397,7 +403,7 @@ export default function DiagnosisPage() {
             >
               <Textarea 
                 placeholder="Enter relevant medical history details"
-                className="min-h-32 resize-y rounded-xl border-gray-200 focus:border-purple-300 focus:ring focus:ring-purple-100 transition-colors"
+                className="min-h-32 resize-y rounded-xl border-purple-200 focus:border-purple-300 focus:ring focus:ring-purple-100 transition-colors"
                 value={diagnosisForm.medical_history?.notes || ""}
                 onChange={(e) => updateFormField("medical_history.notes", e.target.value)}
               />
@@ -470,7 +476,7 @@ export default function DiagnosisPage() {
 // Header component with patient information
 function Header({ patientName, patientAge, patientGender, onBackClick }) {
   return (
-    <header className="px-6 py-4 bg-white border-b flex items-center justify-between sticky top-0 z-10 shadow-sm">
+    <header className="px-6 py-4 border-b flex items-center justify-between sticky top-0 z-10 shadow-sm backdrop-blur-lg bg-white/90">
       <div className="flex items-center">
         <Button
           variant="ghost"
@@ -492,13 +498,13 @@ function Header({ patientName, patientAge, patientGender, onBackClick }) {
       <div className="flex items-center space-x-3">
         <Button 
           variant="outline" 
-          className="rounded-full px-5 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:bg-blue-100 transition-all"
+          className="rounded-full px-5 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100 hover:bg-blue-100 transition-all shadow-sm"
         >
           Patient overview
         </Button>
         <Button 
           variant="outline" 
-          className="rounded-full px-5 py-2 border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 hover:bg-emerald-100 transition-all"
+          className="rounded-full px-5 py-2 border-emerald-100 bg-gradient-to-r from-emerald-50 to-green-50 hover:bg-emerald-100 transition-all shadow-sm"
         >
           Prescription Pad
         </Button>
@@ -507,27 +513,29 @@ function Header({ patientName, patientAge, patientGender, onBackClick }) {
   );
 }
 
-// Enhanced section card component for accordion sections
+// Enhanced section card component for accordion sections with iOS design influence
 function SectionCard({ config, isOpen, onToggle, children }) {
-  const { icon, title, color, bgColor, borderColor } = config;
+  const { icon, title, color, gradient, bgColor, accentColor } = config;
   
   return (
-    <div className={`mb-4 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-200 ease-in-out ${isOpen ? `ring-2 ring-offset-2 ring-offset-gray-50 ring-${borderColor.split('-')[1]}` : ''}`}>
+    <div className={`rounded-2xl overflow-hidden transition-all duration-200 ease-in-out ${isOpen ? 'shadow-md' : 'shadow-sm'}`}>
       <div 
-        className={`flex justify-between items-center p-4 ${bgColor} cursor-pointer border-l-4 ${borderColor}`}
+        className={`flex justify-between items-center p-4 cursor-pointer ${isOpen ? `bg-gradient-to-r ${accentColor}` : bgColor}`}
         onClick={onToggle}
-        style={{ borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem' }}
+        style={{ borderRadius: '1rem' }}
       >
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-full ${color} text-white`}>
+          <div className={`p-2 rounded-full ${gradient} text-white shadow-sm`}>
             {icon}
           </div>
           <h3 className="text-lg font-medium">{title}</h3>
         </div>
-        {isOpen ? <ChevronUp className="h-5 w-5 text-gray-500" /> : <ChevronDown className="h-5 w-5 text-gray-500" />}
+        <div className="bg-white/80 backdrop-blur-sm p-1 rounded-full shadow-sm">
+          {isOpen ? <ChevronUp className="h-5 w-5 text-gray-500" /> : <ChevronDown className="h-5 w-5 text-gray-500" />}
+        </div>
       </div>
       {isOpen && (
-        <div className="p-6 bg-white border-t border-gray-100" style={{ borderBottomLeftRadius: '1rem', borderBottomRightRadius: '1rem' }}>
+        <div className="p-6 bg-white rounded-2xl mt-1 shadow-inner" style={{ marginTop: '-0.5rem', paddingTop: '1.5rem' }}>
           {children}
         </div>
       )}
@@ -535,15 +543,15 @@ function SectionCard({ config, isOpen, onToggle, children }) {
   );
 }
 
-// Vital Input component for capturing vital signs
-function VitalInput({ label, value, onChange, placeholder, unit, icon, min, max, step = "any", bgColor = "bg-gray-50", highlightColor = "border-red-300 ring-red-100" }) {
+// Vital Input component for capturing vital signs with iOS/macOS inspired design
+function VitalInput({ label, value, onChange, placeholder, unit, icon, min, max, step = "any", bgColor = "bg-gray-50", highlightColor = "ring-red-200" }) {
   return (
-    <div className={`${bgColor} rounded-2xl p-4 shadow-sm transition-all duration-200 hover:shadow-md border border-transparent hover:border-gray-200`}>
+    <div className={`${bgColor} rounded-2xl p-4 shadow-sm transition-all duration-200 hover:shadow-md backdrop-blur-sm`}>
       <div className="flex items-center gap-3 mb-2">
-        <div className="text-gray-500">{icon}</div>
-        <span className="text-sm text-gray-600 font-medium">{label}</span>
+        <div className="text-gray-600">{icon}</div>
+        <span className="text-sm font-medium">{label}</span>
       </div>
-      <div className="flex items-center mt-1">
+      <div className="flex items-center mt-1 bg-white/70 rounded-xl px-3 py-2 backdrop-blur-sm">
         <input
           type="text"
           min={min} 
@@ -552,7 +560,7 @@ function VitalInput({ label, value, onChange, placeholder, unit, icon, min, max,
           placeholder={placeholder}
           value={value || ""} 
           onChange={(e) => onChange(e.target.value)}
-          className={`text-2xl font-semibold bg-transparent border-none w-full p-0 focus:outline-none focus:ring-2 ${highlightColor} rounded-lg`}
+          className={`text-2xl font-semibold bg-transparent border-none w-full p-0 focus:outline-none focus:ring-1 ${highlightColor} rounded-lg`}
           aria-label={label}
         />
         <span className="text-xl text-gray-500 font-medium ml-1 shrink-0">{unit}</span>
@@ -561,7 +569,7 @@ function VitalInput({ label, value, onChange, placeholder, unit, icon, min, max,
   );
 }
 
-// Vitals Section component
+// Vitals Section component with iOS-inspired design
 function VitalsSection({ vitals, onChange }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -576,7 +584,7 @@ function VitalsSection({ vitals, onChange }) {
         max="42"
         step="0.1"
         bgColor="bg-gradient-to-br from-rose-50 to-red-50"
-        highlightColor="border-red-300 ring-red-100"
+        highlightColor="ring-red-200"
       />
       
       <VitalInput
@@ -589,7 +597,7 @@ function VitalsSection({ vitals, onChange }) {
         min="40"
         max="200"
         bgColor="bg-gradient-to-br from-pink-50 to-rose-50"
-        highlightColor="border-pink-300 ring-pink-100"
+        highlightColor="ring-pink-200"
       />
       
       <VitalInput
@@ -600,7 +608,7 @@ function VitalsSection({ vitals, onChange }) {
         unit="mmHg"
         icon={<Activity className="h-4 w-4" />}
         bgColor="bg-gradient-to-br from-orange-50 to-amber-50"
-        highlightColor="border-orange-300 ring-orange-100"
+        highlightColor="ring-orange-200"
       />
       
       <VitalInput
@@ -613,7 +621,7 @@ function VitalsSection({ vitals, onChange }) {
         min="8"
         max="40"
         bgColor="bg-gradient-to-br from-sky-50 to-blue-50"
-        highlightColor="border-sky-300 ring-sky-100"
+        highlightColor="ring-sky-200"
       />
       
       <VitalInput
@@ -626,26 +634,29 @@ function VitalsSection({ vitals, onChange }) {
         min="80"
         max="100"
         bgColor="bg-gradient-to-br from-indigo-50 to-violet-50"
-        highlightColor="border-indigo-300 ring-indigo-100"
+        highlightColor="ring-indigo-200"
       />
     </div>
   );
 }
 
-// Symptoms Section component
+// Symptoms Section component with improved iOS/macOS design
 function SymptomsSection({ symptoms, updateSymptom, addSymptom, removeSymptom, addSuggestion }) {
-  // Define severity classes for buttons
+  // Define severity classes for buttons with iOS-style
   const severityClasses = {
-    mild: "bg-green-100 text-green-700 border-green-200 hover:bg-green-200",
-    moderate: "bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-200", 
-    severe: "bg-red-100 text-red-700 border-red-200 hover:bg-red-200"
+    mild: "bg-green-100 text-green-700 border-green-100 hover:bg-green-200 shadow-sm",
+    moderate: "bg-yellow-100 text-yellow-700 border-yellow-100 hover:bg-yellow-200 shadow-sm", 
+    severe: "bg-red-100 text-red-700 border-red-100 hover:bg-red-200 shadow-sm"
   };
 
   return (
     <div className="space-y-4">
       {Array.isArray(symptoms) ? (
         symptoms.map((symptom, index) => (
-          <div key={index} className="flex flex-col gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-300 relative transition-all duration-200 hover:shadow-md group">
+          <div 
+            key={index} 
+            className="flex flex-col gap-3 p-4 rounded-xl shadow-sm transition-all duration-200 bg-gradient-to-r from-blue-50 to-indigo-50 hover:shadow group backdrop-blur-sm"
+          >
             <div className="flex justify-between items-start">
               <div className="w-full">
                 <Input 
@@ -658,19 +669,19 @@ function SymptomsSection({ symptoms, updateSymptom, addSymptom, removeSymptom, a
               <button 
                 type="button"
                 onClick={() => removeSymptom(index)}
-                className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-full opacity-70 group-hover:opacity-100"
+                className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-full opacity-70 group-hover:opacity-100 bg-white/80 hover:bg-white shadow-sm"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
             
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex gap-1">
+              <div className="flex gap-1 bg-white/60 rounded-lg p-1 backdrop-blur-sm">
                 {["mild", "moderate", "severe"].map((severity) => (
                   <Button
                     key={severity}
                     type="button"
-                    className={`text-xs px-2 py-1 rounded-md border ${symptom.severity === severity ? severityClasses[severity] : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
+                    className={`text-xs px-2 py-1 rounded-md ${symptom.severity === severity ? severityClasses[severity] : 'bg-white text-gray-600 border-transparent hover:bg-gray-100'}`}
                     onClick={() => updateSymptom("severity", severity, index)}
                   >
                     {severity.charAt(0).toUpperCase() + severity.slice(1)}
@@ -678,11 +689,11 @@ function SymptomsSection({ symptoms, updateSymptom, addSymptom, removeSymptom, a
                 ))}
               </div>
               
-              <div className="flex items-center">
+              <div className="flex items-center bg-white/60 rounded-lg px-2 py-1 backdrop-blur-sm">
                 <span className="text-xs text-gray-500 mr-2">Onset:</span>
                 <input
                   type="date"
-                  className="text-xs p-1 border border-gray-200 rounded-md bg-white"
+                  className="text-xs p-1 border-none rounded-md bg-transparent"
                   value={symptom.onset || ""}
                   onChange={(e) => updateSymptom("onset", e.target.value, index)}
                 />
@@ -700,7 +711,7 @@ function SymptomsSection({ symptoms, updateSymptom, addSymptom, removeSymptom, a
         <Button
           type="button"
           variant="outline"
-          className="flex items-center gap-2 bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100"
+          className="flex items-center gap-2 bg-blue-50 border-blue-100 text-blue-700 hover:bg-blue-100 rounded-xl shadow-sm"
           onClick={addSymptom}
         >
           <Plus className="h-4 w-4" /> Add symptom
@@ -711,15 +722,15 @@ function SymptomsSection({ symptoms, updateSymptom, addSymptom, removeSymptom, a
       <div className="mt-4">
         <p className="text-sm text-gray-500 mb-2">Quick add:</p>
         <div className="flex flex-wrap gap-2">
-          {SYMPTOM_SUGGESTIONS.map((suggestion, i) => (
+        {SYMPTOM_SUGGESTIONS.map((suggestion, i) => (
             <Button
               key={i}
               type="button"
-              variant="outline"
-              className="text-xs px-3 py-1 rounded-full border-blue-200 hover:bg-blue-50"
+              variant="ghost"
+              className="px-2 py-1 text-xs bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors shadow-sm"
               onClick={() => addSuggestion(suggestion)}
             >
-              + {suggestion}
+              {suggestion}
             </Button>
           ))}
         </div>
@@ -728,44 +739,43 @@ function SymptomsSection({ symptoms, updateSymptom, addSymptom, removeSymptom, a
   );
 }
 
+// Diagnosis Section component with improved design
 function DiagnosisSection({ diagnoses, updateDiagnosis, addDiagnosis, removeDiagnosis, status, onStatusChange }) {
   const statusOptions = [
-    { value: "draft", label: "Draft", color: "bg-gray-100 text-gray-700 border-gray-200" },
-    { value: "confirmed", label: "Confirmed", color: "bg-green-100 text-green-700 border-green-200" },
-    { value: "tentative", label: "Tentative", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-    { value: "ruled_out", label: "Ruled Out", color: "bg-red-100 text-red-700 border-red-200" }
+    { value: "draft", label: "Draft", color: "bg-gray-100 text-gray-700" },
+    { value: "confirmed", label: "Confirmed", color: "bg-green-100 text-green-700" },
+    { value: "tentative", label: "Tentative", color: "bg-yellow-100 text-yellow-700" },
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center space-x-4 mb-4">
-        <span className="text-sm font-medium">Status:</span>
-        <div className="flex flex-wrap gap-2">
+    <div className="space-y-6">
+      {/* Status selector */}
+      <div className="mb-4">
+        <p className="text-sm text-gray-500 mb-2">Diagnosis Status:</p>
+        <div className="flex gap-2">
           {statusOptions.map((option) => (
-            <button
+            <Button
               key={option.value}
               type="button"
-              className={`text-xs px-3 py-1 rounded-full transition-colors border ${
-                status === option.value ? option.color : "bg-gray-50 text-gray-600 border-gray-200"
-              }`}
+              className={`rounded-lg ${status === option.value ? option.color : 'bg-white text-gray-600'}`}
               onClick={() => onStatusChange(option.value)}
             >
               {option.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
-
+      
       {Array.isArray(diagnoses) ? (
         diagnoses.map((diagnosis, index) => (
           <div 
             key={index} 
-            className="flex flex-col gap-3 p-4 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-300 relative transition-all duration-200 hover:shadow-md group"
+            className="p-4 rounded-xl shadow-sm bg-gradient-to-r from-amber-50 to-yellow-50 transition-all duration-200 hover:shadow group"
           >
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-start mb-3">
               <div className="w-full">
                 <Input 
-                  placeholder="Diagnosis"
+                  placeholder="Diagnosis description"
                   className="text-lg font-medium p-0 focus-within:ring-0 border-0 bg-transparent border-b-2 border-amber-100 focus:border-amber-300"
                   value={diagnosis.condition || ""}
                   onChange={(e) => updateDiagnosis("condition", e.target.value, index)}
@@ -774,26 +784,27 @@ function DiagnosisSection({ diagnoses, updateDiagnosis, addDiagnosis, removeDiag
               <button 
                 type="button"
                 onClick={() => removeDiagnosis(index)}
-                className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-full opacity-70 group-hover:opacity-100"
+                className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-full opacity-70 group-hover:opacity-100 bg-white/80 hover:bg-white shadow-sm"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
             
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="flex-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Diagnosis Code</label>
                 <Input 
-                  placeholder="Diagnosis code (ICD-10)"
-                  className="text-sm border-amber-100 focus:border-amber-300 bg-amber-50/50"
+                  placeholder="ICD-10 or other code"
+                  className="bg-white/60 backdrop-blur-sm border-amber-100 focus:border-amber-300 focus:ring focus:ring-amber-100"
                   value={diagnosis.code || ""}
                   onChange={(e) => updateDiagnosis("code", e.target.value, index)}
                 />
               </div>
-              
-              <div className="flex-1">
-                <Textarea 
-                  placeholder="Additional notes for this diagnosis"
-                  className="text-sm min-h-16 resize-y border-amber-100 focus:border-amber-300 bg-amber-50/50"
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Additional Notes</label>
+                <Input 
+                  placeholder="Additional details"
+                  className="bg-white/60 backdrop-blur-sm border-amber-100 focus:border-amber-300 focus:ring focus:ring-amber-100"
                   value={diagnosis.notes || ""}
                   onChange={(e) => updateDiagnosis("notes", e.target.value, index)}
                 />
@@ -811,7 +822,7 @@ function DiagnosisSection({ diagnoses, updateDiagnosis, addDiagnosis, removeDiag
         <Button
           type="button"
           variant="outline"
-          className="flex items-center gap-2 bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100"
+          className="flex items-center gap-2 bg-amber-50 border-amber-100 text-amber-700 hover:bg-amber-100 rounded-xl shadow-sm"
           onClick={addDiagnosis}
         >
           <Plus className="h-4 w-4" /> Add diagnosis
@@ -821,42 +832,100 @@ function DiagnosisSection({ diagnoses, updateDiagnosis, addDiagnosis, removeDiag
   );
 }
 
-// Patient sidebar component
+// Patient Sidebar component with detailed patient information
 function PatientSidebar() {
+  // This would typically be populated with patient data from an API
+  // For now, we'll use placeholder content
   return (
-    <div className="w-80 bg-white border-l border-gray-200 sticky top-16 h-[calc(100vh-64px)] overflow-y-auto hidden lg:block">
-      <div className="p-4">
-        <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-          <User className="h-4 w-4 text-blue-600" /> Patient Overview
-        </h3>
-        
-        {/* Patient summary */}
-        <div className="bg-gray-50 p-3 rounded-lg mb-4">
-          <p className="text-sm text-gray-600">
-            This sidebar would show patient information, history, and relevant details to aid in diagnosis.
-          </p>
+    <div className="hidden lg:block w-80 bg-white border-l p-6 sticky top-[73px] h-[calc(100vh-73px)] overflow-auto">
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Patient Overview</h2>
+          <Card className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
+            <div className="text-sm space-y-2">
+              <p><span className="text-gray-500">Age:</span> 45 years</p>
+              <p><span className="text-gray-500">Gender:</span> Female</p>
+              <p><span className="text-gray-500">Blood Type:</span> O+</p>
+              <p><span className="text-gray-500">Weight:</span> 68 kg</p>
+              <p><span className="text-gray-500">Height:</span> 165 cm</p>
+            </div>
+          </Card>
         </div>
         
-        {/* Sample sections that would contain real data */}
-        <div className="space-y-4">
-          <Card className="p-3 border-blue-200 bg-blue-50">
-            <h4 className="text-sm font-medium text-blue-800 mb-2">Allergies</h4>
-            <p className="text-xs text-gray-600">No known allergies</p>
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Allergies</h2>
+          <Card className="p-4 bg-gradient-to-r from-red-50 to-rose-50 border-red-100">
+            <ul className="text-sm space-y-1">
+              <li className="flex items-center gap-2">
+                <AlertCircle className="h-3 w-3 text-red-500" />
+                <span>Penicillin - <span className="text-red-600">Severe</span></span>
+              </li>
+              <li className="flex items-center gap-2">
+                <AlertCircle className="h-3 w-3 text-yellow-500" />
+                <span>Pollen - <span className="text-yellow-600">Moderate</span></span>
+              </li>
+              <li className="flex items-center gap-2">
+                <AlertCircle className="h-3 w-3 text-green-500" />
+                <span>Latex - <span className="text-green-600">Mild</span></span>
+              </li>
+            </ul>
           </Card>
-          
-          <Card className="p-3 border-purple-200 bg-purple-50">
-            <h4 className="text-sm font-medium text-purple-800 mb-2">Current Medications</h4>
-            <p className="text-xs text-gray-600">No current medications</p>
+        </div>
+        
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Medical History</h2>
+          <Card className="p-4 bg-gradient-to-r from-purple-50 to-violet-50 border-purple-100">
+            <ul className="text-sm space-y-2">
+              <li className="pb-2 border-b border-purple-100">
+                <p className="font-medium">Hypertension</p>
+                <p className="text-gray-600">Diagnosed 2015, controlled with medication</p>
+              </li>
+              <li className="pb-2 border-b border-purple-100">
+                <p className="font-medium">Type 2 Diabetes</p>
+                <p className="text-gray-600">Diagnosed 2018, diet-controlled</p>
+              </li>
+              <li>
+                <p className="font-medium">Appendectomy</p>
+                <p className="text-gray-600">Surgical procedure in 2010</p>
+              </li>
+            </ul>
           </Card>
-          
-          <Card className="p-3 border-emerald-200 bg-emerald-50">
-            <h4 className="text-sm font-medium text-emerald-800 mb-2">Past Visits</h4>
-            <p className="text-xs text-gray-600">No previous visit records found</p>
+        </div>
+        
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Current Medications</h2>
+          <Card className="p-4 bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-100">
+            <ul className="text-sm space-y-2">
+              <li className="flex justify-between">
+                <span>Lisinopril 10mg</span>
+                <span className="text-gray-500">Daily</span>
+              </li>
+              <li className="flex justify-between">
+                <span>Metformin 500mg</span>
+                <span className="text-gray-500">Twice daily</span>
+              </li>
+              <li className="flex justify-between">
+                <span>Atorvastatin 20mg</span>
+                <span className="text-gray-500">Evening</span>
+              </li>
+            </ul>
           </Card>
-          
-          <Card className="p-3 border-amber-200 bg-amber-50">
-            <h4 className="text-sm font-medium text-amber-800 mb-2">Lab Results</h4>
-            <p className="text-xs text-gray-600">No recent lab results available</p>
+        </div>
+        
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Recent Tests</h2>
+          <Card className="p-4 bg-gradient-to-r from-cyan-50 to-sky-50 border-cyan-100">
+            <div className="text-sm space-y-2">
+              <p><span className="text-gray-500">Blood Work:</span> 2 weeks ago</p>
+              <p><span className="text-gray-500">ECG:</span> 1 month ago</p>
+              <p><span className="text-gray-500">X-Ray (Chest):</span> 3 months ago</p>
+            </div>
+            <Button 
+              variant="link" 
+              className="text-sky-600 p-0 mt-2 text-sm hover:text-sky-800"
+            >
+              View all test results
+            </Button>
           </Card>
         </div>
       </div>
@@ -864,16 +933,16 @@ function PatientSidebar() {
   );
 }
 
-// Sticky action buttons for form actions
+// Action buttons component for submitting or canceling the form
 function ActionButtons({ onCancel, isSubmitting }) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 flex justify-end space-x-4 z-20">
+    <div className="fixed bottom-0 left-0 right-0  border-t shadow-lg px-4 py-3 flex justify-end gap-4 backdrop-blur-md bg-white/90 z-10">
       <Button
         type="button"
         variant="outline"
         onClick={onCancel}
         disabled={isSubmitting}
-        className="rounded-full px-6"
+        className="px-5 rounded-xl"
       >
         Cancel
       </Button>
@@ -881,15 +950,19 @@ function ActionButtons({ onCancel, isSubmitting }) {
         type="submit"
         form="diagnosis-form"
         disabled={isSubmitting}
-        className="rounded-full bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 px-6 flex items-center gap-2"
-        onClick={(e) => {
-          document.getElementById("diagnosis-form")?.dispatchEvent(
-            new Event("submit", { cancelable: true, bubbles: true })
-          );
-        }}
+        className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-xl shadow-md flex items-center gap-2"
       >
-        <Save className="h-4 w-4" />
-        {isSubmitting ? "Saving..." : "Save Diagnosis"}
+        {isSubmitting ? (
+          <>
+            <span className="inline-block h-4 w-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
+            Saving...
+          </>
+        ) : (
+          <>
+            <Save className="h-4 w-4" />
+            Save Diagnosis
+          </>
+        )}
       </Button>
     </div>
   );
