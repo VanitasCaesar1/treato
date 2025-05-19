@@ -154,97 +154,99 @@ export default function AppointmentsPage() {
   }, [pagination]);
 
   // Fetch appointments from API
-  const fetchAppointments = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setErrorDetails(null);
+const fetchAppointments = useCallback(async () => {
+  setLoading(true);
+  setError(null);
+  setErrorDetails(null);
+  
+  try {
+    // Build query parameters
+    const queryParams = new URLSearchParams();
     
-    try {
-      // Build query parameters
-      const queryParams = new URLSearchParams();
-      
-      // Add filters only if they have meaningful values
-      if (filters.status && filters.status !== "all") 
-        queryParams.append("appointment_status", filters.status);
-      
-      if (filters.doctor && filters.doctor !== "all") 
-        queryParams.append("doctor_id", filters.doctor);
-      
-      if (filters.feeType && filters.feeType !== "all") 
-        queryParams.append("fee_type", filters.feeType);
-      
-      if (filters.validity && filters.validity !== "all") 
-        queryParams.append("is_valid", filters.validity);
-      
-      if (filters.date) 
-        queryParams.append("start_date", filters.date);
+    // Add filters only if they have meaningful values - USING THE CORRECT PARAMETER NAMES
+    if (filters.status && filters.status !== "all") 
+      queryParams.append("status", filters.status);
+    
+    if (filters.doctor && filters.doctor !== "all") 
+      queryParams.append("doctorId", filters.doctor);
+    
+    if (filters.feeType && filters.feeType !== "all") 
+      queryParams.append("feeType", filters.feeType);
+    
+    if (filters.validity && filters.validity !== "all") 
+      queryParams.append("isValid", filters.validity);
+    
+    if (filters.date) 
+      queryParams.append("startDate", filters.date);
 
-      // Add search term if available
-      if (filters.searchTerm) 
-        queryParams.append("search", filters.searchTerm);
+    // Important: Add search term if available
+    if (filters.searchTerm) 
+      queryParams.append("search", filters.searchTerm);
 
-      // Pagination parameters
-      queryParams.append("limit", pagination.limit.toString());
-      queryParams.append("offset", pagination.offset.toString());
-      queryParams.append("sort_by", "appointment_date");
-      queryParams.append("sort_order", "desc");
-      
-      console.log("Fetching appointments with params:", queryParams.toString());
-      
-      // Make API call
-      const response = await fetch(`/api/appointments/org?${queryParams.toString()}`);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`API Error (${response.status}): ${errorData.error || response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
-      // Process appointments data
-      const processedAppointments = processAppointments(data);
-      setAppointments(processedAppointments);
-      
-      // Update pagination
-      setPagination(prev => ({
-        ...prev,
-        total: data.pagination?.total || data.total || 0,
-      }));
-      
-      // Update stats
-      updateStats(processedAppointments, data.stats);
-    } catch (error) {
-      console.error('Error fetching appointments:', error);
-      setError(error.message || 'Failed to fetch appointments');
-      
-      // Handle specific errors
-      if (error.message.includes("Invalid doctor ID format")) {
-        setErrorDetails({
-          title: "Doctor ID Format Error",
-          description: "The API is expecting doctor IDs in UUID format. Please verify your doctor ID selection."
-        });
-      } else if (error.message.includes("Invalid appointment") || error.message.includes("ID format")) {
-        setErrorDetails({
-          title: "ID Format Error",
-          description: "There's an issue with the ID format in your request. Please verify the IDs match the required format."
-        });
-      } else if (error.message.includes("Authentication required") || error.message.includes("Unauthorized")) {
-        setErrorDetails({
-          title: "Authentication Error",
-          description: "You need to be logged in to access this data. Please refresh the page or log in again."
-        });
-      } else if (error.message.includes("Service unavailable")) {  
-        setErrorDetails({
-          title: "Service Unavailable",
-          description: "The appointments service is currently unavailable. Please try again later."
-        });
-      }
-      
-      setAppointments([]);
-    } finally {
-      setLoading(false);
+    // Pagination parameters
+    queryParams.append("limit", pagination.limit.toString());
+    queryParams.append("offset", pagination.offset.toString());
+    // These might not be supported by your backend API
+    // queryParams.append("sort_by", "appointment_date");
+    // queryParams.append("sort_order", "desc");
+    
+    console.log("Fetching appointments with params:", queryParams.toString());
+    
+    // Make API call - USING THE CORRECT ENDPOINT
+    // Assuming a default API endpoint without orgId for simplicity
+    const response = await fetch(`/api/appointments?${queryParams.toString()}`);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`API Error (${response.status}): ${errorData.error || response.statusText}`);
     }
-  }, [filters, pagination.limit, pagination.offset, processAppointments]);
+    
+    const data = await response.json();
+    
+    // Process appointments data
+    const processedAppointments = processAppointments(data);
+    setAppointments(processedAppointments);
+    
+    // Update pagination
+    setPagination(prev => ({
+      ...prev,
+      total: data.pagination?.total || data.total || 0,
+    }));
+    
+    // Update stats
+    updateStats(processedAppointments, data.stats);
+  } catch (error) {
+    console.error('Error fetching appointments:', error);
+    setError(error.message || 'Failed to fetch appointments');
+    
+    // Handle specific errors
+    if (error.message.includes("Invalid doctor ID format")) {
+      setErrorDetails({
+        title: "Doctor ID Format Error",
+        description: "The API is expecting doctor IDs in UUID format. Please verify your doctor ID selection."
+      });
+    } else if (error.message.includes("Invalid appointment") || error.message.includes("ID format")) {
+      setErrorDetails({
+        title: "ID Format Error",
+        description: "There's an issue with the ID format in your request. Please verify the IDs match the required format."
+      });
+    } else if (error.message.includes("Authentication required") || error.message.includes("Unauthorized")) {
+      setErrorDetails({
+        title: "Authentication Error",
+        description: "You need to be logged in to access this data. Please refresh the page or log in again."
+      });
+    } else if (error.message.includes("Service unavailable")) {  
+      setErrorDetails({
+        title: "Service Unavailable",
+        description: "The appointments service is currently unavailable. Please try again later."
+      });
+    }
+    
+    setAppointments([]);
+  } finally {
+    setLoading(false);
+  }
+}, [filters, pagination.limit, pagination.offset, processAppointments]);
 
   // Calculate statistics
   const updateStats = useCallback((appointmentsData, backendStats = null) => {
@@ -336,33 +338,35 @@ export default function AppointmentsPage() {
   }, []);
 
   // Handle search form submission
-  const handleSearch = useCallback((e) => {
-    if (e) e.preventDefault();
+ // Handle search form submission
+const handleSearch = useCallback((e) => {
+  if (e) e.preventDefault();
 
-    // Update filters state with form values
-    setFilters({...formState});
+  // Update filters state with form values
+  setFilters({...formState});
 
-    // Reset pagination when filters change
-    setPagination(prev => ({
-      ...prev,
-      offset: 0
-    }));
-    
-    // Update URL query params for better shareability
-    const newParams = new URLSearchParams();
-    
-    if (formState.searchTerm) newParams.set('search', formState.searchTerm);
-    if (formState.status !== 'all') newParams.set('status', formState.status);
-    if (formState.doctor !== 'all') newParams.set('doctorId', formState.doctor);
-    if (formState.feeType !== 'all') newParams.set('feeType', formState.feeType);
-    if (formState.validity !== 'all') newParams.set('validity', formState.validity);
-    if (formState.date) newParams.set('startDate', formState.date);
-    
-    // Use Next.js router to update the URL without refreshing the page
-    const newUrl = window.location.pathname + (newParams.toString() ? `?${newParams.toString()}` : '');
-    router.push(newUrl, { scroll: false });
-    
-  }, [formState, router]);
+  // Reset pagination when filters change
+  setPagination(prev => ({
+    ...prev,
+    offset: 0
+  }));
+  
+  // Update URL query params for better shareability
+  const newParams = new URLSearchParams();
+  
+  // Make sure to use the parameter names that match with the API route handler
+  if (formState.searchTerm) newParams.set('search', formState.searchTerm);
+  if (formState.status !== 'all') newParams.set('status', formState.status);
+  if (formState.doctor !== 'all') newParams.set('doctorId', formState.doctor);
+  if (formState.feeType !== 'all') newParams.set('feeType', formState.feeType);
+  if (formState.validity !== 'all') newParams.set('isValid', formState.validity);
+  if (formState.date) newParams.set('startDate', formState.date);
+  
+  // Use Next.js router to update the URL without refreshing the page
+  const newUrl = window.location.pathname + (newParams.toString() ? `?${newParams.toString()}` : '');
+  router.push(newUrl, { scroll: false });
+  
+}, [formState, router]);
 
   // Reset all filters
   const resetFilters = useCallback(() => {
@@ -407,29 +411,29 @@ export default function AppointmentsPage() {
   }, [router]);
 
   // Load initial URL parameters if any
-  useEffect(() => {
-    const status = searchParams.get('status') || 'all';
-    const doctor = searchParams.get('doctorId') || 'all';
-    const feeType = searchParams.get('feeType') || 'all';
-    const validity = searchParams.get('validity') || 'all';
-    const date = searchParams.get('startDate') || '';
-    const search = searchParams.get('search') || '';
+// Load initial URL parameters if any
+useEffect(() => {
+  const status = searchParams.get('status') || 'all';
+  const doctor = searchParams.get('doctorId') || 'all';
+  const feeType = searchParams.get('feeType') || 'all';
+  const validity = searchParams.get('isValid') || 'all';
+  const date = searchParams.get('startDate') || '';
+  const search = searchParams.get('search') || '';
+  
+  if (status !== 'all' || doctor !== 'all' || feeType !== 'all' || validity !== 'all' || date || search) {
+    const initialFilters = {
+      searchTerm: search,
+      status,
+      doctor,
+      feeType,
+      validity,
+      date,
+    };
     
-    if (status !== 'all' || doctor !== 'all' || feeType !== 'all' || validity !== 'all' || date || search) {
-      const initialFilters = {
-        searchTerm: search,
-        status,
-        doctor,
-        feeType,
-        validity,
-        date,
-      };
-      
-      setFormState(initialFilters);
-      setFilters(initialFilters);
-    }
-  }, [searchParams]);
-
+    setFormState(initialFilters);
+    setFilters(initialFilters);
+  }
+}, [searchParams]);
   // This effect will trigger whenever filters or pagination changes
   useEffect(() => {
     // Create a reference to the current filters and pagination

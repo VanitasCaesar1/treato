@@ -262,90 +262,110 @@ const fetchDoctorFees = async (doctorId, orgId) => {
   }
 };
 
-  // Updated function to fetch doctor availability using the new API route
-  const fetchDoctorAvailability = async (doctorId, date, orgId) => {
-    if (!doctorId || !date || !orgId) {
-      setAvailableTimeSlots([]);
-      return;
+// Function to fetch doctor availability using the slots API
+const fetchDoctorAvailability = async (doctorId, date, orgId) => {
+  if (!doctorId || !date || !orgId) {
+    setAvailableTimeSlots([]);
+    return;
+  }
+  
+  // Format date for API call
+  const formattedDate = format(date, "yyyy-MM-dd");
+  
+  setLoadingSlots(true);
+  try {
+    // Use the slots API route
+    const response = await fetch(
+      `/api/doctors/${doctorId}/slots?date=${formattedDate}&org_id=${orgId}`
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to fetch slots: ${response.status}`);
     }
     
-    // Format date for API call
-    const formattedDate = format(date, "yyyy-MM-dd");
+    const data = await response.json();
     
-    setLoadingSlots(true);
-    try {
-      // Use the new API route for availability
-      const response = await fetch(
-        `/api/doctors/${doctorId}/availability?date=${formattedDate}&org_id=${orgId}`
-      );
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to fetch availability: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Create formatted time slots from the API response
-      let formattedSlots = [];
-      
-      // Check if available_slots is an array of strings (HH:MM format)
-      if (Array.isArray(data.available_slots) && data.available_slots.length > 0) {
-        if (typeof data.available_slots[0] === 'string') {
-          // Already in correct format
-          formattedSlots = data.available_slots;
-        } else if (typeof data.available_slots[0] === 'object') {
-          // If slots are objects with start_time and end_time properties
-          formattedSlots = data.available_slots.map(slot => {
-            // Check if slot has start_time property (string format)
-            if (typeof slot.start_time === 'string') {
-              return slot.start_time;
-            }
-            // If slot has start_time as an object or other format, convert to string
-            return format(new Date(slot.start_time), 'HH:mm');
-          });
+    // Create formatted time slots from the API response
+    let formattedSlots = [];
+    
+    // Check if available_slots are in the response
+    if (Array.isArray(data.available_slots) && data.available_slots.length > 0) {
+      // Extract start_time from each slot object
+      formattedSlots = data.available_slots.map(slot => {
+        // Handle object format with start_time property
+        if (slot && slot.start_time) {
+          return slot.start_time;
         }
-      }
-      
-      // Update available time slots
-      setAvailableTimeSlots(formattedSlots);
-      
-      if ((formattedSlots.length === 0) && data.message) {
-        toast.error(data.message || "No available time slots for the selected date");
-      } else if (formData.time && !formattedSlots.includes(formData.time)) {
-        // Reset selected time if it's no longer available
-        setFormData(prev => ({ ...prev, time: null }));
-      }
-    } catch (error) {
-      console.error("Error fetching doctor availability:", error);
-      toast.error(error.message || "Failed to fetch doctor's availability. Please try again.");
-      setAvailableTimeSlots([]);
-    } finally {
-      setLoadingSlots(false);
+        // Handle direct string format (fallback)
+        if (typeof slot === 'string') {
+          return slot;
+        }
+        return null;
+      }).filter(Boolean); // Remove any null values
     }
-  };
+    // Fallback to check data.slots for backward compatibility
+    else if (Array.isArray(data.slots) && data.slots.length > 0) {
+      formattedSlots = data.slots.map(slot => {
+        // Handle string format (e.g., "14:30")
+        if (typeof slot === 'string') {
+          return slot;
+        }
+        // Handle object format (e.g., {start_time: "14:30"})
+        else if (slot.start_time) {
+          return typeof slot.start_time === 'string' 
+            ? slot.start_time 
+            : format(new Date(slot.start_time), 'HH:mm');
+        }
+        // Handle alternative naming conventions
+        else if (slot.startTime) {
+          return typeof slot.startTime === 'string'
+            ? slot.startTime
+            : format(new Date(slot.startTime), 'HH:mm');
+        }
+        return null;
+      }).filter(Boolean); // Remove any null values
+    }
+    
+    // Update available time slots
+    setAvailableTimeSlots(formattedSlots);
+    
+    if (formattedSlots.length === 0) {
+      toast.error(data.message || "No available time slots for the selected date");
+    } else if (formData.time && !formattedSlots.includes(formData.time)) {
+      // Reset selected time if it's no longer available
+      setFormData(prev => ({ ...prev, time: null }));
+    }
+  } catch (error) {
+    console.error("Error fetching doctor slots:", error);
+    toast.error(error.message || "Failed to fetch doctor's available slots. Please try again.");
+    setAvailableTimeSlots([]);
+  } finally {
+    setLoadingSlots(false);
+  }
+};
 
-  // Updated calculate available time slots function that uses the API directly
-  const calculateAvailableTimeSlots = async (shifts, date) => {
-    if (!formData.doctor?.id || !date) {
-      setAvailableTimeSlots([]);
-      return;
-    }
-    
-    // Get day of week to check if there's a shift for that day
-    const dayOfWeek = getDayName(getDay(date));
-    const dayShift = shifts.find(shift => shift.weekday === dayOfWeek && shift.isactive);
-    
-    if (!dayShift || !dayShift.starttime || !dayShift.endtime) {
-      setAvailableTimeSlots([]);
-      // Change from toast.info to toast.error
-      toast.error(`No shift scheduled for ${dayOfWeek}`);
-      return;
-    }
-    
-    // Call the API to get availability
-    await fetchDoctorAvailability(formData.doctor.id, date, formData.doctor.hospitalId);
-  };
+// Updated calculate available time slots function that uses the slots API directly
+const calculateAvailableTimeSlots = async (shifts, date) => {
+  if (!formData.doctor?.id || !date) {
+    setAvailableTimeSlots([]);
+    return;
+  }
+  
+  // Get day of week to check if there's a shift for that day
+  const dayOfWeek = getDayName(getDay(date));
+  const dayShift = shifts.find(shift => shift.weekday === dayOfWeek && shift.isactive);
+  
+  if (!dayShift || !dayShift.starttime || !dayShift.endtime) {
+    setAvailableTimeSlots([]);
+    // Change from toast.info to toast.error
+    toast.error(`No shift scheduled for ${dayOfWeek}`);
+    return;
+  }
+  
+  // Call the API to get slots
+  await fetchDoctorAvailability(formData.doctor.id, date, formData.doctor.hospitalId);
+};
 
   // Initial fetch of doctors when component mounts at step 2
   useEffect(() => {
@@ -429,75 +449,86 @@ const fetchDoctorFees = async (doctorId, orgId) => {
   };
 
   // Handle form submission with improved validation
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
-    
-    setSubmitting(true);
-    const loadingToast = toast.loading("Creating appointment...");
-    
-    try {
-      // Validate ID formats before submitting
-      if (!formData.patient?.id || !/^[A-Z0-9]{8}$/.test(formData.patient.id)) {
-        throw new Error("Patient ID must be in 8-digit alphanumeric format");
-      }
-      
-      if (!formData.doctor?.id || 
-          !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(formData.doctor.id)) {
-        throw new Error("Doctor ID must be in UUID format");
-      }
-      
-      // Combine date and time into appointment_date
-      const [hours, minutes] = formData.time.split(':').map(Number);
-      const appointmentDate = new Date(formData.date);
-      appointmentDate.setHours(hours, minutes, 0, 0);
-      
-      // Transform data to match the API expectations
-      const appointmentData = {
-        patient_id: formData.patient.id,
-        doctor_id: formData.doctor.id,
-        org_id: formData.doctor.hospitalId,
-        patient_name: formData.patient.name,
-        doctor_name: formData.doctor.name,
-        appointment_date: appointmentDate.toISOString(),
-        fee_type: formData.feeType,
-        payment_method: formData.paymentMethod,
-        reason: formData.reason || ""
-      };
-      
-      const response = await fetch("/api/appointments/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(appointmentData),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create appointment");
-      }
-      
-      toast.success("Appointment created successfully", {
-        id: loadingToast,
-      });
-      
-      if (onSuccess) {
-        onSuccess(data.appointment);
-      }
-      
-      onClose();
-    } catch (error) {
-      console.error("Error creating appointment:", error);
-      
-      toast.error(error.message || "Failed to create appointment", {
-        id: loadingToast,
-      });
-    } finally {
-      setSubmitting(false);
+  // Fixed handleSubmit function to preserve local time
+const handleSubmit = async () => {
+  if (!validateForm()) return;
+  setSubmitting(true);
+  const loadingToast = toast.loading("Creating appointment...");
+  try {
+    // Validate ID formats before submitting
+    if (!formData.patient?.id || !/^[A-Z0-9]{8}$/.test(formData.patient.id)) {
+      throw new Error("Patient ID must be in 8-digit alphanumeric format");
     }
-  };
+    if (!formData.doctor?.id ||
+      !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(formData.doctor.id)) {
+      throw new Error("Doctor ID must be in UUID format");
+    }
+
+    // IMPORTANT FIX: Send the time as separate fields instead of combining them
+    // This preserves the original time selection without timezone conversion
+    const appointmentData = {
+      patient_id: formData.patient.id,
+      doctor_id: formData.doctor.id,
+      org_id: formData.doctor.hospitalId,
+      patient_name: formData.patient.name,
+      doctor_name: formData.doctor.name,
+      appointment_date: new Date(formData.date).toISOString(),
+      slot_start_time: formData.time, // Send the original time string directly
+      slot_end_time: calculateEndTimeFromString(formData.time), // Calculate end time based on start time
+      fee_type: formData.feeType,
+      payment_method: formData.paymentMethod,
+      reason: formData.reason || ""
+    };
+
+    console.log("Sending appointment data:", appointmentData);
+
+    const response = await fetch("/api/appointments/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(appointmentData),
+    });
+    
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to create appointment");
+    }
+    
+    toast.success("Appointment created successfully", {
+      id: loadingToast,
+    });
+    
+    if (onSuccess) {
+      onSuccess(data.appointment);
+    }
+    onClose();
+  } catch (error) {
+    console.error("Error creating appointment:", error);
+    toast.error(error.message || "Failed to create appointment", {
+      id: loadingToast,
+    });
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+// Helper function to calculate end time (30 minutes after start time)
+function calculateEndTimeFromString(timeStr) {
+  if (!timeStr) return "";
   
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  let endHours = hours;
+  let endMinutes = minutes + 30;
+  
+  if (endMinutes >= 60) {
+    endHours = (endHours + 1) % 24;
+    endMinutes -= 60;
+  }
+  
+  return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+}
+
   // Handle patient selection with proper validation
   const handleSelectPatient = (patient) => {
     // Extract patient ID using various possible property names
@@ -727,28 +758,128 @@ const renderTimeSlots = () => {
     );
   }
   
+  // Group time slots by morning, afternoon, and evening
+  const groupedSlots = {
+    morning: [],
+    afternoon: [],
+    evening: []
+  };
+  
+  // Sort time slots chronologically
+  const sortedSlots = [...availableTimeSlots].sort((a, b) => {
+    const [aHour, aMinute] = a.split(':').map(Number);
+    const [bHour, bMinute] = b.split(':').map(Number);
+    
+    if (aHour !== bHour) return aHour - bHour;
+    return aMinute - bMinute;
+  });
+  
+  // Group slots by time of day
+  sortedSlots.forEach(time => {
+    const hour = parseInt(time.split(':')[0]);
+    
+    if (hour < 12) {
+      groupedSlots.morning.push(time);
+    } else if (hour < 17) {
+      groupedSlots.afternoon.push(time);
+    } else {
+      groupedSlots.evening.push(time);
+    }
+  });
+  
   return (
-    <div className="grid grid-cols-3 gap-2">
-      {availableTimeSlots.map((time, index) => (
-        <button
-          key={`time-${index}-${time}`}
-          className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-            formData.time === time 
-              ? "bg-blue-500 text-white" 
-              : "border hover:bg-gray-50"
-          }`}
-          onClick={() => {
-            setFormData((prev) => ({ ...prev, time }));
-            toast.success(`Selected time: ${time}`);
-          }}
-        >
-          {time}
-        </button>
-      ))}
+    <div className="space-y-4 max-h-64 overflow-y-auto pr-1">
+      {/* Morning slots */}
+      {groupedSlots.morning.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center">
+            <div className="w-2 h-2 rounded-full bg-yellow-400 mr-2"></div>
+            Morning
+          </h4>
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {groupedSlots.morning.map((time, index) => (
+              <button
+                key={`morning-${index}-${time}`}
+                className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                  formData.time === time 
+                    ? "bg-blue-500 text-white" 
+                    : "border hover:bg-gray-50"
+                }`}
+                onClick={() => {
+                  setFormData((prev) => ({ ...prev, time }));
+                  toast.success(`Selected time: ${time}`);
+                }}
+              >
+                {time}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Afternoon slots */}
+      {groupedSlots.afternoon.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center">
+            <div className="w-2 h-2 rounded-full bg-orange-400 mr-2"></div>
+            Afternoon
+          </h4>
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {groupedSlots.afternoon.map((time, index) => (
+              <button
+                key={`afternoon-${index}-${time}`}
+                className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                  formData.time === time 
+                    ? "bg-blue-500 text-white" 
+                    : "border hover:bg-gray-50"
+                }`}
+                onClick={() => {
+                  setFormData((prev) => ({ ...prev, time }));
+                  toast.success(`Selected time: ${time}`);
+                }}
+              >
+                {time}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Evening slots */}
+      {groupedSlots.evening.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center">
+            <div className="w-2 h-2 rounded-full bg-purple-400 mr-2"></div>
+            Evening
+          </h4>
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {groupedSlots.evening.map((time, index) => (
+              <button
+                key={`evening-${index}-${time}`}
+                className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                  formData.time === time 
+                    ? "bg-blue-500 text-white" 
+                    : "border hover:bg-gray-50"
+                }`}
+                onClick={() => {
+                  setFormData((prev) => ({ ...prev, time }));
+                  toast.success(`Selected time: ${time}`);
+                }}
+              >
+                {time}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Show total slot count */}
+      <div className="text-xs text-right text-gray-500 mt-2">
+        {availableTimeSlots.length} time slots available
+      </div>
     </div>
   );
 };
-
   // Step content based on current step
   const renderStepContent = () => {
     switch (step) {
