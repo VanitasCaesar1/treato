@@ -37,7 +37,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-
+import DoctorProfileTab from './DoctorProfileTab';
 // Types
 interface Doctor {
   doctor_id?: string;
@@ -631,9 +631,10 @@ const DoctorSettings: React.FC = () => {
                 <Separator className="my-4" />
                 
                 <Tabs defaultValue="schedules">
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="schedules">Schedules</TabsTrigger>
                     <TabsTrigger value="fees">Fees</TabsTrigger>
+                    <TabsTrigger value="profile">Profile</TabsTrigger>
                   </TabsList>
                   
                   {/* Schedules Tab */}
@@ -898,6 +899,12 @@ const DoctorSettings: React.FC = () => {
                       </Card>
                     )}
                   </TabsContent>
+                  <TabsContent value="profile" className="mt-6">
+  <DoctorProfileTab 
+    doctorId={selectedDoctor?.doctor_id || selectedDoctor?.DoctorID || ''}
+    doctorName={selectedDoctor?.name || selectedDoctor?.Name || ''}
+  />
+</TabsContent>
                 </Tabs>
               </>
             ) : (
@@ -907,6 +914,8 @@ const DoctorSettings: React.FC = () => {
             )}
           </CardContent>
         </Card>
+
+       
       </div>
     </div>
   );

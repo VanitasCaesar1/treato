@@ -641,11 +641,11 @@ const FeeDisplay = () => {
       </div>
     );
   };
-// Improved calendar rendering with better accessibility
+  
+// Fix for the calendar date selection issue
 const renderCalendar = () => {
   const days = getDaysInMonth();
   const firstDayOfMonth = startOfMonth(currentDate).getDay();
-
   // Calculate today's date (for preventing selection of past dates)
   const today = new Date();
   today.setHours(0, 0, 0, 0); // Set to beginning of day for proper comparison
@@ -654,7 +654,7 @@ const renderCalendar = () => {
     <div className="w-full">
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-4">
-        <button 
+        <button
           className="p-2 rounded-lg hover:bg-gray-100"
           onClick={prevMonth}
           aria-label="Previous month"
@@ -664,7 +664,7 @@ const renderCalendar = () => {
         <h3 className="text-lg font-medium">
           {format(currentDate, "MMMM yyyy")}
         </h3>
-        <button 
+        <button
           className="p-2 rounded-lg hover:bg-gray-100"
           onClick={nextMonth}
           aria-label="Next month"
@@ -672,7 +672,7 @@ const renderCalendar = () => {
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
-
+      
       {/* Week days */}
       <div className="grid grid-cols-7 gap-1 mb-2">
         {weekDays.map((day) => (
@@ -684,14 +684,14 @@ const renderCalendar = () => {
           </div>
         ))}
       </div>
-
+      
       {/* Calendar grid */}
       <div className="grid grid-cols-7 gap-1">
         {/* Empty cells for days before the first of the month */}
         {Array.from({ length: firstDayOfMonth }).map((_, index) => (
           <div key={`empty-${index}`} className="p-1" />
         ))}
-
+        
         {/* Actual days */}
         {days.map((day) => {
           // Only block dates before today (past dates)
@@ -703,7 +703,17 @@ const renderCalendar = () => {
               key={day.toISOString()}
               onClick={() => {
                 if (!isPastDay) {
-                  setFormData((prev) => ({ ...prev, date: day, time: null }));
+                  // FIXED: Create date at noon to avoid timezone issues
+                  const selectedDate = new Date(day);
+                  selectedDate.setHours(12, 0, 0, 0); // Set to noon local time
+                  
+                  setFormData((prev) => ({ 
+                    ...prev, 
+                    date: selectedDate, 
+                    // Send as ISO string to backend to ensure proper parsing
+                    appointment_date: selectedDate.toISOString(),
+                    time: null 
+                  }));
                   toast.success(`Selected date: ${format(day, "MMMM d, yyyy")}`);
                 }
               }}
@@ -714,8 +724,8 @@ const renderCalendar = () => {
                 h-8 w-8 p-0 rounded-full transition-colors
                 ${!isSameMonth(day, currentDate) ? "text-gray-400" : ""}
                 ${isToday(day) ? "font-medium ring-1 ring-blue-200" : ""}
-                ${isSelectedDay 
-                  ? "bg-blue-500 text-white hover:bg-blue-600" 
+                ${isSelectedDay
+                  ? "bg-blue-500 text-white hover:bg-blue-600"
                   : "hover:bg-gray-100"}
                 ${isPastDay ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
               `}
