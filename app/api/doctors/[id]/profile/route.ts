@@ -130,10 +130,10 @@ export async function PUT(req, { params }) {
     if (error.response?.status === 404) {
       return NextResponse.json(
         { error: 'Doctor profile not found' },
-        { status: 404 }
+        { status: 404 }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
       );
     }
-    
+
     return NextResponse.json(
       { error: error.response?.data?.error || 'Failed to update doctor profile' },
       { status: error.response?.status || 500 }

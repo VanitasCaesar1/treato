@@ -225,14 +225,7 @@ const DoctorProfileTab: React.FC<DoctorProfileTabProps> = ({
         throw new Error('Please enter a valid slot duration between 5 and 60 minutes');
       }
       
-      // Prepare specialization data to match backend expectations
-      const specializationData = {
-        primary: editForm.specialization.primary.trim(),
-        secondary: editForm.specialization.secondary && editForm.specialization.secondary.length > 0 
-          ? editForm.specialization.secondary.filter(s => s && s.trim())
-          : []
-      };
-      
+      // Prepare the update data to match the Go backend structure
       const updateData = {
         username: editForm.username.trim(),
         name: editForm.name.trim(),
@@ -243,7 +236,12 @@ const DoctorProfileTab: React.FC<DoctorProfileTabProps> = ({
         address: editForm.address?.trim() || '',
         imr_number: editForm.imr_number?.trim() || '',
         age: editForm.age,
-        specialization: specializationData,
+        specialization: {
+          primary: editForm.specialization.primary.trim(),
+          secondary: editForm.specialization.secondary && editForm.specialization.secondary.length > 0 
+            ? editForm.specialization.secondary.filter(s => s && s.trim())
+            : []
+        },
         is_active: editForm.is_active ?? true,
         qualification: editForm.qualification.trim(),
         slot_duration: editForm.slot_duration
@@ -261,8 +259,12 @@ const DoctorProfileTab: React.FC<DoctorProfileTabProps> = ({
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Update failed:', errorData);
         throw new Error(errorData.error || 'Failed to update profile');
       }
+      
+      const result = await response.json();
+      console.log('Update successful:', result);
       
       // Refresh the profile data after successful update
       await fetchDoctorProfile(doctorId);
@@ -654,7 +656,7 @@ const DoctorProfileTab: React.FC<DoctorProfileTabProps> = ({
                     </p>
                   )}
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Secondary Specializations</label>
                   {editing ? (
@@ -665,20 +667,18 @@ const DoctorProfileTab: React.FC<DoctorProfileTabProps> = ({
                         className="w-full px-3 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:bg-white transition-all duration-200 text-sm"
                       >
                         <option value="">Add secondary specialization</option>
-                        {commonSpecializations
-                          .filter(spec => spec !== editForm.specialization?.primary)
-                          .map((spec) => (
-                            <option key={spec} value={spec}>{spec}</option>
-                          ))}
+                        {commonSpecializations.filter(spec => spec !== editForm.specialization?.primary).map((spec) => (
+                          <option key={spec} value={spec}>{spec}</option>
+                        ))}
                       </select>
                       {editForm.specialization?.secondary && editForm.specialization.secondary.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 mt-2">
                           {editForm.specialization.secondary.map((spec, index) => (
-                            <span key={index} className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium border border-purple-200">
+                            <span key={index} className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium flex items-center gap-1 border border-purple-200">
                               {spec}
-                              <button 
+                              <button
                                 onClick={() => handleSecondarySpecializationChange(spec)}
-                                className="ml-1 hover:bg-purple-200 rounded-full p-0.5"
+                                className="ml-1 text-purple-500 hover:text-purple-700"
                               >
                                 <X size={12} />
                               </button>
@@ -688,15 +688,13 @@ const DoctorProfileTab: React.FC<DoctorProfileTabProps> = ({
                       )}
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
                       {profile.specialization?.secondary && profile.specialization.secondary.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {profile.specialization.secondary.map((spec, index) => (
-                            <span key={index} className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium border border-purple-200">
-                              {spec}
-                            </span>
-                          ))}
-                        </div>
+                        profile.specialization.secondary.map((spec, index) => (
+                          <span key={index} className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium border border-purple-200">
+                            {spec}
+                          </span>
+                        ))
                       ) : (
                         <p className="text-sm text-gray-500 px-3 py-2 bg-gray-50 rounded-lg">No secondary specializations</p>
                       )}
@@ -706,17 +704,17 @@ const DoctorProfileTab: React.FC<DoctorProfileTabProps> = ({
               </div>
             </div>
 
-            {/* Professional Details */}
+            {/* Professional Information */}
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center">
-                  <Shield size={20} className="text-white" />
+                <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-teal-500 rounded-lg flex items-center justify-center">
+                  <FileText size={20} className="text-white" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-800">Professional Details</h2>
+                <h2 className="text-xl font-bold text-gray-800">Professional Information</h2>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Qualification *</label>
                   {editing ? (
                     <select
@@ -735,11 +733,11 @@ const DoctorProfileTab: React.FC<DoctorProfileTabProps> = ({
                     </p>
                   )}
                 </div>
-
+                
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Hospital ID</label>
                   <p className="text-sm font-medium text-gray-800 px-3 py-2 bg-gray-50 rounded-lg">
-                    {profile.hospital_id || 'Not assigned'}
+                    {profile.hospital_id || 'Not provided'}
                   </p>
                 </div>
 
@@ -755,18 +753,14 @@ const DoctorProfileTab: React.FC<DoctorProfileTabProps> = ({
                       <option value="inactive">Inactive</option>
                     </select>
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <span className={`w-3 h-3 rounded-full ${profile.is_active ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                      <p className="text-sm font-medium text-gray-800">{profile.is_active ? 'Active' : 'Inactive'}</p>
-                    </div>
+                    <p className={`text-sm font-medium px-3 py-2 rounded-lg ${
+                      profile.is_active 
+                        ? 'text-green-800 bg-green-50 border border-green-100' 
+                        : 'text-red-800 bg-red-50 border border-red-100'
+                    }`}>
+                      {profile.is_active ? 'Active' : 'Inactive'}
+                    </p>
                   )}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">User ID</label>
-                  <p className="text-sm font-medium text-gray-600 px-3 py-2 bg-gray-50 rounded-lg font-mono">
-                    {profile.user_id}
-                  </p>
                 </div>
               </div>
             </div>
@@ -788,7 +782,7 @@ const DoctorProfileTab: React.FC<DoctorProfileTabProps> = ({
                       value={editForm.location || ''}
                       onChange={(e) => setEditForm({...editForm, location: e.target.value})}
                       className="w-full px-3 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:bg-white transition-all duration-200 text-sm"
-                      placeholder="Enter city/location"
+                      placeholder="Enter location"
                     />
                   ) : (
                     <p className="text-sm font-medium text-gray-800 px-3 py-2 bg-orange-50 rounded-lg border border-orange-100">
@@ -797,18 +791,18 @@ const DoctorProfileTab: React.FC<DoctorProfileTabProps> = ({
                   )}
                 </div>
 
-                <div className="space-y-2 md:col-span-2">
+                <div className="space-y-2">
                   <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Address</label>
                   {editing ? (
                     <textarea
                       value={editForm.address || ''}
                       onChange={(e) => setEditForm({...editForm, address: e.target.value})}
-                      rows={3}
                       className="w-full px-3 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:bg-white transition-all duration-200 text-sm resize-none"
-                      placeholder="Enter complete address"
+                      rows={3}
+                      placeholder="Enter full address"
                     />
                   ) : (
-                    <p className="text-sm font-medium text-gray-800 px-3 py-2 bg-orange-50 rounded-lg border border-orange-100 min-h-16">
+                    <p className="text-sm font-medium text-gray-800 px-3 py-2 bg-orange-50 rounded-lg border border-orange-100 min-h-[80px]">
                       {profile.address || 'Not provided'}
                     </p>
                   )}
@@ -821,112 +815,103 @@ const DoctorProfileTab: React.FC<DoctorProfileTabProps> = ({
           <div className="xl:col-span-1 space-y-6">
             {/* Quick Stats */}
             <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <Activity size={18} className="text-blue-500" />
-                Quick Stats
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100">
-                  <div className="flex items-center gap-2">
-                    <Clock size={16} className="text-blue-500" />
-                    <span className="text-sm font-medium text-gray-700">Slot Duration</span>
-                  </div>
-                  <span className="text-sm font-bold text-blue-600">{profile.slot_duration || 30} min</span>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
+                  <Activity size={20} className="text-white" />
                 </div>
-                
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100">
-                  <div className="flex items-center gap-2">
-                    <Shield size={16} className="text-green-500" />
-                    <span className="text-sm font-medium text-gray-700">Status</span>
+                <h2 className="text-xl font-bold text-gray-800">Quick Stats</h2>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-100">
+                  <div className="flex items-center gap-3">
+                    <Clock size={16} className="text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">Slot Duration</span>
                   </div>
-                  <span className={`text-sm font-bold ${profile.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                  <span className="text-sm font-bold text-blue-700">{profile.slot_duration || 30} min</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
+                  <div className="flex items-center gap-3">
+                    <Shield size={16} className="text-green-600" />
+                    <span className="text-sm font-medium text-green-800">Status</span>
+                  </div>
+                  <span className={`text-sm font-bold ${profile.is_active ? 'text-green-700' : 'text-red-700'}`}>
                     {profile.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
-                
-                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-100">
-                  <div className="flex items-center gap-2">
-                    <User size={16} className="text-purple-500" />
-                    <span className="text-sm font-medium text-gray-700">Age</span>
+
+                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-100">
+                  <div className="flex items-center gap-3">
+                    <Award size={16} className="text-purple-600" />
+                    <span className="text-sm font-medium text-purple-800">Age</span>
                   </div>
-                  <span className="text-sm font-bold text-purple-600">{profile.age} years</span>
+                  <span className="text-sm font-bold text-purple-700">{profile.age} years</span>
                 </div>
               </div>
             </div>
 
             {/* Contact Information */}
             <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <Phone size={18} className="text-green-500" />
-                Contact Info
-              </h3>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-rose-500 rounded-lg flex items-center justify-center">
+                  <Phone size={20} className="text-white" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-800">Contact</h2>
+              </div>
+              
               <div className="space-y-4">
                 {profile.mobile && (
-                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-100">
-                    <Phone size={16} className="text-green-500" />
+                  <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 rounded-lg border border-pink-100">
+                    <Phone size={16} className="text-pink-600" />
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase">Mobile</p>
-                      <p className="text-sm font-medium text-gray-800">{profile.mobile}</p>
+                      <p className="text-xs font-semibold text-pink-800 uppercase tracking-wide">Mobile</p>
+                      <p className="text-sm font-medium text-pink-700">{profile.mobile}</p>
                     </div>
                   </div>
                 )}
-                
+
                 {profile.email && (
-                  <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                    <Mail size={16} className="text-blue-500" />
+                  <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-indigo-100">
+                    <Mail size={16} className="text-indigo-600" />
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase">Email</p>
-                      <p className="text-sm font-medium text-gray-800">{profile.email}</p>
+                      <p className="text-xs font-semibold text-indigo-800 uppercase tracking-wide">Email</p>
+                      <p className="text-sm font-medium text-indigo-700">{profile.email}</p>
                     </div>
                   </div>
                 )}
-                
-                {!profile.mobile && !profile.email && (
-                  <p className="text-sm text-gray-500 text-center py-4">No contact information available</p>
+
+                {profile.blood_group && (
+                  <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-100">
+                    <Activity size={16} className="text-red-600" />
+                    <div>
+                      <p className="text-xs font-semibold text-red-800 uppercase tracking-wide">Blood Group</p>
+                      <p className="text-sm font-medium text-red-700">{profile.blood_group}</p>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
 
-            {/* Profile Completion */}
+            {/* System Information */}
             <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <FileText size={18} className="text-orange-500" />
-                Profile Status
-              </h3>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-r from-gray-500 to-slate-500 rounded-lg flex items-center justify-center">
+                  <FileText size={20} className="text-white" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-800">System Info</h2>
+              </div>
+              
               <div className="space-y-3">
-                {(() => {
-                  const requiredFields = ['name', 'username', 'age', 'qualification'];
-                  const specializationComplete = profile.specialization?.primary;
-                  const completedFields = requiredFields.filter(field => profile[field]);
-                  const completionPercentage = Math.round(((completedFields.length + (specializationComplete ? 1 : 0)) / (requiredFields.length + 1)) * 100);
-                  
-                  return (
-                    <>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">Completion</span>
-                        <span className="text-sm font-bold text-orange-600">{completionPercentage}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${completionPercentage}%` }}
-                        ></div>
-                      </div>
-                      <div className="space-y-2 mt-4">
-                        {requiredFields.map(field => (
-                          <div key={field} className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${profile[field] ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                            <span className="text-xs font-medium text-gray-600 capitalize">{field.replace('_', ' ')}</span>
-                          </div>
-                        ))}
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${specializationComplete ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                          <span className="text-xs font-medium text-gray-600">Primary Specialization</span>
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
+                <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">User ID</p>
+                  <p className="text-sm font-mono text-gray-800">{profile.user_id}</p>
+                </div>
+
+                <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Auth ID</p>
+                  <p className="text-sm font-mono text-gray-800">{profile.auth_id}</p>
+                </div>
               </div>
             </div>
           </div>

@@ -9,4 +9,4 @@ const  DiagnosisPage = () => {
   );
 };
 
-export default DiagnosisPage;
+export default DiagnosisPage; 
