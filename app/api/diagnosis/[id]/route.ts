@@ -1,81 +1,50 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { api } from '@/lib/api';
 import { withAuth } from '@workos-inc/authkit-nextjs';
-
-interface DiagnosisParams {
-  params: {
-    id: string;
-  };
-}
 
 /**
  * GET /api/diagnosis/[id]
  * Retrieves a specific diagnosis by ID
  */
-export async function GET(
-  req: NextRequest,
-  { params }: DiagnosisParams
-) {
+export async function GET(req, { params }) {
   try {
-    // Get auth data from WorkOS - ensure proper error handling
-    const authResult = await withAuth(req);
-    
-    if (!authResult || !authResult.user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    // Await params before accessing properties (Next.js 15+ requirement)
+    const { id } = await params;
 
-    const { user, organizationId, role } = authResult;
-
-    // Get the diagnosis ID from the URL parameter
-    const diagnosisId = params.id;
-
-    if (!diagnosisId) {
+    if (!id) {
       return NextResponse.json(
         { error: "Diagnosis ID is required" },
         { status: 400 }
       );
     }
 
-    // Forward the request to the backend with proper headers
-    const response = await api.get(`/api/diagnoses/${diagnosisId}`, {
+    // Get auth data from WorkOS
+    const { accessToken, sessionId, organizationId } = await withAuth();
+
+    // Forward the request to the backend with auth headers
+    const response = await api.get(`/api/diagnoses/${id}`, {
       headers: {
-        'X-User-ID': user.id,
-        'X-Organization-ID': organizationId || '',
-        'X-User-Role': role || '',
+        'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+        'X-Session-ID': sessionId || '',
+        'X-Organization-ID': organizationId || ''
       }
     });
 
     return NextResponse.json(response.data);
 
-  } catch (error: any) {
-    console.error('Error retrieving diagnosis:', error);
-
-    // Handle specific error cases
+  } catch (error) {
+    // Handle authentication errors
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { code: 'AUTH_REQUIRED', error: 'Not authenticated' },
         { status: 401 }
       );
     }
 
-    // Handle backend API errors
-    if (error.response) {
-      const status = error.response.status;
-      const errorMessage = error.response.data?.error || 'Failed to retrieve diagnosis';
-      
-      return NextResponse.json(
-        { error: errorMessage },
-        { status }
-      );
-    }
-
-    // Handle network or other errors
+    console.error('Error retrieving diagnosis:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: error.response?.data?.error || 'Failed to retrieve diagnosis' },
+      { status: error.response?.status || 500 }
     );
   }
 }
@@ -84,49 +53,24 @@ export async function GET(
  * PUT /api/diagnosis/[id]
  * Updates a specific diagnosis by ID
  */
-export async function PUT(
-  req: NextRequest,
-  { params }: DiagnosisParams
-) {
+export async function PUT(req, { params }) {
   try {
-    // Get auth data from WorkOS - ensure proper error handling
-    const authResult = await withAuth(req);
-    
-    if (!authResult || !authResult.user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    // Await params before accessing properties (Next.js 15+ requirement)
+    const { id } = await params;
+    const data = await req.json();
 
-    const { user, organizationId, role } = authResult;
-
-    // Get the diagnosis ID from the URL parameter
-    const diagnosisId = params.id;
-
-    if (!diagnosisId) {
+    if (!id) {
       return NextResponse.json(
         { error: "Diagnosis ID is required" },
         { status: 400 }
       );
     }
 
-    // Parse and validate request body
-    let data;
-    try {
-      data = await req.json();
-    } catch (parseError) {
-      return NextResponse.json(
-        { 
-          error: "Invalid request format",
-          details: "Request body must be valid JSON"
-        },
-        { status: 400 }
-      );
-    }
+    // Get auth data from WorkOS
+    const { accessToken, sessionId, organizationId } = await withAuth();
 
     // Ensure organization ID matches auth context
-    if (data.org_id && organizationId && data.org_id !== organizationId) {
+    if (data.org_id && data.org_id !== organizationId) {
       return NextResponse.json(
         { error: "Organization ID mismatch" },
         { status: 403 }
@@ -138,47 +82,49 @@ export async function PUT(
       data.org_id = organizationId;
     }
 
-    // Forward the request to the backend
-    const response = await api.put(`/api/diagnoses/${diagnosisId}`, data, {
+    // Forward the request to the backend with auth headers
+    const response = await api.put(`/api/diagnoses/${id}`, data, {
       headers: {
-        'X-User-ID': user.id,
-        'X-Organization-ID': organizationId || '',
-        'X-User-Role': role || '',
+        'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+        'X-Session-ID': sessionId || '',
+        'X-Organization-ID': organizationId || ''
       }
     });
 
     return NextResponse.json(response.data);
 
-  } catch (error: any) {
-    console.error('Error updating diagnosis:', error);
-
-    // Handle specific error cases
+  } catch (error) {
+    // Handle authentication errors
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { code: 'AUTH_REQUIRED', error: 'Not authenticated' },
         { status: 401 }
       );
     }
 
-    // Handle backend API errors
-    if (error.response) {
-      const status = error.response.status;
-      const errorMessage = error.response.data?.error || 'Failed to update diagnosis';
-      const details = error.response.data?.details;
-      
-      const responseBody: any = { error: errorMessage };
-      if (details) {
-        responseBody.details = details;
-      }
-      
-      return NextResponse.json(responseBody, { status });
+    console.error('Error updating diagnosis:', error);
+    
+    // Handle JSON parsing errors
+    if (error.name === 'SyntaxError') {
+      return NextResponse.json(
+        { 
+          error: "Invalid request format",
+          details: "Request body must be valid JSON"
+        },
+        { status: 400 }
+      );
     }
 
-    // Handle network or other errors
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    // Return detailed error information
+    const errorMessage = error.response?.data?.error || error.message || 'Failed to update diagnosis';
+    const statusCode = error.response?.status || 500;
+    
+    const responseBody = {
+      error: errorMessage,
+      details: error.response?.data || {}
+    };
+    
+    return NextResponse.json(responseBody, { status: statusCode });
   }
 }
 
@@ -186,70 +132,61 @@ export async function PUT(
  * DELETE /api/diagnosis/[id]
  * Deletes a specific diagnosis by ID
  */
-export async function DELETE(
-  req: NextRequest,
-  { params }: DiagnosisParams
-) {
+export async function DELETE(req, { params }) {
   try {
-    // Get auth data from WorkOS - ensure proper error handling
-    const authResult = await withAuth(req);
-    
-    if (!authResult || !authResult.user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    // Await params before accessing properties (Next.js 15+ requirement)
+    const { id } = await params;
 
-    const { user, organizationId, role } = authResult;
-
-    // Get the diagnosis ID from the URL parameter
-    const diagnosisId = params.id;
-
-    if (!diagnosisId) {
+    if (!id) {
       return NextResponse.json(
         { error: "Diagnosis ID is required" },
         { status: 400 }
       );
     }
 
-    // Forward the request to the backend
-    const response = await api.delete(`/api/diagnoses/${diagnosisId}`, {
+    // Get auth data from WorkOS
+    const { accessToken, sessionId, organizationId } = await withAuth();
+
+    console.log('Deleting diagnosis with ID:', id);
+    console.log('Organization ID from auth:', organizationId);
+
+    // Forward the request to the backend with auth headers
+    const response = await api.delete(`/api/diagnoses/${id}`, {
       headers: {
-        'X-User-ID': user.id,
-        'X-Organization-ID': organizationId || '',
-        'X-User-Role': role || '',
+        'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+        'X-Session-ID': sessionId || '',
+        'X-Organization-ID': organizationId || ''
       }
     });
 
     return NextResponse.json(response.data);
 
-  } catch (error: any) {
-    console.error('Error deleting diagnosis:', error);
-
-    // Handle specific error cases
+  } catch (error) {
+    // Handle authentication errors
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { code: 'AUTH_REQUIRED', error: 'Not authenticated' },
         { status: 401 }
       );
     }
 
-    // Handle backend API errors
-    if (error.response) {
-      const status = error.response.status;
-      const errorMessage = error.response.data?.error || 'Failed to delete diagnosis';
-      
-      return NextResponse.json(
-        { error: errorMessage },
-        { status }
-      );
-    }
-
-    // Handle network or other errors
+    console.error('Error deleting diagnosis:', error);
+    
+    // Get the awaited params for error logging
+    const awaitedParams = await params;
+    
+    // Return detailed error information for debugging
+    const errorMessage = error.response?.data?.error || error.message || 'Failed to delete diagnosis';
+    const statusCode = error.response?.status || 500;
+    
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      {
+        error: errorMessage,
+        details: error.response?.data || {},
+        diagnosisId: awaitedParams.id,
+        requestUrl: error.config?.url || 'Unknown URL'
+      },
+      { status: statusCode }
     );
   }
 }
