@@ -7,6 +7,7 @@ import SearchBar from "./Searchbar";
 import MobileSearchButton from "./MobileSearchButton";
 import { Bell, Settings, Calendar, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 const Header = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -24,19 +25,9 @@ const Header = () => {
       <div className="h-full px-4 md:px-8 flex items-center justify-between gap-4 md:gap-8">
         {/* Mobile menu spacing */}
         <div className="w-10 md:hidden"></div>
-        
-        {/* Logo and Brand - Hidden on mobile, shown on larger screens */}
-        <div className="hidden lg:flex items-center gap-3 min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-[#FFB347] to-[#FF9F1C] rounded-lg flex items-center justify-center shadow-lg">
-              <Activity className="w-5 h-5 text-white" />
-            </div>
-          
-          </div>
-        </div>
 
         {/* Enhanced Search Bar */}
-        <div className="flex-1 max-w-md mx-4 hidden sm:block">
+        <div className="flex-1 max-w-xl mx-8 hidden sm:block">
           <SearchBar />
         </div>
 
@@ -58,9 +49,11 @@ const Header = () => {
             <button className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 border border-transparent hover:border-white/20 backdrop-blur-sm">
               <Bell className="w-5 h-5" />
             </button>
+            <Link href='/dashboard/settings'>
             <button className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 border border-transparent hover:border-white/20 backdrop-blur-sm">
               <Settings className="w-5 h-5" />
             </button>
+            </Link>
           </div>
 
           {/* Profile Section */}
