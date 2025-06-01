@@ -448,8 +448,48 @@ const calculateAvailableTimeSlots = async (shifts, date) => {
     return true;
   };
 
-  // Handle form submission with improved validation
-  // Fixed handleSubmit function to preserve local time
+  const formatTimeWithSeconds = (timeStr) => {
+  if (!timeStr) return "";
+  
+  // If already in HH:mm:ss format, return as is
+  if (timeStr.includes(':') && timeStr.split(':').length === 3) {
+    return timeStr;
+  }
+  
+  // If in HH:mm format, add :00 seconds
+  if (timeStr.includes(':') && timeStr.split(':').length === 2) {
+    return `${timeStr}:00`;
+  }
+  
+  return timeStr;
+};
+
+// Helper function to calculate end time using doctor's slot duration
+function calculateEndTimeFromString(timeStr, slotDuration = 30) {
+  if (!timeStr) return "";
+  
+  // Parse the time string (could be HH:mm or HH:mm:ss)
+  const timeParts = timeStr.split(':');
+  const hours = parseInt(timeParts[0]);
+  const minutes = parseInt(timeParts[1]);
+  const seconds = timeParts.length > 2 ? parseInt(timeParts[2]) : 0;
+  
+  // Add the doctor's slot duration (in minutes)
+  let endHours = hours;
+  let endMinutes = minutes + slotDuration;
+  let endSeconds = seconds;
+  
+  // Handle minute overflow
+  if (endMinutes >= 60) {
+    endHours = Math.floor(endHours + (endMinutes / 60)) % 24;
+    endMinutes = endMinutes % 60;
+  }
+  
+  // Return in HH:mm:ss format
+  return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}:${endSeconds.toString().padStart(2, '0')}`;
+}
+
+// Update the handleSubmit function to use doctor's slot duration:
 const handleSubmit = async () => {
   if (!validateForm()) return;
   setSubmitting(true);
@@ -464,8 +504,11 @@ const handleSubmit = async () => {
       throw new Error("Doctor ID must be in UUID format");
     }
 
-    // IMPORTANT FIX: Send the time as separate fields instead of combining them
-    // This preserves the original time selection without timezone conversion
+    // Use doctor's slot duration for end time calculation
+    const doctorSlotDuration = formData.doctor?.slotDuration || 30;
+    const formattedStartTime = formatTimeWithSeconds(formData.time);
+    const formattedEndTime = calculateEndTimeFromString(formData.time, doctorSlotDuration);
+
     const appointmentData = {
       patient_id: formData.patient.id,
       doctor_id: formData.doctor.id,
@@ -473,14 +516,15 @@ const handleSubmit = async () => {
       patient_name: formData.patient.name,
       doctor_name: formData.doctor.name,
       appointment_date: new Date(formData.date).toISOString(),
-      slot_start_time: formData.time, // Send the original time string directly
-      slot_end_time: calculateEndTimeFromString(formData.time), // Calculate end time based on start time
+      slot_start_time: formattedStartTime,
+      slot_end_time: formattedEndTime,
+      slot_duration: doctorSlotDuration, // Include slot duration in the payload
       fee_type: formData.feeType,
       payment_method: formData.paymentMethod,
       reason: formData.reason || ""
     };
 
-    console.log("Sending appointment data:", appointmentData);
+    console.log("Sending appointment data with doctor's slot duration:", appointmentData);
 
     const response = await fetch("/api/appointments/create", {
       method: "POST",
@@ -512,23 +556,6 @@ const handleSubmit = async () => {
     setSubmitting(false);
   }
 };
-
-// Helper function to calculate end time (30 minutes after start time)
-function calculateEndTimeFromString(timeStr) {
-  if (!timeStr) return "";
-  
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  let endHours = hours;
-  let endMinutes = minutes + 30;
-  
-  if (endMinutes >= 60) {
-    endHours = (endHours + 1) % 24;
-    endMinutes -= 60;
-  }
-  
-  return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
-}
-
   // Handle patient selection with proper validation
   const handleSelectPatient = (patient) => {
     // Extract patient ID using various possible property names
@@ -617,30 +644,30 @@ const FeeDisplay = () => {
 
   // Updated doctor card component with better UI
   const DoctorCard = ({ doctor, onSelect, isSelected }) => {
-    return (
-      <div 
-        className={`p-4 rounded-lg border cursor-pointer transition-colors duration-200 hover:bg-gray-50 ${
-          isSelected ? "border-blue-500 bg-blue-50" : ""
-        }`}
-        onClick={() => onSelect(doctor)}
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600">
-            {doctor.name.charAt(0)}
+  return (
+    <div 
+      className={`p-4 rounded-lg border cursor-pointer transition-colors duration-200 hover:bg-gray-50 ${
+        isSelected ? "border-blue-500 bg-blue-50" : ""
+      }`}
+      onClick={() => onSelect(doctor)}
+    >
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600">
+          {doctor.name.charAt(0)}
+        </div>
+        <div className="flex-1">
+          <div className="font-medium">{doctor.name}</div>
+          <div className="text-sm text-gray-500">
+            {doctor.specialty}
           </div>
-          <div className="flex-1">
-            <div className="font-medium">{doctor.name}</div>
-            <div className="text-sm text-gray-500">
-              {doctor.specialty}
-            </div>
-            <div className="text-xs text-gray-500">
-              {doctor.qualification} • {doctor.slotDuration} min slots
-            </div>
+          <div className="text-sm text-gray-500">
+            Slot Duration: {doctor.slotDuration || "ERROR"} minutes
           </div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
   
 // Fix for the calendar date selection issue
 const renderCalendar = () => {
