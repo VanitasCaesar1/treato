@@ -17,15 +17,17 @@ export async function GET(
   { params }: DiagnosisParams
 ) {
   try {
-    // Get auth data from WorkOS
-    const { user, organizationId, role } = await withAuth();
+    // Get auth data from WorkOS - ensure proper error handling
+    const authResult = await withAuth(req);
     
-    if (!user) {
+    if (!authResult || !authResult.user) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
     }
+
+    const { user, organizationId, role } = authResult;
 
     // Get the diagnosis ID from the URL parameter
     const diagnosisId = params.id;
@@ -41,8 +43,8 @@ export async function GET(
     const response = await api.get(`/api/diagnoses/${diagnosisId}`, {
       headers: {
         'X-User-ID': user.id,
-        'X-Organization-ID': organizationId,
-        'X-User-Role': role,
+        'X-Organization-ID': organizationId || '',
+        'X-User-Role': role || '',
       }
     });
 
@@ -87,15 +89,17 @@ export async function PUT(
   { params }: DiagnosisParams
 ) {
   try {
-    // Get auth data from WorkOS
-    const { user, organizationId, role } = await withAuth();
+    // Get auth data from WorkOS - ensure proper error handling
+    const authResult = await withAuth(req);
     
-    if (!user) {
+    if (!authResult || !authResult.user) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
     }
+
+    const { user, organizationId, role } = authResult;
 
     // Get the diagnosis ID from the URL parameter
     const diagnosisId = params.id;
@@ -122,7 +126,7 @@ export async function PUT(
     }
 
     // Ensure organization ID matches auth context
-    if (data.org_id && data.org_id !== organizationId) {
+    if (data.org_id && organizationId && data.org_id !== organizationId) {
       return NextResponse.json(
         { error: "Organization ID mismatch" },
         { status: 403 }
@@ -130,14 +134,16 @@ export async function PUT(
     }
 
     // Add organization ID if not present
-    data.org_id = organizationId;
+    if (organizationId) {
+      data.org_id = organizationId;
+    }
 
     // Forward the request to the backend
     const response = await api.put(`/api/diagnoses/${diagnosisId}`, data, {
       headers: {
         'X-User-ID': user.id,
-        'X-Organization-ID': organizationId,
-        'X-User-Role': role,
+        'X-Organization-ID': organizationId || '',
+        'X-User-Role': role || '',
       }
     });
 
@@ -185,15 +191,17 @@ export async function DELETE(
   { params }: DiagnosisParams
 ) {
   try {
-    // Get auth data from WorkOS
-    const { user, organizationId, role } = await withAuth();
+    // Get auth data from WorkOS - ensure proper error handling
+    const authResult = await withAuth(req);
     
-    if (!user) {
+    if (!authResult || !authResult.user) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
     }
+
+    const { user, organizationId, role } = authResult;
 
     // Get the diagnosis ID from the URL parameter
     const diagnosisId = params.id;
@@ -209,8 +217,8 @@ export async function DELETE(
     const response = await api.delete(`/api/diagnoses/${diagnosisId}`, {
       headers: {
         'X-User-ID': user.id,
-        'X-Organization-ID': organizationId,
-        'X-User-Role': role,
+        'X-Organization-ID': organizationId || '',
+        'X-User-Role': role || '',
       }
     });
 
