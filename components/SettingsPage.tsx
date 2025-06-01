@@ -469,6 +469,7 @@ const DoctorProfileTab = ({ doctorId, doctorName, organizationId }: {
                   value={profile.mobile}
                   onChange={(e) => setProfile({...profile, mobile: e.target.value})}
                   disabled={!isEditing}
+                  maxLength={10}
                 />
               </div>
               <div>
@@ -478,6 +479,7 @@ const DoctorProfileTab = ({ doctorId, doctorName, organizationId }: {
                   value={profile.age}
                   onChange={(e) => setProfile({...profile, age: Number(e.target.value)})}
                   disabled={!isEditing}
+                  maxLength={2}
                 />
               </div>
             </div>
@@ -509,6 +511,8 @@ const DoctorProfileTab = ({ doctorId, doctorName, organizationId }: {
                 value={profile.imrNumber}
                 onChange={(e) => setProfile({...profile, imrNumber: e.target.value})}
                 disabled={!isEditing}
+                maxLength={16}
+
               />
             </div>
 
@@ -1150,61 +1154,75 @@ useEffect(() => {
 
                     {/* Fee Form */}
                     <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <DollarSign className="h-5 w-5" />
-                          {fees.length > 0 ? 'Update' : 'Set'} Fee Structure
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                          <div>
-                            <Label>Recurring Fees (₹)</Label>
-                            <Input
-                              type="number"
-                              value={newFees.recurringFees}
-                              onChange={(e) => setNewFees({...newFees, recurringFees: Number(e.target.value)})}
-                              placeholder="0"
-                            />
-                          </div>
-                          <div>
-                            <Label>Default Fees (₹)</Label>
-                            <Input
-                              type="number"
-                              value={newFees.defaultFees}
-                              onChange={(e) => setNewFees({...newFees, defaultFees: Number(e.target.value)})}
-                              placeholder="0"
-                            />
-                          </div>
-                          <div>
-                            <Label>Emergency Fees (₹)</Label>
-                            <Input
-                              type="number"
-                              value={newFees.emergencyFees}
-                              onChange={(e) => setNewFees({...newFees, emergencyFees: Number(e.target.value)})}
-                              placeholder="0"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex gap-3">
-                          <Button onClick={handleUpdateFees} disabled={loading}>
-                            {loading ? <LoadingSpinner size="sm" /> : <Save className="h-4 w-4 mr-2" />}
-                            {fees.length > 0 ? 'Update' : 'Save'} Fees
-                          </Button>
-                          {fees.length > 0 && (
-                            <Button 
-                              variant="destructive" 
-                              onClick={() => handleDeleteFees(fees[0])}
-                              disabled={loading}
-                            >
-                              <Trash className="h-4 w-4 mr-2" />
-                              Delete Fees
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <DollarSign className="h-5 w-5" />
+      {fees.length > 0 ? 'Update' : 'Set'} Fee Structure
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div>
+        <Label>Recurring Fees (₹)</Label>
+        <Input
+          type="text"
+          value={newFees.recurringFees === 0 ? '' : newFees.recurringFees}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === '' || (/^\d+$/.test(value) && parseInt(value) >= 0)) {
+              setNewFees({...newFees, recurringFees: value === '' ? 0 : parseInt(value)});
+            }
+          }}
+          placeholder="0"
+        />
+      </div>
+      <div>
+        <Label>Default Fees (₹)</Label>
+        <Input
+          type="text"
+          value={newFees.defaultFees === 0 ? '' : newFees.defaultFees}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === '' || (/^\d+$/.test(value) && parseInt(value) >= 0)) {
+              setNewFees({...newFees, defaultFees: value === '' ? 0 : parseInt(value)});
+            }
+          }}
+          placeholder="0"
+        />
+      </div>
+      <div>
+        <Label>Emergency Fees (₹)</Label>
+        <Input
+          type="text"
+          value={newFees.emergencyFees === 0 ? '' : newFees.emergencyFees}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === '' || (/^\d+$/.test(value) && parseInt(value) >= 0)) {
+              setNewFees({...newFees, emergencyFees: value === '' ? 0 : parseInt(value)});
+            }
+          }}
+          placeholder="0"
+        />
+      </div>
+    </div>
+    <div className="flex gap-3">
+      <Button onClick={handleUpdateFees} disabled={loading}>
+        {loading ? <LoadingSpinner size="sm" /> : <Save className="h-4 w-4 mr-2" />}
+        {fees.length > 0 ? 'Update' : 'Save'} Fees
+      </Button>
+      {fees.length > 0 && (
+        <Button
+          variant="destructive"
+          onClick={() => handleDeleteFees(fees[0])}
+          disabled={loading}
+        >
+          <Trash className="h-4 w-4 mr-2" />
+          Delete Fees
+        </Button>
+      )}
+    </div>
+  </CardContent>
+</Card>
                     {/* Current Fees Display */}
                     {fees.length > 0 && (
                       <Card>
