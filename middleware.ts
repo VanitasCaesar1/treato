@@ -63,6 +63,8 @@ export const config = {
     "/api/transactions/:path*",
     "/api/diagnosis/:path*",
     "/api/medicines/:path*",
+    "/api/records/:path*",
+    '/api/check-organization/:path*',
     
     // Auth routes
     '/callback',

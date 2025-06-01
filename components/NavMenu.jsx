@@ -1,9 +1,53 @@
 "use client";
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from 'react-dom';
 import Link from "next/link";
 import { PlusCircle, Menu, Book, DollarSign, UserPlus } from "lucide-react";
 import CreateAppointment from "./CreateAppointment";
 import CreatePatient from './CreatePatient';
+
+// Portal Modal Component with iOS translucent effect
+const PortalModal = ({ children, isOpen, onClose }) => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  if (!mounted || !isOpen) return null;
+
+  return createPortal(
+    <div 
+      className="fixed inset-0 flex items-center justify-center p-4 z-[999999] backdrop-blur-xl bg-black/40"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div 
+        className="relative w-full max-w-4xl max-h-[90vh] overflow-auto bg-white shadow-2xl border border-gray-300 rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>,
+    document.body
+  );
+};
 
 const NavMenu = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -75,24 +119,32 @@ const NavMenu = () => {
 
   return (
     <>
-      <nav className="relative">
+      {/* iOS-style backdrop overlay for dropdown */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/10 backdrop-blur-sm z-40"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+      
+      <nav className="relative z-50">
         <div className="flex items-center gap-2">
           {menuItems.map((item) => (
-            <div key={item.title}>
+            <div key={item.title} className="relative">
               {item.type === "link" ? (
                 <Link
                   href={item.href}
-                  className="group flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-100 rounded-md transition-all duration-200 hover:text-[#FFB347] hover:bg-gray-800/60"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white/80 backdrop-blur-xl rounded-xl border border-white/50 hover:bg-white/90 hover:text-blue-600 transition-all duration-200 shadow-sm"
                 >
-                  <item.icon className="w-4 h-4 transition-colors duration-200 group-hover:text-[#FFB347]" />
+                  <item.icon className="w-4 h-4" />
                   {item.title}
                 </Link>
               ) : item.type === "button" ? (
                 <button
                   onClick={item.onClick}
-                  className="group flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-100 rounded-md transition-all duration-200 hover:text-[#FFB347] hover:bg-gray-800/60"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white/80 backdrop-blur-xl rounded-xl border border-white/50 hover:bg-white/90 hover:text-blue-600 transition-all duration-200 shadow-sm"
                 >
-                  <item.icon className="w-4 h-4 transition-colors duration-200 group-hover:text-[#FFB347]" />
+                  <item.icon className="w-4 h-4" />
                   {item.title}
                 </button>
               ) : (
@@ -103,36 +155,36 @@ const NavMenu = () => {
                   className="relative"
                 >
                   <button
-                    className={`group flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all duration-200
-                      ${isOpen ? "text-[#FFB347] bg-gray-800/60" : "text-gray-100 hover:text-[#FFB347] hover:bg-gray-800/60"}`}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border transition-all duration-200 shadow-sm ${
+                      isOpen 
+                        ? "text-blue-600 bg-white/90 border-white/60 backdrop-blur-xl" 
+                        : "text-gray-700 bg-white/80 backdrop-blur-xl border-white/50 hover:bg-white/90 hover:text-blue-600"
+                    }`}
                   >
-                    <item.icon className="w-4 h-4 transition-colors duration-200 group-hover:text-[#FFB347]" />
+                    <item.icon className="w-4 h-4" />
                     {item.title}
                   </button>
 
                   <div
-                    className={`absolute left-0 top-full mt-1 w-[600px] transition-all duration-200 ease-in-out origin-top-left
-                      ${
-                        isOpen
-                          ? "opacity-100 translate-y-0 visible"
-                          : "opacity-0 -translate-y-1 invisible pointer-events-none"
-                      }`}
+                    className={`absolute left-0 top-full mt-2 w-[500px] z-[9999] transition-all duration-200 ${
+                      isOpen
+                        ? "opacity-100 translate-y-0 visible"
+                        : "opacity-0 -translate-y-1 invisible"
+                    }`}
                   >
-                    <div className="p-4 bg-gray-900 rounded-lg shadow-lg border border-gray-800">
-                      <div className="grid gap-3">
-                        {item.items.map((dropdownItem, index) => (
+                    <div className="p-4 bg-white/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-gray-200/50">
+                      <div className="space-y-1">
+                        {item.items.map((dropdownItem) => (
                           <Link
                             key={dropdownItem.href}
                             href={dropdownItem.href}
-                            className="block p-3 rounded-lg transition-all duration-200 hover:bg-gray-800/60"
-                            style={{
-                              transitionDelay: `${index * 50}ms`,
-                            }}
+                            className="block p-3 rounded-xl hover:bg-white/60 transition-colors duration-150"
+                            onClick={() => setIsOpen(false)}
                           >
-                            <div className="text-sm font-medium text-gray-100">
+                            <div className="text-sm font-medium text-gray-900">
                               {dropdownItem.title}
                             </div>
-                            <p className="mt-1 text-sm text-gray-400">
+                            <p className="text-sm text-gray-500 mt-0.5">
                               {dropdownItem.description}
                             </p>
                           </Link>
@@ -147,21 +199,25 @@ const NavMenu = () => {
         </div>
       </nav>
 
-      {/* Only render CreateAppointment when isAppointmentOpen is true */}
-      {isAppointmentOpen && (
+      <PortalModal 
+        isOpen={isAppointmentOpen} 
+        onClose={() => setIsAppointmentOpen(false)}
+      >
         <CreateAppointment
           isOpen={isAppointmentOpen}
           onClose={() => setIsAppointmentOpen(false)}
         />
-      )}
+      </PortalModal>
 
-      {/* Only render CreatePatient when isPatientModalOpen is true */}
-      {isPatientModalOpen && (
+      <PortalModal 
+        isOpen={isPatientModalOpen} 
+        onClose={() => setIsPatientModalOpen(false)}
+      >
         <CreatePatient
           isOpen={isPatientModalOpen}
           onClose={() => setIsPatientModalOpen(false)}
         />
-      )}
+      </PortalModal>
     </>
   );
 };

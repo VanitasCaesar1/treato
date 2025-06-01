@@ -4,30 +4,37 @@ import { withAuth } from '@workos-inc/authkit-nextjs';
 
 export async function GET() {
   try {
-    // Use withAuth to get user data including organization info
-    const { user, organization } = await withAuth();
+    const { user, organizationId } = await withAuth();
     
-    // Return the organization info
-    return NextResponse.json({
-      success: true,
-      hasOrganization: !!organization,
-      organizationId: organization?.id || null,
-      user: user || null
+    console.log('Auth check result:', {
+      userId: user?.id,
+      organizationId: organizationId,
+      organizationExists: !!organizationId
     });
-  } catch (error) {
-    console.error('Error in check-organization API route:', error);
-    
-    // Handle authentication errors
-    if (error.code === 'AUTH_REQUIRED') {
+
+    if (!user) {
       return NextResponse.json(
-        { success: false, code: 'AUTH_REQUIRED', error: 'Not authenticated' },
+        { error: 'Authentication required', organizationId: null },
         { status: 401 }
       );
     }
-    
-    // Handle other errors
+
+    console.log('User authenticated:', user.id, 'Organization:', organizationId);
+
+    // Return the organization ID (can be null if user isn't in an organization)
+    return NextResponse.json({
+      success: true,
+      organizationId: organizationId || null,
+      userId: user.id
+    });
+  } catch (error) {
+    console.error('Error in check-organization API:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to check organization' },
+      {
+        error: 'Internal server error',
+        organizationId: null,
+        success: false
+      },
       { status: 500 }
     );
   }
