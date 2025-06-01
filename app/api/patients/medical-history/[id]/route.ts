@@ -8,7 +8,7 @@ import { withAuth } from '@workos-inc/authkit-nextjs';
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Get auth data from WorkOS
@@ -21,7 +21,8 @@ export async function GET(
       );
     }
 
-    const { id: patientId } = params;
+    // Await the params promise
+    const { id: patientId } = await params;
     
     if (!patientId) {
       return NextResponse.json(
@@ -55,7 +56,6 @@ export async function GET(
     });
 
     return NextResponse.json(response);
-    
   } catch (error: any) {
     console.error('Error retrieving medical history:', error);
     

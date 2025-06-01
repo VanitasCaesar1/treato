@@ -6,7 +6,7 @@ import LogoutButton from "@/components/buttons/LogoutButton";
 
 const Sidebar = ({ navigation }) => {
   return (
-    <aside className="w-16 hidden sm:flex flex-col fixed inset-y-0 bg-[#37AFE1]/90 backdrop-blur-2xl z-40 border-r border-white/10">
+    <aside className="w-20 hidden sm:flex flex-col fixed inset-y-0 bg-[#37AFE1]/90 backdrop-blur-2xl z-40 border-r border-white/10">
       {/* Logo */}
       <div className="h-14 flex items-center justify-center">
         <div className="w-8 h-8 bg-gradient-to-br from-[#FFB347] to-[#ff9f1a] rounded-lg flex items-center justify-center shadow-lg shadow-[#FFB347]/25 hover:shadow-xl hover:shadow-[#FFB347]/35 transition-all duration-200 hover:scale-105 active:scale-95">
