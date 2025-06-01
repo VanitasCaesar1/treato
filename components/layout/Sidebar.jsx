@@ -6,12 +6,12 @@ import LogoutButton from "@/components/buttons/LogoutButton";
 
 const Sidebar = ({ navigation }) => {
   return (
-    <aside className="w-16 sm:w-18 md:w-20 lg:w-24 xl:w-26 hidden sm:flex flex-col fixed inset-y-0 bg-[#37AFE1]/90 backdrop-blur-2xl z-40 border-r border-white/10">
+    <aside className="w-16 hidden sm:flex flex-col fixed inset-y-0 bg-[#37AFE1]/90 backdrop-blur-2xl z-40 border-r border-white/10">
       {/* Logo */}
-      <div className="h-16 sm:h-18 md:h-20 lg:h-22 flex items-center justify-center">
-        <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 lg:w-11 lg:h-11 bg-gradient-to-br from-[#FFB347] to-[#ff9f1a] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shadow-[#FFB347]/25 hover:shadow-xl hover:shadow-[#FFB347]/35 transition-all duration-200 hover:scale-105 active:scale-95">
+      <div className="h-14 flex items-center justify-center">
+        <div className="w-8 h-8 bg-gradient-to-br from-[#FFB347] to-[#ff9f1a] rounded-lg flex items-center justify-center shadow-lg shadow-[#FFB347]/25 hover:shadow-xl hover:shadow-[#FFB347]/35 transition-all duration-200 hover:scale-105 active:scale-95">
           <svg
-            className="w-4 h-4 sm:w-4 sm:h-4 md:w-5 md:h-5 text-white drop-shadow-sm"
+            className="w-4 h-4 text-white drop-shadow-sm"
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 512 512"
           >
@@ -22,22 +22,22 @@ const Sidebar = ({ navigation }) => {
           </svg>
         </div>
       </div>
-
+      
       {/* Navigation */}
-      <nav className="flex-1 flex flex-col gap-1 sm:gap-1.5 md:gap-2 py-2 sm:py-3 md:py-4 px-2 sm:px-3 md:px-4 overflow-y-auto">
+      <nav className="flex-1 flex flex-col gap-1 py-3 px-2 overflow-y-auto">
         {navigation.map((item) => (
           <NavigationLink key={item.name} item={item} />
         ))}
       </nav>
-
+      
       {/* Create Hospital Button */}
-      <div className="px-2 sm:px-3 md:px-4 pb-3 sm:pb-3 md:pb-4">
+      <div className="px-2 pb-3">
         <Link
           href="/create-hospital"
-          className="group relative flex flex-col items-center justify-center h-12 sm:h-14 md:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#FFB347] to-[#ff9f1a] shadow-lg shadow-[#FFB347]/25 hover:shadow-xl hover:shadow-[#FFB347]/35 transition-all duration-200 hover:scale-105 active:scale-95 overflow-hidden"
+          className="group relative flex flex-col items-center justify-center h-12 rounded-lg bg-gradient-to-br from-[#FFB347] to-[#ff9f1a] shadow-lg shadow-[#FFB347]/25 hover:shadow-xl hover:shadow-[#FFB347]/35 transition-all duration-200 hover:scale-105 active:scale-95 overflow-hidden"
         >
           {/* Plus Icon */}
-          <div className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 mb-0.5 sm:mb-1 text-white transition-transform duration-200 group-hover:rotate-90">
+          <div className="w-4 h-4 mb-0.5 text-white transition-transform duration-200 group-hover:rotate-90">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -50,16 +50,16 @@ const Sidebar = ({ navigation }) => {
             </svg>
           </div>
           {/* Label */}
-          <span className="text-[10px] sm:text-xs font-semibold text-white leading-none text-center drop-shadow-sm">
+          <span className="text-xs font-medium text-white leading-none text-center drop-shadow-sm">
             Create
           </span>
           {/* Subtle shine effect */}
           <div className="absolute inset-0 bg-gradient-to-tr from-white/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
         </Link>
       </div>
-
+      
       {/* Logout Button */}
-      <div className="px-2 sm:px-3 md:px-4 pb-4 sm:pb-5 md:pb-6 border-t border-white/10 pt-3 sm:pt-3 md:pt-4">
+      <div className="px-2 pb-4 border-t border-white/10 pt-3">
         <LogoutButton />
       </div>
     </aside>
