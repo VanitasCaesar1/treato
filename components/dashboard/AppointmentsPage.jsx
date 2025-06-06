@@ -25,6 +25,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 const STATUS_STYLES = {
   completed: "bg-green-50 text-green-600 hover:bg-green-100",
   not_completed: "bg-amber-50 text-amber-600 hover:bg-amber-100",
+  cancelled: "bg-red-50 text-red-600 hover:bg-red-100",
+  declined: "bg-gray-50 text-gray-600 hover:bg-gray-100",
+  scheduled: "bg-blue-50 text-blue-600 hover:bg-blue-100",
+  pending: "bg-yellow-50 text-yellow-600 hover:bg-yellow-100",
 };
 
 const VALIDITY_STYLES = {
@@ -63,24 +67,24 @@ export default function AppointmentsPage() {
   const prevFiltersRef = useRef(null);
   const prevPaginationRef = useRef(null);
 
-  // Filters state
+  // Filters state - using backend parameter names
   const [filters, setFilters] = useState({
     searchTerm: "",
-    status: "all",
-    doctor: "all",
-    feeType: "all",
+    appointment_status: "all",
+    doctor_id: "all",
+    fee_type: "all",
     validity: "all",
-    date: "",
+    start_date: "",
   });
 
   // Form state for filter inputs
   const [formState, setFormState] = useState({
     searchTerm: "",
-    status: "all",
-    doctor: "all",
-    feeType: "all",
+    appointment_status: "all",
+    doctor_id: "all",
+    fee_type: "all",
     validity: "all",
-    date: "",
+    start_date: "",
   });
 
   // Process appointments data to ensure consistent format
@@ -153,100 +157,112 @@ export default function AppointmentsPage() {
     return { totalPages, currentPage, pageNumbers };
   }, [pagination]);
 
-  // Fetch appointments from API
-const fetchAppointments = useCallback(async () => {
-  setLoading(true);
-  setError(null);
-  setErrorDetails(null);
-  
-  try {
-    // Build query parameters
-    const queryParams = new URLSearchParams();
+  // Fetch appointments from API - FIXED parameter names
+  const fetchAppointments = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setErrorDetails(null);
     
-    // Add filters only if they have meaningful values - USING THE CORRECT PARAMETER NAMES
-    if (filters.status && filters.status !== "all") 
-      queryParams.append("status", filters.status);
-    
-    if (filters.doctor && filters.doctor !== "all") 
-      queryParams.append("doctorId", filters.doctor);
-    
-    if (filters.feeType && filters.feeType !== "all") 
-      queryParams.append("feeType", filters.feeType);
-    
-    if (filters.validity && filters.validity !== "all") 
-      queryParams.append("isValid", filters.validity);
-    
-    if (filters.date) 
-      queryParams.append("startDate", filters.date);
+    try {
+      // Build query parameters using CORRECT backend parameter names
+      const queryParams = new URLSearchParams();
+      
+      // Add filters only if they have meaningful values
+      if (filters.appointment_status && filters.appointment_status !== "all") 
+        queryParams.append("appointment_status", filters.appointment_status);
+      
+      if (filters.doctor_id && filters.doctor_id !== "all") 
+        queryParams.append("doctor_id", filters.doctor_id);
+      
+      if (filters.fee_type && filters.fee_type !== "all") 
+        queryParams.append("fee_type", filters.fee_type);
+      
+      // Note: The backend doesn't seem to have a validity filter based on the Go code
+      // but we'll keep it for frontend compatibility
+      if (filters.validity && filters.validity !== "all") 
+        queryParams.append("is_valid", filters.validity);
+      
+      if (filters.start_date) 
+        queryParams.append("start_date", filters.start_date);
 
-    // Important: Add search term if available
-    if (filters.searchTerm) 
-      queryParams.append("search", filters.searchTerm);
+      // Search term - backend doesn't show search support in the provided code
+      // but we'll include it in case it's implemented
+      if (filters.searchTerm) 
+        queryParams.append("search", filters.searchTerm);
 
-    // Pagination parameters
-    queryParams.append("limit", pagination.limit.toString());
-    queryParams.append("offset", pagination.offset.toString());
-    // These might not be supported by your backend API
-    // queryParams.append("sort_by", "appointment_date");
-    // queryParams.append("sort_order", "desc");
-    
-    console.log("Fetching appointments with params:", queryParams.toString());
-    
-    // Make API call - USING THE CORRECT ENDPOINT
-    // Assuming a default API endpoint without orgId for simplicity
-    const response = await fetch(`/api/appointments?${queryParams.toString()}`);
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`API Error (${response.status}): ${errorData.error || response.statusText}`);
+      // Pagination parameters
+      queryParams.append("limit", pagination.limit.toString());
+      queryParams.append("offset", pagination.offset.toString());
+      
+      console.log("Fetching appointments with params:", queryParams.toString());
+      
+      // Make API call
+      const response = await fetch(`/api/appointments/org?${queryParams.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          // The backend expects X-Organization-ID header
+          // You'll need to set this based on your auth/org context
+          'X-Organization-ID': 'org_01234567890123456789012345', // Replace with actual org ID
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`API Error (${response.status}): ${errorData.error || response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      // Process appointments data
+      const processedAppointments = processAppointments(data);
+      setAppointments(processedAppointments);
+      
+      // Update pagination
+      setPagination(prev => ({
+        ...prev,
+        total: data.pagination?.total || data.total || 0,
+      }));
+      
+      // Update stats
+      updateStats(processedAppointments, data.stats);
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+      setError(error.message || 'Failed to fetch appointments');
+      
+      // Handle specific errors
+      if (error.message.includes("Invalid appointment ID format")) {
+        setErrorDetails({
+          title: "ID Format Error",
+          description: "There's an issue with appointment ID validation. This may be a backend configuration issue."
+        });
+      } else if (error.message.includes("Invalid doctor ID format")) {
+        setErrorDetails({
+          title: "Doctor ID Format Error",
+          description: "The API is expecting doctor IDs in UUID format. Please verify your doctor ID selection."
+        });
+      } else if (error.message.includes("Organization ID is required")) {
+        setErrorDetails({
+          title: "Organization ID Missing",
+          description: "The X-Organization-ID header is required. Please ensure you're properly authenticated."
+        });
+      } else if (error.message.includes("Invalid organization ID format")) {
+        setErrorDetails({
+          title: "Organization ID Format Error",
+          description: "The organization ID must be in ULID format with org_ prefix."
+        });
+      } else if (error.message.includes("Authentication required") || error.message.includes("Unauthorized")) {
+        setErrorDetails({
+          title: "Authentication Error",
+          description: "You need to be logged in to access this data. Please refresh the page or log in again."
+        });
+      }
+      
+      setAppointments([]);
+    } finally {
+      setLoading(false);
     }
-    
-    const data = await response.json();
-    
-    // Process appointments data
-    const processedAppointments = processAppointments(data);
-    setAppointments(processedAppointments);
-    
-    // Update pagination
-    setPagination(prev => ({
-      ...prev,
-      total: data.pagination?.total || data.total || 0,
-    }));
-    
-    // Update stats
-    updateStats(processedAppointments, data.stats);
-  } catch (error) {
-    console.error('Error fetching appointments:', error);
-    setError(error.message || 'Failed to fetch appointments');
-    
-    // Handle specific errors
-    if (error.message.includes("Invalid doctor ID format")) {
-      setErrorDetails({
-        title: "Doctor ID Format Error",
-        description: "The API is expecting doctor IDs in UUID format. Please verify your doctor ID selection."
-      });
-    } else if (error.message.includes("Invalid appointment") || error.message.includes("ID format")) {
-      setErrorDetails({
-        title: "ID Format Error",
-        description: "There's an issue with the ID format in your request. Please verify the IDs match the required format."
-      });
-    } else if (error.message.includes("Authentication required") || error.message.includes("Unauthorized")) {
-      setErrorDetails({
-        title: "Authentication Error",
-        description: "You need to be logged in to access this data. Please refresh the page or log in again."
-      });
-    } else if (error.message.includes("Service unavailable")) {  
-      setErrorDetails({
-        title: "Service Unavailable",
-        description: "The appointments service is currently unavailable. Please try again later."
-      });
-    }
-    
-    setAppointments([]);
-  } finally {
-    setLoading(false);
-  }
-}, [filters, pagination.limit, pagination.offset, processAppointments]);
+  }, [filters, pagination.limit, pagination.offset, processAppointments]);
 
   // Calculate statistics
   const updateStats = useCallback((appointmentsData, backendStats = null) => {
@@ -337,46 +353,45 @@ const fetchAppointments = useCallback(async () => {
     }));
   }, []);
 
-  // Handle search form submission
- // Handle search form submission
-const handleSearch = useCallback((e) => {
-  if (e) e.preventDefault();
+  // Handle search form submission - FIXED parameter names
+  const handleSearch = useCallback((e) => {
+    if (e) e.preventDefault();
 
-  // Update filters state with form values
-  setFilters({...formState});
+    // Update filters state with form values
+    setFilters({...formState});
 
-  // Reset pagination when filters change
-  setPagination(prev => ({
-    ...prev,
-    offset: 0
-  }));
-  
-  // Update URL query params for better shareability
-  const newParams = new URLSearchParams();
-  
-  // Make sure to use the parameter names that match with the API route handler
-  if (formState.searchTerm) newParams.set('search', formState.searchTerm);
-  if (formState.status !== 'all') newParams.set('status', formState.status);
-  if (formState.doctor !== 'all') newParams.set('doctorId', formState.doctor);
-  if (formState.feeType !== 'all') newParams.set('feeType', formState.feeType);
-  if (formState.validity !== 'all') newParams.set('isValid', formState.validity);
-  if (formState.date) newParams.set('startDate', formState.date);
-  
-  // Use Next.js router to update the URL without refreshing the page
-  const newUrl = window.location.pathname + (newParams.toString() ? `?${newParams.toString()}` : '');
-  router.push(newUrl, { scroll: false });
-  
-}, [formState, router]);
+    // Reset pagination when filters change
+    setPagination(prev => ({
+      ...prev,
+      offset: 0
+    }));
+    
+    // Update URL query params for better shareability
+    const newParams = new URLSearchParams();
+    
+    // Use backend parameter names for URL as well
+    if (formState.searchTerm) newParams.set('search', formState.searchTerm);
+    if (formState.appointment_status !== 'all') newParams.set('appointment_status', formState.appointment_status);
+    if (formState.doctor_id !== 'all') newParams.set('doctor_id', formState.doctor_id);
+    if (formState.fee_type !== 'all') newParams.set('fee_type', formState.fee_type);
+    if (formState.validity !== 'all') newParams.set('is_valid', formState.validity);
+    if (formState.start_date) newParams.set('start_date', formState.start_date);
+    
+    // Use Next.js router to update the URL without refreshing the page
+    const newUrl = window.location.pathname + (newParams.toString() ? `?${newParams.toString()}` : '');
+    router.push(newUrl, { scroll: false });
+    
+  }, [formState, router]);
 
   // Reset all filters
   const resetFilters = useCallback(() => {
     const defaultFilters = {
       searchTerm: "",
-      status: "all",
-      doctor: "all",
-      feeType: "all",
+      appointment_status: "all",
+      doctor_id: "all",
+      fee_type: "all",
       validity: "all",
-      date: "",
+      start_date: "",
     };
     
     // Reset form state
@@ -410,30 +425,30 @@ const handleSearch = useCallback((e) => {
     }
   }, [router]);
 
-  // Load initial URL parameters if any
-// Load initial URL parameters if any
-useEffect(() => {
-  const status = searchParams.get('status') || 'all';
-  const doctor = searchParams.get('doctorId') || 'all';
-  const feeType = searchParams.get('feeType') || 'all';
-  const validity = searchParams.get('isValid') || 'all';
-  const date = searchParams.get('startDate') || '';
-  const search = searchParams.get('search') || '';
-  
-  if (status !== 'all' || doctor !== 'all' || feeType !== 'all' || validity !== 'all' || date || search) {
-    const initialFilters = {
-      searchTerm: search,
-      status,
-      doctor,
-      feeType,
-      validity,
-      date,
-    };
+  // Load initial URL parameters if any - FIXED parameter names
+  useEffect(() => {
+    const appointment_status = searchParams.get('appointment_status') || 'all';
+    const doctor_id = searchParams.get('doctor_id') || 'all';
+    const fee_type = searchParams.get('fee_type') || 'all';
+    const validity = searchParams.get('is_valid') || 'all';
+    const start_date = searchParams.get('start_date') || '';
+    const search = searchParams.get('search') || '';
     
-    setFormState(initialFilters);
-    setFilters(initialFilters);
-  }
-}, [searchParams]);
+    if (appointment_status !== 'all' || doctor_id !== 'all' || fee_type !== 'all' || validity !== 'all' || start_date || search) {
+      const initialFilters = {
+        searchTerm: search,
+        appointment_status,
+        doctor_id,
+        fee_type,
+        validity,
+        start_date,
+      };
+      
+      setFormState(initialFilters);
+      setFilters(initialFilters);
+    }
+  }, [searchParams]);
+
   // This effect will trigger whenever filters or pagination changes
   useEffect(() => {
     // Create a reference to the current filters and pagination
@@ -518,8 +533,8 @@ useEffect(() => {
               </div>
               
               <Select
-                value={formState.status}
-                onValueChange={(value) => handleInputChange('status', value)}
+                value={formState.appointment_status}
+                onValueChange={(value) => handleInputChange('appointment_status', value)}
               >
                 <SelectTrigger className="w-full md:w-[140px] bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500">
                   <SelectValue placeholder="Status" />
@@ -528,26 +543,31 @@ useEffect(() => {
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="not_completed">Not Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="declined">Declined</SelectItem>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
                 </SelectContent>
               </Select>
               
               <Select
-                value={formState.doctor}
-                onValueChange={(value) => handleInputChange('doctor', value)}
+                value={formState.doctor_id}
+                onValueChange={(value) => handleInputChange('doctor_id', value)}
               >
                 <SelectTrigger className="w-full md:w-[140px] bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500">
                   <SelectValue placeholder="Doctor" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Doctors</SelectItem>
+                  {/* Replace these with actual doctor IDs from your system */}
                   <SelectItem value="550e8400-e29b-41d4-a716-446655440000">Dr. Brandon McIntyre</SelectItem>
                   <SelectItem value="550e8400-e29b-41d4-a716-446655440001">Dr. Sarah Johnson</SelectItem>
                 </SelectContent>
               </Select>
               
               <Select
-                value={formState.feeType}
-                onValueChange={(value) => handleInputChange('feeType', value)}
+                value={formState.fee_type}
+                onValueChange={(value) => handleInputChange('fee_type', value)}
               >
                 <SelectTrigger className="w-full md:w-[140px] bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500">
                   <SelectValue placeholder="Fee Type" />
@@ -579,8 +599,8 @@ useEffect(() => {
                 <Input
                   type="date"
                   className="pl-10 h-10 bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 w-full md:w-[180px]"
-                  value={formState.date}
-                  onChange={(e) => handleInputChange('date', e.target.value)}
+                  value={formState.start_date}
+                  onChange={(e) => handleInputChange('start_date', e.target.value)}
                 />
               </div>
               
@@ -619,29 +639,29 @@ useEffect(() => {
           )}
 
           {/* Filter summary */}
-          {(filters.status !== 'all' || 
-            filters.doctor !== 'all' || 
-            filters.feeType !== 'all' || 
+          {(filters.appointment_status !== 'all' || 
+            filters.doctor_id !== 'all' || 
+            filters.fee_type !== 'all' || 
             filters.validity !== 'all' || 
-            filters.date || 
+            filters.start_date || 
             filters.searchTerm) && (
             <div className="px-6 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
               <div className="text-sm text-blue-600">
                 <span className="font-medium">Filters applied:</span>{' '}
                 {filters.searchTerm && <span className="mr-2">Search: "{filters.searchTerm}"</span>}
-                {filters.status !== 'all' && <span className="mr-2">Status: {filters.status}</span>}
-                {filters.doctor !== 'all' && (
+                {filters.appointment_status !== 'all' && <span className="mr-2">Status: {filters.appointment_status}</span>}
+                {filters.doctor_id !== 'all' && (
                   <span className="mr-2">Doctor: {
-                    filters.doctor === '550e8400-e29b-41d4-a716-446655440000' 
+                    filters.doctor_id === '550e8400-e29b-41d4-a716-446655440000' 
                       ? 'Dr. Brandon McIntyre' 
-                      : filters.doctor === '550e8400-e29b-41d4-a716-446655440001'
+                      : filters.doctor_id === '550e8400-e29b-41d4-a716-446655440001'
                         ? 'Dr. Sarah Johnson'
-                        : filters.doctor
+                        : filters.doctor_id
                   }</span>
                 )}
-                {filters.feeType !== 'all' && <span className="mr-2">Fee Type: {filters.feeType}</span>}
+                {filters.fee_type !== 'all' && <span className="mr-2">Fee Type: {filters.fee_type}</span>}
                 {filters.validity !== 'all' && <span className="mr-2">Validity: {filters.validity === 'true' ? 'Valid' : 'Expired'}</span>}
-                {filters.date && <span>Date: {filters.date}</span>}
+                {filters.start_date && <span>Date: {filters.start_date}</span>}
               </div>
               <Button 
                 variant="ghost" 
@@ -657,222 +677,234 @@ useEffect(() => {
           {/* Table header with slot time range */}
           <div className="px-6 py-3 bg-gray-50 border-b border-gray-100 hidden md:grid" 
             style={{ gridTemplateColumns: "1.4fr 1.8fr 1.8fr 1fr 1fr 0.8fr 0.8fr 100px" }}>
-            <div className="text-xs font-medium text-gray-500">Appointment Time</div>
-            <div className="text-xs font-medium text-gray-500">Patient</div>
-            <div className="text-xs font-medium text-gray-500">Doctor</div>
             <div className="text-xs font-medium text-gray-500">Fee</div>
-            <div className="text-xs font-medium text-gray-500">Date</div>
             <div className="text-xs font-medium text-gray-500">Status</div>
-            <div className="text-xs font-medium text-gray-500">Validity</div>
-            <div className="text-xs font-medium text-gray-500 text-right">Actions</div>
+            <div className="text-xs font-medium text-gray-500">Valid</div>
+            <div className="text-xs font-medium text-gray-500">Date</div>
+            <div className="text-xs font-medium text-gray-500">Actions</div>
           </div>
 
           {/* Loading state */}
-          {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              <span className="ml-2 text-gray-600">Loading appointments...</span>
             </div>
-          ) : appointments.length > 0 ? (
-            <div>
-              {/* Appointment rows with slot time range */}
-              {appointments.map((appointment, index) => (
-                <div
-                key={appointment.appointment_id || index}
-                className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors duration-200"
-                onClick={() => handleAppointmentClick(appointment)}
+          )}
+
+          {/* No data state */}
+          {!loading && appointments.length === 0 && !error && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Package className="h-12 w-12 text-gray-300 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No appointments found</h3>
+              <p className="text-gray-500 text-center mb-4">
+                {Object.values(filters).some(filter => filter !== "" && filter !== "all") 
+                  ? "Try adjusting your filters to see more results."
+                  : "Get started by creating your first appointment."
+                }
+              </p>
+              <Button 
+                onClick={handleNewAppointment}
+                className="bg-blue-600 text-white hover:bg-blue-700"
               >
-                <div className="px-6 py-4 grid gap-4 md:gap-0 md:grid-cols-[1.4fr_1.8fr_1.8fr_1fr_1fr_0.8fr_0.8fr_100px] items-center cursor-pointer">
-                  {/* Time slot with clock icon */}
-                  <div className="flex items-center">
-                  <div className="rounded-full p-2 bg-blue-50 mr-3">
-                      <AlarmClock className="h-4 w-4 text-blue-600" />
+                <Plus className="h-4 w-4 mr-2" />
+                New Appointment
+              </Button>
+            </div>
+          )}
+
+          {/* Appointments list */}
+          {!loading && appointments.length > 0 && (
+            <div className="divide-y divide-gray-100">
+              {appointments.map((appointment) => (
+                <div
+                  key={`${appointment.id}-${appointment.appointment_id}`}
+                  className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors duration-150"
+                  onClick={() => handleAppointmentClick(appointment)}
+                >
+                  {/* Mobile layout */}
+                  <div className="md:hidden space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium text-gray-900">
+                        {appointment.patient_name || 'Unknown Patient'}
+                      </div>
+                      <Badge
+                        className={`${STATUS_STYLES[appointment.appointment_status] || STATUS_STYLES.not_completed} text-xs px-2 py-1`}
+                      >
+                        {appointment.appointment_status?.replace('_', ' ').toUpperCase() || 'NOT COMPLETED'}
+                      </Badge>
                     </div>
+                    
+                    <div className="text-sm text-gray-600">
+                      <div className="flex items-center mb-1">
+                        <User className="h-4 w-4 mr-2 text-gray-400" />
+                        {appointment.doctor_name || 'Unknown Doctor'}
+                      </div>
+                      <div className="flex items-center mb-1">
+                        <AlarmClock className="h-4 w-4 mr-2 text-gray-400" />
+                        {formatSlotTimeRange(appointment.slot_start_time, appointment.slot_end_time) || 'No time set'}
+                      </div>
+                      <div className="flex items-center mb-1">
+                        <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                        {formatDate(appointment.appointment_date)}
+                      </div>
+                      <div className="flex items-center">
+                        <DollarSign className="h-4 w-4 mr-2 text-gray-400" />
+                        ₹{appointment.appointment_fee || 0}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <Badge
+                        className={`${VALIDITY_STYLES[appointment.is_valid?.toString()] || VALIDITY_STYLES.true} text-xs px-2 py-1`}
+                      >
+                        {appointment.is_valid ? 'VALID' : 'EXPIRED'}
+                      </Badge>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </div>
+                  </div>
+
+                  {/* Desktop layout */}
+                  <div className="hidden md:grid items-center"
+                    style={{ gridTemplateColumns: "1.4fr 1.8fr 1.8fr 1fr 1fr 0.8fr 0.8fr 100px" }}>
+                    
+                    <div className="flex items-center">
+                      <AlarmClock className="h-4 w-4 mr-2 text-gray-400" />
+                      <span className="text-sm text-gray-900">
+                        {formatSlotTimeRange(appointment.slot_start_time, appointment.slot_end_time) || 'No time set'}
+                      </span>
+                    </div>
+                    
                     <div>
-                      <span className="text-sm font-medium text-gray-700 block">
-                        {formatSlotTimeRange(appointment.slot_start_time, appointment.slot_end_time) || "Any time"}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {appointment.next_visit_date ? `Next: ${formatDate(appointment.next_visit_date)}` : "No follow-up"}
-                      </span>
+                      <div className="font-medium text-gray-900 text-sm">
+                        {appointment.patient_name || 'Unknown Patient'}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        ID: {appointment.patient_id || 'N/A'}
+                      </div>
                     </div>
-                  </div>
-                  
-                  {/* Patient info */}
-                  <div>
-                    <div className="font-medium text-gray-800">{appointment.patient_name || "Unknown Patient"}</div>
-                    <div className="text-xs text-gray-500">ID: {appointment.patient_id || "N/A"}</div>
-                  </div>
-                  
-                  {/* Doctor info */}
-                  <div>
-                    <div className="font-medium text-gray-800">{appointment.doctor_name || "Unassigned"}</div>
-                    <div className="text-xs text-gray-500">
-                      {appointment.fee_type === "emergency" ? "Emergency Consultation" : "Regular Consultation"}
+                    
+                    <div>
+                      <div className="font-medium text-gray-900 text-sm">
+                        {appointment.doctor_name || 'Unknown Doctor'}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        ID: {appointment.doctor_id || 'N/A'}
+                      </div>
                     </div>
-                  </div>
-                  
-                  {/* Fee info */}
-                  <div>
-                    <div className="font-medium text-gray-800">
-                      ${typeof appointment.appointment_fee === 'number' ? appointment.appointment_fee.toFixed(2) : appointment.appointment_fee || "0.00"}
+                    
+                    <div>
+                      <div className="font-medium text-gray-900 text-sm">
+                        ₹{appointment.appointment_fee || 0}
+                      </div>
+                      <div className="text-xs text-gray-500 capitalize">
+                        {appointment.fee_type || 'default'}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {appointment.payment_method || "Not paid"}
+                    
+                    <div>
+                      <Badge
+                        className={`${STATUS_STYLES[appointment.appointment_status] || STATUS_STYLES.not_completed} text-xs px-2 py-1`}
+                      >
+                        {appointment.appointment_status?.replace('_', ' ').toUpperCase() || 'NOT COMPLETED'}
+                      </Badge>
                     </div>
-                  </div>
-                  
-                  {/* Date */}
-                  <div>
-                    <div className="text-sm text-gray-700">{formatDate(appointment.appointment_date)}</div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(appointment.created_at).toLocaleDateString()}
+                    
+                    <div>
+                      <Badge
+                        className={`${VALIDITY_STYLES[appointment.is_valid?.toString()] || VALIDITY_STYLES.true} text-xs px-2 py-1`}
+                      >
+                        {appointment.is_valid ? 'VALID' : 'EXPIRED'}
+                      </Badge>
                     </div>
-                  </div>
-                  
-                  {/* Status badge */}
-                  <div>
-                    <Badge 
-                      className={STATUS_STYLES[appointment.appointment_status] || "bg-gray-50 text-gray-600"}
-                    >
-                      {appointment.appointment_status === "completed" ? "Completed" : "Pending"}
-                    </Badge>
-                  </div>
-                  
-                  {/* Validity badge */}
-                  <div>
-                    <Badge 
-                      className={VALIDITY_STYLES[String(appointment.is_valid)] || "bg-gray-50 text-gray-600"}
-                    >
-                      {appointment.is_valid ? "Valid" : "Expired"}
-                    </Badge>
-                  </div>
-                  
-                  {/* Actions */}
-                  <div className="text-right">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAppointmentClick(appointment);
-                      }}
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-2"
-                    >
-                      <ChevronRight className="h-5 w-5" />
-                    </Button>
+                    
+                    <div className="text-sm text-gray-600">
+                      {formatDate(appointment.appointment_date)}
+                    </div>
+                    
+                    <div className="flex justify-end">
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </div>
                   </div>
                 </div>
-              </div>
               ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="flex justify-center">
-                <TimerIcon className="h-12 w-12 text-gray-300" />
-              </div>
-              <h3 className="mt-4 text-lg font-medium text-gray-900">No appointments found</h3>
-              <p className="mt-1 text-gray-500">Try adjusting your search or filters to find what you're looking for.</p>
-              <div className="mt-6">
-                <Button 
-                  onClick={resetFilters}
-                  className="bg-blue-600 text-white hover:bg-blue-700"
-                >
-                  Reset Filters
-                </Button>
-              </div>
             </div>
           )}
 
           {/* Pagination */}
-          {appointments.length > 0 && pagination.total > pagination.limit && (
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                Showing {pagination.offset + 1} to {Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} results
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pagination.offset === 0}
-                  onClick={() => handlePageChange(0)}
-                  className="border-gray-200 text-gray-600 hover:bg-gray-50"
-                >
-                  First
-                </Button>
+          {!loading && appointments.length > 0 && paginationInfo.totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Showing {pagination.offset + 1} to {Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} appointments
+                </div>
                 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pagination.offset === 0}
-                  onClick={() => handlePageChange(Math.max(0, pagination.offset - pagination.limit))}
-                  className="border-gray-200 text-gray-600 hover:bg-gray-50"
-                >
-                  Previous
-                </Button>
-                
-                {paginationInfo.pageNumbers.map((pageNum, index) => (
-                  pageNum === "..." ? (
-                    <span key={`ellipsis-${index}`} className="px-2">...</span>
-                  ) : (
-                    <Button
-                      key={pageNum}
-                      variant={paginationInfo.currentPage === pageNum ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handlePageChange((pageNum - 1) * pagination.limit)}
-                      className={
-                        paginationInfo.currentPage === pageNum
-                          ? "bg-blue-600 text-white hover:bg-blue-700"
-                          : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                      }
-                    >
-                      {pageNum}
-                    </Button>
-                  )
-                ))}
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pagination.offset + pagination.limit >= pagination.total}
-                  onClick={() => handlePageChange(pagination.offset + pagination.limit)}
-                  className="border-gray-200 text-gray-600 hover:bg-gray-50"
-                >
-                  Next
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pagination.offset + pagination.limit >= pagination.total}
-                  onClick={() => handlePageChange(Math.floor(pagination.total / pagination.limit) * pagination.limit)}
-                  className="border-gray-200 text-gray-600 hover:bg-gray-50"
-                >
-                  Last
-                </Button>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(Math.max(0, pagination.offset - pagination.limit))}
+                    disabled={pagination.offset === 0}
+                    className="border-gray-300"
+                  >
+                    Previous
+                  </Button>
+                  
+                  {paginationInfo.pageNumbers.map((pageNum, index) => (
+                    <React.Fragment key={index}>
+                      {pageNum === "..." ? (
+                        <span className="px-2 text-gray-500">...</span>
+                      ) : (
+                        <Button
+                          variant={paginationInfo.currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handlePageChange((pageNum - 1) * pagination.limit)}
+                          className={
+                            paginationInfo.currentPage === pageNum
+                              ? "bg-blue-600 text-white"
+                              : "border-gray-300"
+                          }
+                        >
+                          {pageNum}
+                        </Button>
+                      )}
+                    </React.Fragment>
+                  ))}
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.offset + pagination.limit)}
+                    disabled={pagination.offset + pagination.limit >= pagination.total}
+                    className="border-gray-300"
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
             </div>
           )}
         </div>
-        
-        {/* Action buttons at bottom */}
-        <div className="mt-6 flex flex-wrap gap-4">
-          <Button 
-            variant="outline" 
-            className="border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-          >
-            <Printer className="h-4 w-4" />
-            Print List
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            className="border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Export to Excel
-          </Button>
-        </div>
+
+        {/* Footer actions */}
+        {!loading && appointments.length > 0 && (
+          <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+            <div className="flex space-x-4">
+              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
+                <Printer className="h-4 w-4 mr-2" />
+                Print Report
+              </Button>
+            </div>
+            
+            <div className="text-sm text-gray-500">
+              Last updated: {new Date().toLocaleTimeString()}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

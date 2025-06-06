@@ -1,0 +1,64 @@
+.diagnosis-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #f8f9fa;
+}
+
+.diagnosis-main {
+  display: flex;
+  flex: 1;
+  gap: 24px;
+  padding: 24px;
+  max-width: 1920px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.diagnosis-main-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0; /* Prevents flex items from overflowing */
+  max-width: 100%;
+}
+
+.diagnosis-main-right {
+  width: 380px;
+  flex-shrink: 0;
+}
+
+/* Responsive layout */
+@media (max-width: 1200px) {
+  .diagnosis-main {
+    flex-direction: column;
+  }
+
+  .diagnosis-main-right {
+    width: 100%;
+  }
+}
+
+/* CollapsibleSection customization */
+.diagnosis-main-left > div {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Section spacing */
+.diagnosis-main-left > div + div {
+  margin-top: 16px;
+}
+
+/* Footer styling */
+.diagnosis-footer {
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  padding: 16px 24px;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+}

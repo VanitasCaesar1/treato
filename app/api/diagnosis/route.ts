@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Forward the request to the backend
-    const response = await api.post('/api/diagnoses', data, {
+    const response = await api.post('/api/diagnosis/create', data, {
       headers: {
         'X-User-ID': user.id,
         'X-Organization-ID': organizationId,

@@ -1,4 +1,5 @@
-// /app/api/appointments/org/route.js
+// /app/api/appointments/org/route.js - Updated to match backend endpoint
+
 import { NextResponse } from "next/server";
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { makeApiRequest, API_BASE_URL } from "@/lib/api";
@@ -92,7 +93,8 @@ export async function GET(req) {
       limit: parseInt(url.searchParams.get("limit") || "10", 10),
       offset: parseInt(url.searchParams.get("offset") || "0", 10),
       sortBy: url.searchParams.get("sortBy") || url.searchParams.get("sort_by") || "created_at",
-      sortOrder: url.searchParams.get("sortOrder") || url.searchParams.get("sort_order") || "desc"
+      sortOrder: url.searchParams.get("sortOrder") || url.searchParams.get("sort_order") || "desc",
+      search: url.searchParams.get("search") || ""
     };
 
     console.log(`[Appointments:${requestId}] Parsed parameters:`, params);
@@ -177,18 +179,19 @@ export async function GET(req) {
       params.sortOrder = "desc"; // Default to descending if invalid
     }
 
-    // Build query parameters - using backend field names
+    // Build query parameters - using backend field names that match the Go handler
     const queryParams = new URLSearchParams();
     
-    // Add valid parameters to query string with corrected field names
+    // Add valid parameters to query string with field names that match the Go backend
     if (params.doctorId && params.doctorId !== "all") queryParams.append("doctor_id", params.doctorId);
     if (params.patientId && params.patientId !== "all") queryParams.append("patient_id", params.patientId);
     if (params.appointmentStatus && params.appointmentStatus !== "all") queryParams.append("appointment_status", params.appointmentStatus);
     if (params.feeType && params.feeType !== "all") queryParams.append("fee_type", params.feeType);
     if (params.startDate) queryParams.append("start_date", params.startDate);
     if (params.endDate) queryParams.append("end_date", params.endDate);
+    if (params.search) queryParams.append("search", params.search);
     
-    // Add pagination and sorting with corrected field names
+    // Add pagination and sorting with field names that match the Go backend
     queryParams.append("limit", params.limit.toString());
     queryParams.append("offset", params.offset.toString());
     queryParams.append("sort_by", params.sortBy);
@@ -200,8 +203,8 @@ export async function GET(req) {
     // Debug - log API configuration
     console.log(`[Appointments:${requestId}] API base URL:`, API_BASE_URL);
 
-    // Make request to backend API - VERIFY THIS ENDPOINT IS CORRECT
-    const apiUrl = `/api/appointments`;
+    // Make request to backend API - CORRECTED ENDPOINT TO MATCH GO HANDLER
+    const apiUrl = `/api/appointments/org`;
     
     // Debug - log the full request details
     console.log(`[Appointments:${requestId}] Making API request:`, {
@@ -214,8 +217,10 @@ export async function GET(req) {
       }
     });
     
-    // Use our makeApiRequest function directly instead of api.get
-    const data = await makeApiRequest(apiUrl, 'GET', Object.fromEntries(queryParams), {
+    // Use our makeApiRequest function - pass query params in the URL
+    const fullUrl = queryParams.toString() ? `${apiUrl}?${queryParams.toString()}` : apiUrl;
+    
+    const data = await makeApiRequest(fullUrl, 'GET', null, {
       headers: {
         'Authorization': accessToken ? `Bearer ${accessToken}` : '',
         'X-Session-ID': sessionId || '',

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,20 +9,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, X, Loader2, Search, Check, AlertCircle } from "lucide-react";
+import { Plus, X, Loader2, Search, Check, AlertCircle, Clock } from "lucide-react";
 
-// Mock medicine data for demo purposes - replace this with your actual data source
+// Mock medicine data as fallback
 const MOCK_MEDICINES = [
-  { id: 1, name: "Amoxicillin", company: "Generic" },
-  { id: 2, name: "Paracetamol", company: "Generic" },
-  { id: 3, name: "Ibuprofen", company: "Generic" },
-  { id: 4, name: "Metformin", company: "Generic" },
-  { id: 5, name: "Atorvastatin", company: "Generic" },
-  { id: 6, name: "Lisinopril", company: "Generic" },
-  { id: 7, name: "Losartan", company: "Generic" },
-  { id: 8, name: "Azithromycin", company: "Generic" },
-  { id: 9, name: "Omeprazole", company: "Generic" },
-  { id: 10, name: "Albuterol", company: "Generic" }
+  { id: 1, code: "AMX500", name: "Amoxicillin 500mg", unit: "Capsule", company: "Generic Pharma" },
+  { id: 2, code: "PCM650", name: "Paracetamol 650mg", unit: "Tablet", company: "Generic Pharma" },
+  { id: 3, code: "IBU400", name: "Ibuprofen 400mg", unit: "Tablet", company: "Generic Pharma" },
+  { id: 4, code: "MET500", name: "Metformin 500mg", unit: "Tablet", company: "Generic Pharma" },
+  { id: 5, code: "ATO20", name: "Atorvastatin 20mg", unit: "Tablet", company: "Generic Pharma" },
+  { id: 6, code: "LIS10", name: "Lisinopril 10mg", unit: "Tablet", company: "Generic Pharma" },
+  { id: 7, code: "LOS50", name: "Losartan 50mg", unit: "Tablet", company: "Generic Pharma" },
+  { id: 8, code: "AZI250", name: "Azithromycin 250mg", unit: "Tablet", company: "Generic Pharma" },
+  { id: 9, code: "OME20", name: "Omeprazole 20mg", unit: "Capsule", company: "Generic Pharma" },
+  { id: 10, code: "ALB100", name: "Albuterol 100mcg", unit: "Inhaler", company: "Generic Pharma" }
 ];
 
 function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
@@ -37,11 +37,13 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
   const [instructions, setInstructions] = useState("with-food");
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [searchError, setSearchError] = useState(null);
-  const [formStep, setFormStep] = useState("search"); // search, details
+  const [formStep, setFormStep] = useState("search");
   const [selectedResultIndex, setSelectedResultIndex] = useState(-1);
+  const [apiStatus, setApiStatus] = useState("unknown"); // unknown, working, failed
   
   const searchInputRef = useRef(null);
   const searchResultsRef = useRef(null);
+  const debounceTimer = useRef(null);
 
   // Handle clicks outside of dropdown to close it
   useEffect(() => {
@@ -59,61 +61,112 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Live search function with debounce
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchTerm.trim().length >= 1) { // Changed from 2 to 1 character minimum
-        performSearch();
-      } else {
-        setSearchResults([]);
-      }
-    }, 300); // 300ms debounce
-
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
-  // Reset selected index when search results change
-  useEffect(() => {
-    setSelectedResultIndex(-1);
-  }, [searchResults]);
-
-  // Search for medicines
-  const performSearch = async () => {
-    if (!searchTerm.trim()) return;
+  // Improved search function with better error handling
+  const performSearch = useCallback(async (term) => {
+    if (!term || term.trim().length < 1) {
+      setSearchResults([]);
+      setDropdownVisible(false);
+      return;
+    }
     
     setIsSearching(true);
     setSearchError(null);
     
     try {
-      // Try fetching from API first
-      const response = await fetch(`/api/medicines/search?term=${encodeURIComponent(searchTerm)}`);
+      console.log('Searching for:', term);
+      
+      // Build the API URL
+      const apiUrl = `/api/medicines/search?term=${encodeURIComponent(term.trim())}&limit=20`;
+      console.log('API URL:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'include', // Include cookies for authentication
+      });
+      
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
-        throw new Error('API request failed');
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
-      setSearchResults(data.medicines || []);
+      console.log('API Response:', data);
+      
+      // Handle different response formats
+      let medicines = [];
+      if (data.medicines && Array.isArray(data.medicines)) {
+        medicines = data.medicines;
+      } else if (Array.isArray(data)) {
+        medicines = data;
+      } else if (data.data && Array.isArray(data.data)) {
+        medicines = data.data;
+      }
+      
+      setSearchResults(medicines);
       setDropdownVisible(true);
+      setApiStatus("working");
+      
+      if (medicines.length === 0) {
+        setSearchError("No medicines found for this search term");
+      }
       
     } catch (error) {
-      console.error("Error searching medicines:", error);
+      console.error("API search failed:", error);
+      setApiStatus("failed");
       
       // Fallback to mock data
       const filteredResults = MOCK_MEDICINES.filter(med => 
-        med.name.toLowerCase().includes(searchTerm.toLowerCase())
+        med.name.toLowerCase().includes(term.toLowerCase()) ||
+        med.code.toLowerCase().includes(term.toLowerCase()) ||
+        med.company.toLowerCase().includes(term.toLowerCase())
       );
       
       setSearchResults(filteredResults);
       setDropdownVisible(true);
       
       if (filteredResults.length > 0) {
-        setSearchError("Using demo data - API connection failed");
+        setSearchError(`API unavailable - showing ${filteredResults.length} demo results`);
+      } else {
+        setSearchError("API unavailable and no demo results match your search");
       }
     } finally {
       setIsSearching(false);
     }
-  };
+  }, []);
+
+  // Debounced search with improved logic
+  useEffect(() => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    
+    if (searchTerm.trim().length >= 1) {
+      debounceTimer.current = setTimeout(() => {
+        performSearch(searchTerm);
+      }, 300);
+    } else {
+      setSearchResults([]);
+      setDropdownVisible(false);
+      setSearchError(null);
+    }
+    
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, [searchTerm, performSearch]);
+
+  // Reset selected index when search results change
+  useEffect(() => {
+    setSelectedResultIndex(-1);
+  }, [searchResults]);
 
   // Select a medicine from search results
   const selectMedicine = (medicine) => {
@@ -125,8 +178,13 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
 
   // Handle keyboard navigation
   const handleKeyDown = (e) => {
-    // Only process keyboard navigation when dropdown is visible
-    if (!dropdownVisible || searchResults.length === 0) return;
+    if (!dropdownVisible || searchResults.length === 0) {
+      if (e.key === "Enter" && formStep === "details") {
+        e.preventDefault();
+        handleAddPrescription();
+      }
+      return;
+    }
 
     switch (e.key) {
       case "ArrowDown":
@@ -143,18 +201,13 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
         e.preventDefault();
         if (selectedResultIndex >= 0) {
           selectMedicine(searchResults[selectedResultIndex]);
-        } else if (formStep === "details") {
-          handleAddPrescription();
         } else if (searchResults.length > 0) {
-          // Select first result if none is selected
           selectMedicine(searchResults[0]);
-        } else if (searchTerm.trim()) {
-          // Move to details if we have a search term but no results
-          setFormStep("details");
         }
         break;
       case "Escape":
         setDropdownVisible(false);
+        setSelectedResultIndex(-1);
         break;
       default:
         break;
@@ -163,7 +216,7 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
 
   // Handle input focus
   const handleInputFocus = () => {
-    if (searchTerm.trim().length >= 1) {
+    if (searchTerm.trim().length >= 1 && searchResults.length > 0) {
       setDropdownVisible(true);
     }
   };
@@ -173,7 +226,11 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
     if (!searchTerm.trim()) return;
     
     const newPrescription = {
+      id: Date.now(), // Add unique ID
       name: selectedMedicine ? selectedMedicine.name : searchTerm.trim(),
+      code: selectedMedicine?.code || '',
+      unit: selectedMedicine?.unit || '',
+      company: selectedMedicine?.company || '',
       dosage: dosagePattern,
       frequency: frequency,
       duration: duration || '7 days',
@@ -190,15 +247,35 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
     setSelectedMedicine(null);
     setSearchTerm("");
     setDuration("7 days");
+    setDosagePattern("0-1-0-0");
+    setFrequency("daily");
+    setInstructions("with-food");
     setFormStep("search");
+    setSearchError(null);
   };
 
   // Remove a prescription
   const removePrescription = (index) => {
-    const updatedPrescriptions = [...prescriptions];
-    updatedPrescriptions.splice(index, 1);
+    const updatedPrescriptions = prescriptions.filter((_, i) => i !== index);
     setPrescriptions(updatedPrescriptions);
     updateTreatmentPlan("medications", updatedPrescriptions);
+  };
+
+  // Helper function to update follow-up notes
+  const updateFollowUpNotes = (notes) => {
+    const currentFollowUp = treatmentPlan?.follow_up || {};
+    const updatedFollowUp = {
+      ...currentFollowUp,
+      notes: notes
+    };
+    updateTreatmentPlan("follow_up", updatedFollowUp);
+  };
+
+  // Manual search trigger
+  const handleManualSearch = () => {
+    if (searchTerm.trim()) {
+      performSearch(searchTerm);
+    }
   };
 
   const dosageOptions = [
@@ -231,6 +308,13 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
 
   return (
     <div className="space-y-6">
+      {/* Debug Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+          API Status: {apiStatus} | Search Term: "{searchTerm}" | Results: {searchResults.length}
+        </div>
+      )}
+
       {/* Prescription Panel Header */}
       <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
         <h2 className="text-lg font-medium text-emerald-800 flex items-center">
@@ -252,7 +336,7 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
                   <div className="relative flex-grow">
                     <Input 
                       ref={searchInputRef}
-                      placeholder="Search for medicine..." 
+                      placeholder="Search for medicine (e.g., paracetamol, amoxicillin)..." 
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       onFocus={handleInputFocus}
@@ -270,8 +354,8 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
                   </div>
                   <Button 
                     type="button" 
-                    onClick={performSearch}
-                    disabled={isSearching || searchTerm.trim().length < 2}
+                    onClick={handleManualSearch}
+                    disabled={isSearching || searchTerm.trim().length < 1}
                     className="bg-emerald-600 hover:bg-emerald-700 rounded-lg"
                   >
                     Search
@@ -279,9 +363,13 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
                 </div>
                 
                 {searchError && (
-                  <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-2 text-xs mb-3 flex items-center">
-                    <AlertCircle className="h-3 w-3 mr-1" />
-                    {searchError}
+                  <div className={`border rounded-lg p-3 text-sm mb-3 flex items-center ${
+                    apiStatus === "failed" 
+                      ? "bg-amber-50 border-amber-200 text-amber-700" 
+                      : "bg-blue-50 border-blue-200 text-blue-700"
+                  }`}>
+                    <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span>{searchError}</span>
                   </div>
                 )}
                 
@@ -289,28 +377,33 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
                 {dropdownVisible && searchResults.length > 0 && (
                   <div 
                     ref={searchResultsRef}
-                    className="bg-white shadow-md rounded-lg border border-gray-200 max-h-60 overflow-y-auto"
+                    className="bg-white shadow-lg rounded-lg border border-gray-200 max-h-60 overflow-y-auto z-10"
                   >
-                    <ul className="py-1 divide-y divide-gray-100">
+                    <div className="sticky top-0 bg-gray-50 px-3 py-2 text-xs text-gray-600 border-b">
+                      Found {searchResults.length} results
+                    </div>
+                    <ul className="py-1">
                       {searchResults.map((medicine, index) => (
                         <li 
-                          key={index} 
-                          className={`px-3 py-2 hover:bg-emerald-50 cursor-pointer transition-colors flex justify-between items-center ${
+                          key={medicine.id || index} 
+                          className={`px-3 py-3 hover:bg-emerald-50 cursor-pointer transition-colors flex justify-between items-center border-b border-gray-100 last:border-b-0 ${
                             selectedResultIndex === index ? "bg-emerald-50" : ""
                           }`}
                           onClick={() => selectMedicine(medicine)}
                           onMouseEnter={() => setSelectedResultIndex(index)}
                         >
-                          <div>
-                            <div className="font-medium">{medicine.name}</div>
-                            {medicine.company && (
-                              <div className="text-xs text-gray-500">{medicine.company}</div>
-                            )}
+                          <div className="flex-grow">
+                            <div className="font-medium text-gray-900">{medicine.name}</div>
+                            <div className="text-xs text-gray-500 mt-1 space-x-2">
+                              {medicine.code && <span className="bg-gray-100 px-2 py-0.5 rounded">{medicine.code}</span>}
+                              {medicine.unit && <span className="bg-gray-100 px-2 py-0.5 rounded">{medicine.unit}</span>}
+                              {medicine.company && <span className="text-gray-400">{medicine.company}</span>}
+                            </div>
                           </div>
                           <Button 
                             type="button" 
                             size="sm" 
-                            className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-full h-6 px-2"
+                            className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-full h-6 px-3 ml-2"
                           >
                             Select
                           </Button>
@@ -321,11 +414,13 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
                 )}
                 
                 {dropdownVisible && searchTerm.trim().length >= 1 && searchResults.length === 0 && !isSearching && (
-                  <div className="bg-white shadow-md rounded-lg border border-gray-200 p-3 text-sm text-gray-600">
-                    No medicines found. You can still add it manually by clicking "Add Custom".
+                  <div className="bg-white shadow-md rounded-lg border border-gray-200 p-4">
+                    <div className="text-sm text-gray-600 mb-3">
+                      No medicines found matching "{searchTerm}". You can add it as a custom medicine.
+                    </div>
                     <Button 
                       type="button" 
-                      className="bg-emerald-600 hover:bg-emerald-700 mt-2 w-full rounded-lg"
+                      className="bg-emerald-600 hover:bg-emerald-700 w-full rounded-lg"
                       onClick={() => setFormStep("details")}
                     >
                       Add Custom Medicine
@@ -339,11 +434,20 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
                   <div>
                     <div className="font-medium text-emerald-800">{searchTerm}</div>
                     <div className="text-xs text-emerald-600">Configure prescription details</div>
+                    {selectedMedicine && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        {selectedMedicine.code && `Code: ${selectedMedicine.code}`}
+                        {selectedMedicine.unit && ` • ${selectedMedicine.unit}`}
+                      </div>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setFormStep("search")}
+                    onClick={() => {
+                      setFormStep("search");
+                      setSelectedMedicine(null);
+                    }}
                     className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100"
                   >
                     Change
@@ -415,7 +519,10 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
                   <Button 
                     type="button" 
                     variant="outline"
-                    onClick={() => setFormStep("search")}
+                    onClick={() => {
+                      setFormStep("search");
+                      setSelectedMedicine(null);
+                    }}
                     className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg"
                   >
                     Cancel
@@ -423,7 +530,6 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
                   <Button 
                     type="button" 
                     onClick={handleAddPrescription}
-                    onKeyDown={(e) => e.key === "Enter" && handleAddPrescription()}
                     className="flex-1 bg-emerald-600 hover:bg-emerald-700 rounded-lg"
                   >
                     <Check className="h-4 w-4 mr-2" /> Add to Prescription
@@ -436,39 +542,48 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
           {/* Display Added Prescriptions */}
           {prescriptions.length > 0 && (
             <div className="mt-5">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Prescription List</h3>
-              <div className="space-y-2">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Prescription List ({prescriptions.length})</h3>
+              <div className="space-y-3">
                 {prescriptions.map((med, index) => (
                   <div 
-                    key={index} 
-                    className="p-3 bg-white rounded-lg border border-gray-200 flex justify-between items-center group hover:border-emerald-300 hover:shadow-sm transition-all"
+                    key={med.id || index} 
+                    className="p-4 bg-white rounded-lg border border-gray-200 hover:border-emerald-300 hover:shadow-sm transition-all"
                   >
-                    <div>
-                      <div className="font-medium text-emerald-800">{med.name}</div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        <span className="inline-block bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs mr-2">
-                          {med.dosage}
-                        </span>
-                        <span className="inline-block bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs mr-2">
-                          {med.frequency}
-                        </span>
-                        <span className="inline-block bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs mr-2">
-                          {med.duration}
-                        </span>
-                        <span className="inline-block bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs">
-                          {med.instructions}
-                        </span>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-grow">
+                        <div className="font-medium text-emerald-800 mb-2">{med.name}</div>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="inline-block bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full text-xs">
+                            {med.dosage}
+                          </span>
+                          <span className="inline-block bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full text-xs">
+                            {med.frequency}
+                          </span>
+                          <span className="inline-block bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full text-xs">
+                            {med.duration}
+                          </span>
+                          <span className="inline-block bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full text-xs">
+                            {med.instructions}
+                          </span>
+                        </div>
+                        {(med.code || med.unit || med.company) && (
+                          <div className="text-xs text-gray-500 mt-2">
+                            {med.code && `Code: ${med.code}`}
+                            {med.unit && ` • ${med.unit}`}
+                            {med.company && ` • ${med.company}`}
+                          </div>
+                        )}
                       </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removePrescription(index)}
+                        className="text-gray-400 hover:text-red-500 hover:bg-red-50 ml-2"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removePrescription(index)}
-                      className="text-gray-400 hover:text-red-500 hover:bg-red-50"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
                   </div>
                 ))}
               </div>
@@ -486,13 +601,13 @@ function PrescriptionSection({ treatmentPlan, updateTreatmentPlan }) {
           <Textarea 
             placeholder="Enter follow-up instructions for the patient..."
             className="min-h-24 resize-y rounded-lg border-gray-200 focus:border-emerald-300 focus:ring focus:ring-emerald-100 transition-colors"
-            value={treatmentPlan?.follow_up || ""}
-            onChange={(e) => updateTreatmentPlan("follow_up", e.target.value)}
+            value={treatmentPlan?.follow_up?.notes || ""}
+            onChange={(e) => updateFollowUpNotes(e.target.value)}
           />
         </div>
       </div>
       
-      {/* Notes Section - properly positioned after prescriptions */}
+      {/* Additional Notes */}
       <div className="rounded-xl border border-emerald-200 overflow-hidden">
         <div className="bg-emerald-50 px-4 py-3 border-b border-emerald-200">
           <h3 className="font-medium text-emerald-800">Additional Notes</h3>

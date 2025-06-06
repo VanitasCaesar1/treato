@@ -5,7 +5,7 @@ import { withAuth } from "@workos-inc/authkit-nextjs";
 export async function GET(req) {
   try {
     // Authenticate the user
-    const { user } = await withAuth();
+    const { user,  } = await withAuth();
     if (!user) {
       return NextResponse.json(
         { error: "Unauthorized" },

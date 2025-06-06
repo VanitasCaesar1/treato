@@ -13,7 +13,6 @@ export async function GET(
   try {
     // Get auth data from WorkOS
     const { user, organizationId, role, accessToken, sessionId } = await withAuth();
-    
     if (!user) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -23,6 +22,8 @@ export async function GET(
 
     // Await the params promise
     const { id: patientId } = await params;
+    
+    console.log("Patient ID from params:", patientId); // Debug log
     
     if (!patientId) {
       return NextResponse.json(
@@ -34,18 +35,29 @@ export async function GET(
     // Get query parameters
     const searchParams = req.nextUrl.searchParams;
     const limit = searchParams.get('limit') || '50';
+    const offset = searchParams.get('offset') || '0';
+    const status = searchParams.get('status') || 'finalized';
     const includeActive = searchParams.get('include_active') || 'true';
 
     // Build query parameters for medical history
-    const queryParams = {
+    const queryParams = new URLSearchParams({
       limit,
+      offset,
+      status,
       include_active: includeActive,
-      cross_org: 'true'
-    };
+      ...(organizationId && { org_id: organizationId })
+    });
+
+    console.log("Making request to backend:", `/api/patients/medical-history/${patientId}?${queryParams}`); // Debug log
 
     // Forward the request to the backend with auth headers
-    // Route matches: /api/patients/medical-history/:id
-    const response = await api.get(`/api/patients/medical-history/${patientId}`, queryParams, {
+    // This should match your Go route: /api/patients/medical-history/:patientId
+    const backendUrl = `/api/patients/medical-history/${patientId}`;
+    const fullUrl = queryParams.toString() ? `${backendUrl}?${queryParams}` : backendUrl;
+    
+    console.log("Full backend URL:", fullUrl); // Debug log
+    
+    const response = await api.get(backendUrl, Object.fromEntries(queryParams), {
       headers: {
         'Authorization': accessToken ? `Bearer ${accessToken}` : '',
         'X-Session-ID': sessionId || '',
@@ -55,9 +67,18 @@ export async function GET(
       }
     });
 
+    console.log("Backend response received:", response); // Debug log
+
     return NextResponse.json(response);
   } catch (error: any) {
     console.error('Error retrieving medical history:', error);
+    
+    // Log more details about the error
+    if (error.response) {
+      console.error('Response error data:', error.response.data);
+      console.error('Response status:', error.response.status);
+      console.error('Response headers:', error.response.headers);
+    }
     
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(
