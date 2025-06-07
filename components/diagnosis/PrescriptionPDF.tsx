@@ -70,7 +70,7 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
   const generatePrescriptionHTML = (): string => {
     const currentDate = new Date().toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric'
     });
 
@@ -85,8 +85,6 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
     <head>
       <title>Medical Prescription</title>
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&family=SF+Pro+Text:wght@300;400;500;600&display=swap');
-        
         * {
           margin: 0;
           padding: 0;
@@ -94,489 +92,425 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
         }
         
         body {
-          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', 'Roboto', sans-serif;
-          line-height: 1.5;
-          color: #1d1d1f;
+          font-family: 'Times New Roman', serif;
+          line-height: 1.4;
+          color: #2c3e50;
           background: white;
-          font-size: 14px;
-          -webkit-font-smoothing: antialiased;
-          -moz-osx-font-smoothing: grayscale;
+          font-size: 12px;
         }
         
         .prescription-container {
           width: 210mm;
           height: 297mm;
           margin: 0 auto;
-          padding: 15mm;
+          padding: 12mm;
           background: white;
           position: relative;
-          overflow: hidden;
+          border: 2px solid #1e3a8a;
         }
         
         .header {
           text-align: center;
-          margin-bottom: 20px;
-          position: relative;
-        }
-        
-        .header::after {
-          content: '';
-          position: absolute;
-          bottom: -10px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 60px;
-          height: 2px;
-          background: linear-gradient(90deg, #007AFF, #34C759);
-          border-radius: 1px;
+          margin-bottom: 15px;
+          border-bottom: 2px solid #1e3a8a;
+          padding-bottom: 12px;
         }
         
         .hospital-name {
-          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-          font-size: 22px;
-          font-weight: 700;
-          color: #1d1d1f;
-          margin-bottom: 4px;
-          letter-spacing: -0.5px;
+          font-size: 20px;
+          font-weight: bold;
+          color: #1e3a8a;
+          margin-bottom: 3px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
         }
         
         .doctor-info {
-          font-size: 16px;
-          font-weight: 500;
-          color: #424245;
+          font-size: 14px;
+          font-weight: 600;
+          color: #2c3e50;
           margin-bottom: 2px;
-          letter-spacing: -0.2px;
+        }
+        
+        .specialization {
+          font-size: 12px;
+          color: #64748b;
+          font-style: italic;
+          margin-bottom: 3px;
         }
         
         .registration-info {
-          font-size: 13px;
-          color: #8e8e93;
+          font-size: 11px;
+          color: #64748b;
           margin-bottom: 8px;
-          font-weight: 400;
         }
         
-        .prescription-title {
-          font-size: 18px;
-          font-weight: 600;
-          color: #007AFF;
-          margin-top: 12px;
-          letter-spacing: 0.5px;
+        .rx-symbol {
+          font-size: 24px;
+          font-weight: bold;
+          color: #1e3a8a;
+          margin-top: 8px;
+          font-family: serif;
         }
         
-        .patient-doctor-section {
+        .patient-consultation-row {
           display: flex;
           justify-content: space-between;
-          margin: 24px 0 20px 0;
-          gap: 30px;
+          margin: 12px 0;
+          gap: 20px;
         }
         
         .patient-info, .consultation-info {
           flex: 1;
-          background: #f2f2f7;
-          padding: 16px;
-          border-radius: 12px;
-          border: 1px solid #e5e5e7;
+          border: 1px solid #cbd5e1;
+          padding: 10px;
+          background: #f8fafc;
         }
         
-        .section-header {
-          font-size: 13px;
-          font-weight: 600;
-          color: #8e8e93;
+        .section-title {
+          font-size: 11px;
+          font-weight: bold;
+          color: #1e3a8a;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin-bottom: 10px;
+          margin-bottom: 6px;
+          border-bottom: 1px solid #cbd5e1;
+          padding-bottom: 2px;
         }
         
-        .info-row {
-          margin-bottom: 6px;
-          display: flex;
-          align-items: center;
+        .info-line {
+          margin-bottom: 3px;
+          font-size: 11px;
         }
         
         .label {
-          font-weight: 500;
-          color: #424245;
-          width: 70px;
-          font-size: 13px;
+          font-weight: bold;
+          color: #374151;
+          display: inline-block;
+          width: 60px;
         }
         
         .value {
-          color: #1d1d1f;
-          font-weight: 400;
-          font-size: 14px;
+          color: #2c3e50;
         }
         
-        .vitals-section {
-          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-          padding: 16px;
-          border-radius: 12px;
-          margin-bottom: 16px;
-          border: 1px solid #bae6fd;
+        .clinical-section {
+          margin: 10px 0;
+          border: 1px solid #cbd5e1;
+          background: white;
         }
         
-        .vitals-title {
-          font-weight: 600;
-          margin-bottom: 12px;
-          color: #0369a1;
-          font-size: 15px;
-          display: flex;
-          align-items: center;
+        .clinical-header {
+          background: #f1f5f9;
+          padding: 6px 10px;
+          font-size: 11px;
+          font-weight: bold;
+          color: #1e3a8a;
+          text-transform: uppercase;
+          border-bottom: 1px solid #cbd5e1;
         }
         
-        .vitals-title::before {
-          content: '❤️';
-          margin-right: 8px;
-          font-size: 14px;
+        .clinical-content {
+          padding: 8px 10px;
         }
         
         .vitals-grid {
           display: grid;
-          grid-template-columns: repeat(2, 1fr);
+          grid-template-columns: repeat(3, 1fr);
           gap: 8px;
-          font-size: 13px;
+          font-size: 10px;
         }
         
         .vital-item {
           display: flex;
           justify-content: space-between;
-          align-items: center;
-          background: rgba(255, 255, 255, 0.7);
-          padding: 8px 12px;
-          border-radius: 8px;
-          border: 1px solid rgba(186, 230, 253, 0.5);
+          padding: 3px 6px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
         }
         
         .vital-label {
-          color: #374151;
           font-weight: 500;
+          color: #64748b;
         }
         
         .vital-value {
-          color: #0369a1;
-          font-weight: 600;
+          font-weight: bold;
+          color: #2c3e50;
         }
         
-        .diagnosis-section {
-          background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-          padding: 16px;
-          border-radius: 12px;
-          margin-bottom: 16px;
-          border: 1px solid #f59e0b;
+        .diagnosis-list {
+          list-style: none;
+          padding: 0;
         }
         
-        .section-title {
-          font-weight: 600;
-          font-size: 15px;
-          margin-bottom: 12px;
-          color: #92400e;
+        .diagnosis-item {
+          margin-bottom: 6px;
+          padding: 6px;
+          background: #f8fafc;
+          border-left: 3px solid #1e3a8a;
+        }
+        
+        .diagnosis-name {
+          font-weight: bold;
+          color: #2c3e50;
+          font-size: 12px;
+        }
+        
+        .diagnosis-code {
+          color: #64748b;
+          font-size: 10px;
+          font-style: italic;
+        }
+        
+        .diagnosis-notes {
+          color: #374151;
+          font-size: 10px;
+          margin-top: 2px;
+        }
+        
+        .rx-section {
+          background: white;
+          border: 2px solid #1e3a8a;
+          margin: 12px 0;
+        }
+        
+        .rx-header {
+          background: #1e3a8a;
+          color: white;
+          padding: 8px 12px;
+          font-size: 12px;
+          font-weight: bold;
+          text-transform: uppercase;
           display: flex;
           align-items: center;
         }
         
-        .section-title.diagnosis::before {
-          content: '🔍';
+        .rx-symbol-header {
+          font-size: 18px;
           margin-right: 8px;
-          font-size: 14px;
+          font-family: serif;
         }
         
-        .section-title.medication::before {
-          content: '💊';
-          margin-right: 8px;
-          font-size: 14px;
-        }
-        
-        .section-title.notes::before {
-          content: '📝';
-          margin-right: 8px;
-          font-size: 14px;
-        }
-        
-        .section-title.followup::before {
-          content: '📅';
-          margin-right: 8px;
-          font-size: 14px;
-        }
-        
-        .diagnosis-item {
-          background: rgba(255, 255, 255, 0.8);
-          padding: 10px 12px;
-          border-radius: 8px;
-          margin-bottom: 8px;
-          border: 1px solid rgba(245, 158, 11, 0.3);
-        }
-        
-        .diagnosis-item:last-child {
-          margin-bottom: 0;
-        }
-        
-        .diagnosis-name {
-          font-weight: 600;
-          color: #92400e;
-          font-size: 14px;
-        }
-        
-        .diagnosis-code {
-          color: #a16207;
-          font-size: 12px;
-          font-weight: 500;
-        }
-        
-        .diagnosis-notes {
-          color: #78716c;
-          font-size: 13px;
-          margin-top: 4px;
-          font-style: italic;
-        }
-        
-        .rx-section {
-          background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-          padding: 16px;
-          border-radius: 12px;
-          margin-bottom: 16px;
-          border: 1px solid #22c55e;
+        .medication-list {
+          padding: 10px;
         }
         
         .medication-item {
-          background: rgba(255, 255, 255, 0.8);
-          padding: 12px;
-          border-radius: 10px;
-          margin-bottom: 10px;
-          border: 1px solid rgba(34, 197, 94, 0.3);
+          border-bottom: 1px solid #e2e8f0;
+          padding: 8px 0;
           position: relative;
         }
         
         .medication-item:last-child {
-          margin-bottom: 0;
+          border-bottom: none;
         }
         
         .med-number {
           position: absolute;
+          left: -5px;
           top: 8px;
-          right: 10px;
-          background: #22c55e;
+          background: #1e3a8a;
           color: white;
-          width: 20px;
-          height: 20px;
+          width: 18px;
+          height: 18px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 11px;
-          font-weight: 600;
+          font-size: 10px;
+          font-weight: bold;
         }
         
         .med-name {
-          font-size: 15px;
-          font-weight: 600;
-          color: #166534;
-          margin-bottom: 6px;
-          padding-right: 30px;
+          font-size: 13px;
+          font-weight: bold;
+          color: #2c3e50;
+          margin-bottom: 4px;
+          margin-left: 20px;
+          text-decoration: underline;
         }
         
         .med-details {
-          font-size: 13px;
+          margin-left: 20px;
+          font-size: 11px;
           color: #374151;
-          margin-bottom: 3px;
+          margin-bottom: 2px;
         }
         
         .med-label {
-          font-weight: 500;
-          color: #059669;
+          font-weight: bold;
+          color: #64748b;
           display: inline-block;
-          width: 80px;
+          width: 70px;
         }
         
-        .advice-section {
-          background: linear-gradient(135deg, #fdf4ff 0%, #f3e8ff 100%);
-          padding: 16px;
-          border-radius: 12px;
-          margin-bottom: 16px;
-          border: 1px solid #a855f7;
-        }
-        
-        .symptom-item {
-          background: rgba(255, 255, 255, 0.8);
-          padding: 8px 12px;
-          border-radius: 8px;
-          margin-bottom: 6px;
-          border: 1px solid rgba(168, 85, 247, 0.3);
-          font-size: 13px;
+        .symptoms-section .symptom-item {
+          background: #f8fafc;
+          padding: 4px 8px;
+          margin-bottom: 3px;
+          border-left: 2px solid #64748b;
+          font-size: 11px;
         }
         
         .symptom-desc {
-          color: #7c2d92;
           font-weight: 500;
+          color: #2c3e50;
         }
         
         .symptom-severity {
-          color: #a855f7;
-          font-size: 12px;
-          font-weight: 600;
-          margin-left: 8px;
+          color: #64748b;
+          font-size: 10px;
+          margin-left: 6px;
         }
         
         .notes-text {
-          background: rgba(255, 255, 255, 0.8);
-          padding: 12px;
-          border-radius: 8px;
-          border: 1px solid rgba(168, 85, 247, 0.3);
+          background: #f8fafc;
+          padding: 8px;
+          border: 1px solid #e2e8f0;
           color: #374151;
-          font-size: 13px;
-          line-height: 1.6;
-          margin-top: 8px;
+          font-size: 11px;
+          line-height: 1.4;
         }
         
-        .follow-up-section {
-          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-          padding: 16px;
-          border-radius: 12px;
-          margin-bottom: 20px;
-          border: 1px solid #3b82f6;
+        .follow-up-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
         }
         
         .followup-item {
-          background: rgba(255, 255, 255, 0.8);
-          padding: 10px 12px;
-          border-radius: 8px;
-          margin-bottom: 8px;
-          border: 1px solid rgba(59, 130, 246, 0.3);
-          display: flex;
-          align-items: center;
-        }
-        
-        .followup-item:last-child {
-          margin-bottom: 0;
+          background: #f8fafc;
+          padding: 6px;
+          border: 1px solid #e2e8f0;
         }
         
         .followup-label {
-          font-weight: 500;
-          color: #1e40af;
-          width: 100px;
-          font-size: 13px;
+          font-weight: bold;
+          color: #1e3a8a;
+          font-size: 10px;
+          text-transform: uppercase;
+          margin-bottom: 2px;
         }
         
         .followup-value {
-          color: #374151;
-          font-size: 14px;
+          color: #2c3e50;
+          font-size: 11px;
         }
         
         .signature-section {
           position: absolute;
-          bottom: 25mm;
+          bottom: 20mm;
           right: 15mm;
           text-align: center;
+          width: 120px;
         }
         
         .signature-line {
-          width: 150px;
-          height: 1px;
-          background: #d1d5db;
-          margin: 20px auto 12px;
+          border-top: 1px solid #2c3e50;
+          margin: 15px 0 8px 0;
         }
         
         .doctor-signature {
-          font-weight: 600;
-          color: #1d1d1f;
-          font-size: 14px;
+          font-weight: bold;
+          color: #2c3e50;
+          font-size: 12px;
           margin-bottom: 2px;
         }
         
         .doctor-specialization {
-          color: #6b7280;
-          font-size: 12px;
-          margin-bottom: 4px;
+          color: #64748b;
+          font-size: 10px;
+          margin-bottom: 2px;
         }
         
         .doctor-reg {
-          color: #9ca3af;
-          font-size: 11px;
+          color: #64748b;
+          font-size: 9px;
         }
         
         .footer {
           position: absolute;
-          bottom: 10mm;
-          left: 15mm;
-          right: 15mm;
+          bottom: 8mm;
+          left: 12mm;
+          right: 12mm;
           text-align: center;
-        }
-        
-        .footer-line {
-          height: 1px;
-          background: linear-gradient(90deg, transparent, #e5e7eb, transparent);
-          margin-bottom: 8px;
+          border-top: 1px solid #cbd5e1;
+          padding-top: 5px;
         }
         
         .footer-text {
-          font-size: 11px;
-          color: #9ca3af;
-          line-height: 1.4;
+          font-size: 9px;
+          color: #64748b;
+          line-height: 1.3;
+        }
+        
+        .prescription-id {
+          position: absolute;
+          top: 12mm;
+          right: 12mm;
+          font-size: 10px;
+          color: #64748b;
+          background: #f1f5f9;
+          padding: 4px 8px;
+          border: 1px solid #cbd5e1;
         }
         
         @media print {
           body { margin: 0; }
           .prescription-container { 
             margin: 0; 
-            padding: 15mm;
             box-shadow: none;
           }
-          .footer {
+          .footer, .signature-section, .prescription-id {
             position: fixed;
-            bottom: 10mm;
-          }
-          .signature-section {
-            position: fixed;
-            bottom: 25mm;
-            right: 15mm;
           }
         }
       </style>
     </head>
     <body>
       <div class="prescription-container">
+        <div class="prescription-id">Rx ID: ${data.appointmentId || 'N/A'}</div>
+        
         <div class="header">
           <div class="hospital-name">${data.doctorData?.hospital_name || 'Medical Center'}</div>
           <div class="doctor-info">Dr. ${data.doctorData?.name || 'Doctor Name'}</div>
-          <div class="doctor-info">${data.doctorData?.specialization?.primary || 'General Medicine'}</div>
+          <div class="specialization">${data.doctorData?.specialization?.primary || 'General Medicine'}</div>
           <div class="registration-info">
-            Reg. No: ${data.doctorData?.registration_number || 'XXXXX'} • 
-            ${data.doctorData?.phone || '+1-XXX-XXX-XXXX'}
+            Registration No: ${data.doctorData?.registration_number || 'XXXXX'} | 
+            Phone: ${data.doctorData?.phone || '+1-XXX-XXX-XXXX'}
           </div>
-          <div class="prescription-title">PRESCRIPTION</div>
+          <div class="rx-symbol">℞</div>
         </div>
 
-        <div class="patient-doctor-section">
+        <div class="patient-consultation-row">
           <div class="patient-info">
-            <div class="section-header">Patient Information</div>
-            <div class="info-row">
+            <div class="section-title">Patient Details</div>
+            <div class="info-line">
               <span class="label">Name:</span>
               <span class="value">${data.patientData?.name || 'Patient Name'}</span>
             </div>
-            <div class="info-row">
+            <div class="info-line">
               <span class="label">Age:</span>
               <span class="value">${data.patientData?.age || 'N/A'} years</span>
             </div>
-            <div class="info-row">
+            <div class="info-line">
               <span class="label">Gender:</span>
               <span class="value">${data.patientData?.gender || 'N/A'}</span>
             </div>
-            <div class="info-row">
+            <div class="info-line">
               <span class="label">Phone:</span>
               <span class="value">${data.patientData?.phone || 'N/A'}</span>
             </div>
           </div>
           <div class="consultation-info">
-            <div class="section-header">Consultation Details</div>
-            <div class="info-row">
+            <div class="section-title">Consultation Info</div>
+            <div class="info-line">
               <span class="label">Date:</span>
               <span class="value">${currentDate}</span>
             </div>
-            <div class="info-row">
+            <div class="info-line">
               <span class="label">Time:</span>
               <span class="value">${currentTime}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">ID:</span>
-              <span class="value">${data.appointmentId || 'N/A'}</span>
             </div>
           </div>
         </div>
@@ -584,20 +518,20 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
         ${generateVitalsSection(data.vitals)}
         ${generateDiagnosisSection(data.diagnosis_info)}
         ${generateMedicationsSection(data.treatment_plan?.medications)}
-        ${generateAdviceSection(data.notes, data.symptoms)}
+        ${generateSymptomsAndNotesSection(data.symptoms, data.notes)}
         ${generateFollowUpSection(data.treatment_plan?.follow_up)}
 
         <div class="signature-section">
           <div class="signature-line"></div>
           <div class="doctor-signature">Dr. ${data.doctorData?.name || 'Doctor Name'}</div>
           <div class="doctor-specialization">${data.doctorData?.specialization?.primary || 'General Medicine'}</div>
-          <div class="doctor-reg">Reg. No: ${data.doctorData?.registration_number || 'XXXXX'}</div>
+          <div class="doctor-reg">Reg. ${data.doctorData?.registration_number || 'XXXXX'}</div>
         </div>
 
         <div class="footer">
-          <div class="footer-line"></div>
           <div class="footer-text">
-            This prescription is digitally generated and valid • For queries: ${data.doctorData?.phone || '+1-XXX-XXX-XXXX'}
+            This prescription is computer generated and valid for medical use.
+            <br>For queries contact: ${data.doctorData?.phone || '+1-XXX-XXX-XXXX'}
           </div>
         </div>
       </div>
@@ -639,7 +573,7 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
   return (
     <button
       onClick={handlePrint}
-      className={`inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-xl text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-lg transition-all duration-200 ${className}`}
+      className={`inline-flex items-center px-4 py-2 border-2 border-blue-800 text-sm font-medium text-blue-800 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 ${className}`}
     >
       <svg
         className="w-4 h-4 mr-2"
@@ -666,10 +600,10 @@ const generateVitalsSection = (vitals?: PrescriptionData['vitals']): string => {
   }
 
   const vitalItems = [
-    { key: 'temperature', label: 'Temperature', unit: '°F' },
-    { key: 'heart_rate', label: 'Heart Rate', unit: ' bpm' },
-    { key: 'blood_pressure', label: 'Blood Pressure', unit: '' },
-    { key: 'respiratory_rate', label: 'Respiratory Rate', unit: '/min' },
+    { key: 'temperature', label: 'Temp', unit: '°F' },
+    { key: 'heart_rate', label: 'HR', unit: ' bpm' },
+    { key: 'blood_pressure', label: 'BP', unit: '' },
+    { key: 'respiratory_rate', label: 'RR', unit: '/min' },
     { key: 'oxygen_saturation', label: 'SpO2', unit: '%' },
     { key: 'weight', label: 'Weight', unit: ' lbs' }
   ];
@@ -686,10 +620,12 @@ const generateVitalsSection = (vitals?: PrescriptionData['vitals']): string => {
   if (vitalElements.length === 0) return '';
 
   return `
-    <div class="vitals-section">
-      <div class="vitals-title">Vital Signs</div>
-      <div class="vitals-grid">
-        ${vitalElements.join('')}
+    <div class="clinical-section">
+      <div class="clinical-header">Vital Signs</div>
+      <div class="clinical-content">
+        <div class="vitals-grid">
+          ${vitalElements.join('')}
+        </div>
       </div>
     </div>
   `;
@@ -711,9 +647,13 @@ const generateDiagnosisSection = (diagnosisInfo?: PrescriptionData['diagnosis_in
     `);
 
   return `
-    <div class="diagnosis-section">
-      <div class="section-title diagnosis">Clinical Diagnosis</div>
-      ${diagnosisItems.join('')}
+    <div class="clinical-section">
+      <div class="clinical-header">Clinical Diagnosis</div>
+      <div class="clinical-content">
+        <div class="diagnosis-list">
+          ${diagnosisItems.join('')}
+        </div>
+      </div>
     </div>
   `;
 };
@@ -728,56 +668,65 @@ const generateMedicationsSection = (medications?: PrescriptionData['treatment_pl
             <div class="med-name">${med.name}</div>
             ${med.dosage ? `<div class="med-details"><span class="med-label">Dosage:</span> ${med.dosage}</div>` : ''}
             ${med.frequency ? `<div class="med-details"><span class="med-label">Frequency:</span> ${med.frequency}</div>` : ''}
-            ${med.instructions ? `<div class="med-details"><span class="med-label">Instructions:</span> ${med.instructions}</div>` : ''}
+            ${med.instructions ? `<div class="med-details"><span class="med-label">Directions:</span> ${med.instructions}</div>` : ''}
           </div>
         `).join('')
-    : '<div style="text-align: center; color: #6b7280; font-style: italic; padding: 20px;">No medications prescribed</div>';
+    : '<div style="text-align: center; color: #64748b; font-style: italic; padding: 15px;">No medications prescribed</div>';
 
   return `
     <div class="rx-section">
-      <div class="section-title medication">Medications</div>
-      ${medicationItems}
+      <div class="rx-header">
+        <span class="rx-symbol-header">℞</span>
+        Prescription
+      </div>
+      <div class="medication-list">
+        ${medicationItems}
+      </div>
     </div>
   `;
 };
 
-const generateAdviceSection = (notes?: string, symptoms?: PrescriptionData['symptoms']): string => {
-  const hasNotes = notes?.trim();
+const generateSymptomsAndNotesSection = (symptoms?: PrescriptionData['symptoms'], notes?: string): string => {
   const hasSymptoms = symptoms && symptoms.some(s => s.description);
+  const hasNotes = notes?.trim();
 
-  if (!hasNotes && !hasSymptoms) return '';
+  if (!hasSymptoms && !hasNotes) return '';
 
-  let symptomsHtml = '';
+  let content = '';
+
   if (hasSymptoms) {
     const symptomsList = symptoms!
       .filter(symptom => symptom.description)
       .map(symptom => 
         `<div class="symptom-item">
           <span class="symptom-desc">${symptom.description}</span>
-          <span class="symptom-severity">${symptom.severity || 'moderate'}</span>
+          <span class="symptom-severity">[${symptom.severity || 'moderate'}]</span>
         </div>`
       ).join('');
 
-    symptomsHtml = `
-      <div style="margin-bottom: 12px;">
-        <div style="font-weight: 600; color: #7c2d92; margin-bottom: 8px; font-size: 14px;">Reported Symptoms:</div>
+    content += `
+      <div class="symptoms-section" style="margin-bottom: ${hasNotes ? '10px' : '0'};">
+        <div style="font-weight: bold; margin-bottom: 6px; font-size: 11px; color: #1e3a8a;">Symptoms:</div>
         ${symptomsList}
       </div>
     `;
   }
 
-  const notesHtml = hasNotes ? `
-    <div>
-      <div style="font-weight: 600; color: #7c2d92; margin-bottom: 8px; font-size: 14px;">Additional Notes:</div>
-      <div class="notes-text">${notes}</div>
-    </div>
-  ` : '';
+  if (hasNotes) {
+    content += `
+      <div>
+        <div style="font-weight: bold; margin-bottom: 6px; font-size: 11px; color: #1e3a8a;">Clinical Notes:</div>
+        <div class="notes-text">${notes}</div>
+      </div>
+    `;
+  }
 
   return `
-    <div class="advice-section">
-      <div class="section-title notes">Clinical Notes & Advice</div>
-      ${symptomsHtml}
-      ${notesHtml}
+    <div class="clinical-section">
+      <div class="clinical-header">Clinical Notes</div>
+      <div class="clinical-content">
+        ${content}
+      </div>
     </div>
   `;
 };
@@ -787,39 +736,43 @@ const generateFollowUpSection = (followUp?: PrescriptionData['treatment_plan']['
     return '';
   }
 
-  const items = [];
+  let items = '';
   
   if (followUp.date) {
-    items.push(`
+    items += `
       <div class="followup-item">
-        <span class="followup-label">Next Visit:</span>
-        <span class="followup-value">${new Date(followUp.date).toLocaleDateString()}</span>
+        <div class="followup-label">Next Visit</div>
+        <div class="followup-value">${new Date(followUp.date).toLocaleDateString()}</div>
       </div>
-    `);
+    `;
   }
   
   if (followUp.duration) {
-    items.push(`
+    items += `
       <div class="followup-item">
-        <span class="followup-label">Review After:</span>
-        <span class="followup-value">${followUp.duration}</span>
+        <div class="followup-label">Review After</div>
+        <div class="followup-value">${followUp.duration}</div>
       </div>
-    `);
+    `;
   }
   
   if (followUp.notes) {
-    items.push(`
-      <div class="followup-item">
-        <span class="followup-label">Notes:</span>
-        <span class="followup-value">${followUp.notes}</span>
+    items += `
+      <div class="followup-item" style="grid-column: 1 / -1;">
+        <div class="followup-label">Instructions</div>
+        <div class="followup-value">${followUp.notes}</div>
       </div>
-    `);
+    `;
   }
 
   return `
-    <div class="follow-up-section">
-      <div class="section-title followup">Follow-up Instructions</div>
-      ${items.join('')}
+    <div class="clinical-section">
+      <div class="clinical-header">Follow-up Instructions</div>
+      <div class="clinical-content">
+        <div class="follow-up-grid">
+          ${items}
+        </div>
+      </div>
     </div>
   `;
 };
