@@ -1,12 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { api } from '@/lib/api';
 import { withAuth } from '@workos-inc/authkit-nextjs';
 
 /**
- * GET /api/diagnosis/[id]
- * Retrieves diagnosis by appointment_id as path parameter
+ * GET /api/diagnosis
+ * Retrieves diagnosis by appointment_id as query parameter
  */
-export async function GET(req, { params }) {
+export async function GET(req: NextRequest) {
   try {
     // Get auth data from WorkOS
     const { user, organizationId, role } = await withAuth();
@@ -17,18 +17,16 @@ export async function GET(req, { params }) {
       );
     }
 
-    // Get appointment_id from path parameters
-    const appointmentId = params.id;
-    
-    // Get additional query parameters from URL if needed
+    // Get query parameters from URL
     const searchParams = req.nextUrl.searchParams;
+    const appointmentId = searchParams.get('appointment_id');
     const page = searchParams.get('page') || '1';
     const limit = searchParams.get('limit') || '10';
 
     // DEBUG: Log all received parameters
     console.log('=== DIAGNOSIS GET REQUEST DEBUG ===');
     console.log('Full URL:', req.nextUrl.toString());
-    console.log('Path parameter appointmentId:', appointmentId);
+    console.log('Query parameter appointment_id:', appointmentId);
     console.log('Query parameters:');
     for (const [key, value] of searchParams.entries()) {
       console.log(` ${key}: ${value}`);
@@ -40,7 +38,7 @@ export async function GET(req, { params }) {
       return NextResponse.json(
         {
           error: 'appointment_id parameter is required',
-          details: 'appointment_id must be provided in the URL path'
+          details: 'appointment_id must be provided as a query parameter'
         },
         { status: 400 }
       );
@@ -48,8 +46,9 @@ export async function GET(req, { params }) {
 
     console.log('✅ Proceeding with backend request...');
 
-    // FIXED: Separate params and options properly
+    // Prepare query parameters
     const queryParams = {
+      appointment_id: appointmentId,
       page,
       limit,
       org_id: organizationId
@@ -63,11 +62,11 @@ export async function GET(req, { params }) {
       }
     };
 
-    // Forward the request to the backend using correct parameter structure
+    // Forward the request to the backend
     const response = await api.get(
-      `/api/diagnosis/${appointmentId}`, 
-      queryParams,  // This becomes the 'params' for GET request
-      requestOptions // This becomes the 'options' (including headers)
+      `/api/diagnosis`, 
+      queryParams,
+      requestOptions
     );
 
     console.log('Backend response status:', response?.status);
@@ -126,7 +125,7 @@ export async function GET(req, { params }) {
     console.log('✅ Returning transformed data:', safeData);
     return NextResponse.json(safeData);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error retrieving diagnosis:', error);
     
     if (error.code === 'AUTH_REQUIRED') {
@@ -154,10 +153,10 @@ export async function GET(req, { params }) {
 }
 
 /**
- * PUT /api/diagnosis/[id]
- * Updates a specific diagnosis by ID
+ * POST /api/diagnosis
+ * Creates a new diagnosis
  */
-export async function PUT(req, { params }) {
+export async function POST(req: NextRequest) {
   try {
     const { user, organizationId, role } = await withAuth();
     if (!user) {
@@ -167,11 +166,10 @@ export async function PUT(req, { params }) {
       );
     }
 
-    const diagnosisId = params.id;
     const body = await req.json();
 
     // Forward the request to the backend
-    const response = await api.put(`/api/diagnosis/${diagnosisId}`, body, {
+    const response = await api.post(`/api/diagnosis`, body, {
       headers: {
         'X-User-ID': user.id,
         'X-Organization-ID': organizationId,
@@ -181,8 +179,8 @@ export async function PUT(req, { params }) {
 
     return NextResponse.json(response.data);
 
-  } catch (error) {
-    console.error('Error updating diagnosis:', error);
+  } catch (error: any) {
+    console.error('Error creating diagnosis:', error);
 
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(
@@ -193,7 +191,7 @@ export async function PUT(req, { params }) {
 
     if (error.response) {
       const status = error.response.status;
-      const errorMessage = error.response.data?.error || 'Failed to update diagnosis';
+      const errorMessage = error.response.data?.error || 'Failed to create diagnosis';
       return NextResponse.json(
         { error: errorMessage },
         { status }
@@ -210,7 +208,7 @@ export async function PUT(req, { params }) {
 /**
  * Safe JSON serialization function to handle circular references and non-serializable values
  */
-function safeJsonSerialize(obj) {
+function safeJsonSerialize(obj: any): any {
   const seen = new WeakSet();
   
   return JSON.parse(JSON.stringify(obj, (key, value) => {
@@ -257,74 +255,9 @@ function safeJsonSerialize(obj) {
 }
 
 /**
- * DELETE /api/diagnosis/[id]
- * Deletes a specific diagnosis by ID
- */
-export async function DELETE(req, { params }) {
-  try {
-    const { id } = params;
-
-    if (!id) {
-      return NextResponse.json(
-        { error: "Diagnosis ID is required" },
-        { status: 400 }
-      );
-    }
-
-    // Get auth data from WorkOS
-    const { user, organizationId, role } = await withAuth();
-    if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
-
-    console.log('Deleting diagnosis with ID:', id);
-    console.log('Organization ID from auth:', organizationId);
-
-    // Forward the request to the backend with auth headers
-    const response = await api.delete(`/api/diagnosis/${id}`, {
-      headers: {
-        'X-User-ID': user.id,
-        'X-Organization-ID': organizationId,
-        'X-User-Role': role,
-      }
-    });
-
-    return NextResponse.json(response.data);
-
-  } catch (error) {
-    // Handle authentication errors
-    if (error.code === 'AUTH_REQUIRED') {
-      return NextResponse.json(
-        { code: 'AUTH_REQUIRED', error: 'Not authenticated' },
-        { status: 401 }
-      );
-    }
-
-    console.error('Error deleting diagnosis:', error);
-    
-    // Return detailed error information for debugging
-    const errorMessage = error.response?.data?.error || error.message || 'Failed to delete diagnosis';
-    const statusCode = error.response?.status || 500;
-    
-    return NextResponse.json(
-      {
-        error: errorMessage,
-        details: error.response?.data || {},
-        diagnosisId: params.id,
-        requestUrl: error.config?.url || 'Unknown URL'
-      },
-      { status: statusCode }
-    );
-  }
-}
-
-/**
  * Transform diagnosis data from API format to frontend format
  */
-function transformDiagnosisFromAPI(diagnosis) {
+function transformDiagnosisFromAPI(diagnosis: any) {
   if (!diagnosis) {
     return null;
   }
