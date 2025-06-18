@@ -47,52 +47,6 @@ function sanitizeForJSON(obj: any): any {
   return obj;
 }
 
-// GET /api/diagnosis/[appointment_id]
-export async function GET(req: NextRequest, { params }: { params: { appointment_id: string } }) {
-  try {
-    const { user, organizationId, role } = await withAuth();
-    if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-
-    const appointmentId = params.appointment_id;
-    if (!appointmentId) {
-      return NextResponse.json({ 
-        error: 'appointment_id parameter is required' 
-      }, { status: 400 });
-    }
-
-    const searchParams = req.nextUrl.searchParams;
-    const queryParams = {
-      page: searchParams.get('page') || '1',
-      limit: searchParams.get('limit') || '10',
-      org_id: organizationId
-    };
-
-    const response = await api.get(`/api/diagnosis/${appointmentId}`, {
-      params: queryParams,
-      headers: {
-        'X-User-ID': user.id,
-        'X-Organization-ID': organizationId,
-        'X-User-Role': role,
-      }
-    });
-
-    // Sanitize the response data
-    const sanitizedData = sanitizeForJSON(response.data);
-    return NextResponse.json(sanitizedData);
-
-  } catch (error: any) {
-    console.error('Error retrieving diagnoses:', error);
-    
-    if (error.response) {
-      return NextResponse.json(
-        { error: error.response.data?.error || 'Failed to retrieve diagnoses' },
-        { status: error.response.status }
-      );
-    }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
 // POST /api/diagnosis
 export async function POST(req: NextRequest) {
   try {
@@ -321,7 +275,7 @@ export async function POST(req: NextRequest) {
       
       return NextResponse.json({
         error: error.response.data?.error || 'Failed to create diagnosis',
-        details: error.response.data?.details || null
+        details: error.response.data?.details || null 
       }, { status: error.response.status });
     }
 
