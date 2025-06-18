@@ -13,6 +13,7 @@ import {
   getSpecializationConfig, 
   useSpecializationData 
 } from './SpecializationImports'
+
 // Hooks
 const useURLParams = () => {
   const [params, setParams] = useState({});
@@ -31,7 +32,6 @@ const useRouter = () => ({
 });
 
 // Types & Constants
-
 interface DiagnosisFormData {
   appointment_id: string; 
   patient_id: string; 
@@ -42,7 +42,8 @@ interface DiagnosisFormData {
   diagnosis_info: any[]; 
   status: string;
   treatment_plan?: any; 
-  notes?: string; 
+  notes?: string;
+  clinical_notes?: string; 
   specialization?: { 
     type: string; 
     data: any;
@@ -52,7 +53,8 @@ interface DiagnosisFormData {
 const DEFAULT_FORM: DiagnosisFormData = {
   appointment_id: "", patient_id: "", doctor_id: "", org_id: "",
   vitals: { timestamp: new Date().toISOString() },
-  symptoms: [{ description: "", severity: "moderate", onset: new Date().toISOString().split('T')[0] }],
+  // Updated to match SymptomsSection format
+  symptoms: [{ id: Date.now(), name: "", severity: "moderate" }],
   diagnosis_info: [{ condition: "", code: "", notes: "" }],
   status: "draft", notes: "",
   treatment_plan: { 
@@ -103,7 +105,8 @@ const fetchExistingDiagnosis = async (appointmentId: string) => {
     throw error;
   }
 };
-// Updated transformation functions with specialization support
+
+// Updated transformation functions with proper symptom mapping
 const transformDiagnosisToForm = (diagnosis: any): DiagnosisFormData => {
   const vitals = diagnosis.vitals || {
     temperature: diagnosis.temperature,
@@ -114,9 +117,23 @@ const transformDiagnosisToForm = (diagnosis: any): DiagnosisFormData => {
     timestamp: diagnosis.created_at || new Date().toISOString()
   };
 
-  const symptoms = diagnosis.symptoms?.length ? diagnosis.symptoms : 
-    diagnosis.chief_complaint ? [{ description: diagnosis.chief_complaint, severity: "moderate", onset: new Date().toISOString().split('T')[0] }] :
-    [{ description: "", severity: "moderate", onset: new Date().toISOString().split('T')[0] }];
+  // Transform backend symptoms to match SymptomsSection format
+  let symptoms = [];
+  if (diagnosis.symptoms?.length) {
+    symptoms = diagnosis.symptoms.map((symptom, index) => ({
+      id: symptom.id || symptom.symptom_id || Date.now() + index,
+      name: symptom.name || symptom.description || symptom.symptom || "",
+      severity: symptom.severity || "moderate"
+    }));
+  } else if (diagnosis.chief_complaint) {
+    symptoms = [{ 
+      id: Date.now(), 
+      name: diagnosis.chief_complaint, 
+      severity: "moderate" 
+    }];
+  } else {
+    symptoms = [{ id: Date.now(), name: "", severity: "moderate" }];
+  }
 
   let diagnosis_info = [];
   if (diagnosis.primary_diagnosis) {
@@ -152,6 +169,7 @@ const transformDiagnosisToForm = (diagnosis: any): DiagnosisFormData => {
     }
   };
 };
+
 const CollapsibleSection = ({ sectionKey, section, isOpen, onToggle, children, doctorData }) => {
   // For specialization section, check if we should show it
   if (sectionKey === 'specialization') {
@@ -202,18 +220,33 @@ const CollapsibleSection = ({ sectionKey, section, isOpen, onToggle, children, d
   );
 };
 
-const NotesSection = ({ notes, onChange }) => (
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">Clinical Notes</label>
-    <textarea
-      value={notes || ""}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-      rows={4}
-      placeholder="Additional clinical notes, observations, or recommendations..."
-    />
-  </div>
-);
+// ✅ ALSO FIX: Update the NotesSection to ensure proper state management
+const NotesSection = ({ notes, onChange }) => {
+  const handleNotesChange = (value) => {
+    console.log('📝 Notes changed:', { value, length: value.length });
+    onChange(value);
+  };
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Clinical Notes
+      </label>
+      <textarea
+        value={notes || ""}
+        onChange={(e) => handleNotesChange(e.target.value)}
+        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        rows={4}
+        placeholder="Additional clinical notes, observations, or recommendations..."
+      />
+      {notes && (
+        <div className="mt-2 text-sm text-gray-500">
+          {notes.length} characters
+        </div>
+      )}
+    </div>
+  );
+};
 
 const PrescriptionHeader = ({ appointmentData, doctorData }) => (
   <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -299,6 +332,153 @@ const ActionButtons = ({ submitting, onBack, onSave, prescriptionData }) => (
     </div>
   </div>
 );
+
+// Updated transform function to work with SymptomsSection format
+const transformDiagnosisData = (form, appointmentData, doctorData, patientData) => {
+  // Transform symptoms from SymptomsSection format to backend format
+  const symptoms = form.symptoms
+    ?.filter(s => s.name?.trim()) // Filter based on 'name' field
+    .map((s, index) => ({
+      symptom_id: s.id || index + 1,
+      name: s.name || "",
+      description: s.name || "", // Use name as description
+      severity: s.severity || "moderate",
+      category: "General", // Default category since SymptomsSection doesn't have categories
+      onset_date: null, // SymptomsSection doesn't have onset date
+      duration: null,
+      location: null,
+      notes: null,
+      frequency: null,
+      progression: null,
+      radiation: null,
+      scale_rating: null
+    })) || [];
+
+  console.log('🔍 Frontend sending symptoms as structured objects:', symptoms);
+
+  // Enhanced symptom data for detailed tracking
+  const symptomTimeline = symptoms.map(s => ({
+    symptom_name: s.name,
+    onset_date: null,
+    current_status: "active",
+    resolution_date: null,
+    severity_progression: [{
+      date: new Date().toISOString().split('T')[0],
+      severity: s.severity,
+      scale_rating: null
+    }]
+  }));
+
+  const symptomSummary = {
+    total_count: symptoms.length,
+    primary_complaint: symptoms[0]?.name || "",
+    duration_range: null,
+    severity_distribution: {
+      mild: symptoms.filter(s => s.severity === 'mild').length,
+      moderate: symptoms.filter(s => s.severity === 'moderate').length,
+      severe: symptoms.filter(s => s.severity === 'severe').length
+    },
+    categories: ["General"], // Default since SymptomsSection doesn't have categories
+    locations: [],
+    avg_pain_scale: null,
+    last_updated: new Date().toISOString()
+  };
+
+  const medications = form.treatment_plan?.medications?.filter(m => m.name?.trim()).map(m => ({
+    name: m.name.trim(),
+    dosage: m.dosage || "",
+    frequency: m.frequency || "",
+    duration: m.duration || "",
+    instructions: m.instructions || "",
+    route: m.route || "oral"
+  })) || [];
+
+  const validDiagnoses = form.diagnosis_info?.filter(d => d.condition?.trim()) || [];
+  
+  // ✅ FIX: Ensure clinical notes are properly handled
+  const clinicalNotes = form.notes || form.clinical_notes || "";
+  
+  console.log('📝 Frontend clinical notes processing:', {
+    form_notes: form.notes,
+    form_clinical_notes: form.clinical_notes,
+    final_clinical_notes: clinicalNotes,
+    notes_length: clinicalNotes.length
+  });
+  
+  return {
+    // Basic IDs
+    appointment_id: form.appointment_id,
+    patient_id: form.patient_id,
+    doctor_id: form.doctor_id,
+    org_id: form.org_id || "",
+    status: form.status || "finalized",
+    
+    // Patient info
+    patient_name: appointmentData?.patient_name || patientData?.name || "",
+    patient_age: patientData?.age || null,
+    patient_gender: patientData?.gender || "",
+    
+    // Doctor info
+    doctor_name: doctorData?.name || "",
+    doctor_specialty: doctorData?.specialization?.primary || "",
+    
+    // Vitals as strings (as your backend expects)
+    temperature: form.vitals?.temperature?.toString() || "",
+    blood_pressure: form.vitals?.blood_pressure?.toString() || "",
+    heart_rate: form.vitals?.heart_rate?.toString() || "",
+    weight: form.vitals?.weight?.toString() || "",
+    height: form.vitals?.height?.toString() || "",
+    bmi: form.vitals?.bmi?.toString() || "",
+    respiratory_rate: form.vitals?.respiratory_rate?.toString() || "",
+    oxygen_saturation: form.vitals?.oxygen_saturation?.toString() || "",
+    
+    // Symptoms as proper objects
+    symptoms: symptoms,
+    
+    // Complaints based on first symptom
+    chief_complaint: symptoms[0]?.name || "",
+    primary_complaint: symptoms[0]?.name || "",
+    
+    // Enhanced symptom data as JSON strings for detailed tracking
+    symptom_timeline: JSON.stringify(symptomTimeline),
+    symptom_summary: JSON.stringify(symptomSummary),
+    symptom_categories: ["General"],
+    
+    // Optional enhanced symptom fields (can be null)
+    symptom_triggers: null,
+    symptom_relieving_factors: null,
+    symptom_quality_details: null,
+    symptom_progression: null,
+    symptom_radiation_patterns: null,
+    
+    // ✅ FIX: Physical exam and clinical notes - ensure both are sent
+    physical_exam: clinicalNotes,
+    clinical_notes: clinicalNotes,
+    notes: clinicalNotes, // Send as 'notes' as well for compatibility
+    
+    // Diagnosis
+    primary_diagnosis: validDiagnoses[0]?.condition || "Pending diagnosis",
+    secondary_diagnoses: validDiagnoses.slice(1).map(d => d.condition.trim()).filter(Boolean),
+    icd_codes: validDiagnoses.map(d => d.code).filter(Boolean),
+    
+    // Treatment
+    medications,
+    procedures: form.treatment_plan?.procedures || [],
+    recommendations: form.treatment_plan?.lifestyle_changes?.filter(Boolean).join('; ') || "",
+    
+    // Follow-up
+    follow_up_date: form.treatment_plan?.follow_up?.date || null,
+    follow_up_notes: form.treatment_plan?.follow_up?.notes || "",
+    
+    // Additional
+    lab_orders: form.treatment_plan?.lab_orders || [],
+    referrals: form.treatment_plan?.referrals || [],
+    specialty: form.specialization?.type || null,
+    specialty_data: JSON.stringify(form.specialization?.data || {}),
+    test_results: [],
+    attachments: []
+  };
+};
 
 // Main Component
 export default function DiagnosisPage() {
@@ -386,70 +566,54 @@ export default function DiagnosisPage() {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const transformDiagnosisData = (form: DiagnosisFormData, appointmentData: any, doctorData: any, patientData: any) => {
-    const symptoms = form.symptoms?.filter(s => s.description?.trim()).map(s => ({
-      description: s.description.trim(), severity: s.severity || "moderate",
-      onset: s.onset || new Date().toISOString().split('T')[0],
-      duration: s.duration || "", location: s.location || "", quality: s.quality || "", factors: s.factors || ""
-    })) || [];
-
-    const medications = form.treatment_plan?.medications?.filter(m => m.name?.trim()).map(m => ({
-      name: m.name.trim(), dosage: m.dosage || "", frequency: m.frequency || "",
-      duration: m.duration || "", instructions: m.instructions || "", route: m.route || "oral"
-    })) || [];
-
-    const validDiagnoses = form.diagnosis_info?.filter(d => d.condition?.trim()) || [];
+// ✅ ALSO FIX: Update the save handler to include additional logging
+const handleSave = async () => {
+  try {
+    setState(prev => ({ ...prev, submitting: true, error: null }));
     
-    return {
-      appointment_id: form.appointment_id, patient_id: form.patient_id, doctor_id: form.doctor_id,
-      org_id: form.org_id || "", status: form.status || "finalized",
-      patient_name: appointmentData?.patient_name || patientData?.name || "",
-      patient_age: patientData?.age || null, patient_gender: patientData?.gender || "",
-      doctor_name: doctorData?.name || "", doctor_specialty: doctorData?.specialization?.primary || "",
-      temperature: form.vitals?.temperature || null, blood_pressure: form.vitals?.blood_pressure || null,
-      heart_rate: form.vitals?.heart_rate || null, weight: form.vitals?.weight || null,
-      height: form.vitals?.height || null, bmi: form.vitals?.bmi || null,
-      respiratory_rate: form.vitals?.respiratory_rate || null, oxygen_saturation: form.vitals?.oxygen_saturation || null,
-      chief_complaint: symptoms[0]?.description || "", symptoms, physical_exam: form.notes || "",
-      primary_diagnosis: validDiagnoses[0]?.condition || "",
-      secondary_diagnoses: validDiagnoses.slice(1).map(d => d.condition.trim()).filter(Boolean),
-      icd_codes: validDiagnoses.map(d => d.code).filter(Boolean),
-      medications, procedures: form.treatment_plan?.procedures || [],
-      recommendations: form.treatment_plan?.lifestyle_changes?.filter(Boolean).join('; ') || "",
-      follow_up_date: form.treatment_plan?.follow_up?.date || null,
-      follow_up_notes: form.treatment_plan?.follow_up?.notes || "",
-      lab_orders: form.treatment_plan?.lab_orders || [], referrals: form.treatment_plan?.referrals || [],
-      clinical_notes: form.notes || "", specialty: form.specialization?.type || null,
-      specialty_data: form.specialization?.data || {}, test_results: [], attachments: []
-    };
-  };
-
-  const handleSave = async () => {
-    try {
-      setState(prev => ({ ...prev, submitting: true }));
-      if (!form.appointment_id || !form.patient_id || !form.doctor_id) {
-        throw new Error("Missing required appointment, patient, or doctor information");
-      }
-
-      const transformedData = transformDiagnosisData(form, state.appointmentData, state.doctorData, state.patientData);
-      await apiCall('/api/diagnosis', { method: 'POST', body: JSON.stringify(transformedData) });
-      console.log('📤 Sending to API:', transformedData);
-      console.log('🔍 Form data before save:', {
-  vitals: form.vitals,
-  medications: form.treatment_plan?.medications,
-  symptoms: form.symptoms,
-  diagnosis_info: form.diagnosis_info
-});
-      setForm(prev => ({ ...prev, status: 'finalized' }));
-      alert('Diagnosis saved successfully!');
-    } catch (error: any) {
-      const errorMessage = error.message || error.data?.error || 'Failed to save diagnosis';
-      setState(prev => ({ ...prev, error: errorMessage }));
-      alert(`Error: ${errorMessage}`);
-    } finally {
-      setState(prev => ({ ...prev, submitting: false }));
+    if (!form.appointment_id || !form.patient_id || !form.doctor_id) {
+      throw new Error("Missing required appointment, patient, or doctor information");
     }
-  };
+
+    // Log the form state before transformation
+    console.log('🔍 Form state before transformation:', {
+      notes: form.notes,
+      clinical_notes: form.clinical_notes,
+      notes_length: form.notes?.length || 0
+    });
+
+    const transformedData = transformDiagnosisData(form, state.appointmentData, state.doctorData, state.patientData);
+    
+    // Enhanced logging for debugging
+    console.log('🔍 Symptoms from form:', form.symptoms);
+    console.log('📤 Transformed symptoms:', transformedData.symptoms);
+    console.log('📝 Clinical notes in payload:', {
+      clinical_notes: transformedData.clinical_notes,
+      physical_exam: transformedData.physical_exam,
+      notes: transformedData.notes,
+      length: transformedData.clinical_notes?.length || 0
+    });
+    console.log('📤 Full API payload keys:', Object.keys(transformedData));
+
+    const response = await apiCall('/api/diagnosis', { 
+      method: 'POST', 
+      body: JSON.stringify(transformedData) 
+    });
+    
+    console.log('✅ API Response:', response);
+    
+    setForm(prev => ({ ...prev, status: 'finalized' }));
+    alert('Diagnosis saved successfully!');
+    
+  } catch (error) {
+    const errorMessage = error.message || error.data?.error || 'Failed to save diagnosis';
+    console.error('❌ Save error:', error);
+    setState(prev => ({ ...prev, error: errorMessage }));
+    alert(`Error: ${errorMessage}`);
+  } finally {
+    setState(prev => ({ ...prev, submitting: false }));
+  }
+};
 
   if (state.loading) {
     return (

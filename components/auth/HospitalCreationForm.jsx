@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { toast, Toaster } from "react-hot-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@radix-ui/react-label";
-import { Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle, Upload, Trash2, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle, Upload, Trash2, AlertCircle, Check, X } from "lucide-react";
 import { Progress } from '@/components/ui/progress';
 import { clientApi } from '@/lib/client-api';
 
@@ -12,13 +12,15 @@ const CreateHospitalForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const fileInputRef = useRef(null);
   const totalSteps = 3;
-
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    password: '',
     number: '',
     address: '',
     licenseNumber: '',
@@ -32,6 +34,43 @@ const CreateHospitalForm = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  // Password validation function
+  const validatePassword = (password) => {
+    return {
+      length: password.length >= 12,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      specialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    };
+  };
+
+  const passwordValidation = validatePassword(formData.password);
+  const isPasswordValid = Object.values(passwordValidation).every(Boolean);
+
+  // Password strength calculation
+  const getPasswordStrength = () => {
+    const validCount = Object.values(passwordValidation).filter(Boolean).length;
+    if (validCount === 0) return { strength: 0, label: 'No password', color: 'bg-gray-200' };
+    if (validCount === 1) return { strength: 25, label: 'Weak', color: 'bg-red-500' };
+    if (validCount === 2) return { strength: 50, label: 'Fair', color: 'bg-orange-500' };
+    if (validCount === 3) return { strength: 75, label: 'Good', color: 'bg-yellow-500' };
+    return { strength: 100, label: 'Strong', color: 'bg-green-500' };
+  };
+
+  const strengthInfo = getPasswordStrength();
+
+  // Validation rule component
+  const ValidationRule = ({ isValid, text }) => (
+    <div className={`flex items-center space-x-2 text-sm ${isValid ? 'text-green-600' : 'text-gray-500'}`}>
+      {isValid ? (
+        <Check size={14} className="text-green-500" />
+      ) : (
+        <X size={14} className="text-gray-400" />
+      )}
+      <span>{text}</span>
+    </div>
+  );
+
   function IsRoleAdmin() {
     if (user?.Role === 'admin') {
       return true;
@@ -40,14 +79,6 @@ const CreateHospitalForm = () => {
     }
   }
 
- // if (!IsRoleAdmin()) {
-   // return (
-   // <div className="flex items-center justify-center bg-white rounded-3xl p-8 shadow-destructive-foreground">
-   //     <p className="text-gray-500">Access Restricted - Please Contact Support</p>
-   //   </div>
-   // );
-
-  //}
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({
@@ -168,14 +199,17 @@ const CreateHospitalForm = () => {
     setError('');
     
     if (currentStep === 1) {
-      // Validate basic info fields
-      if (!formData.name || !formData.email || !formData.number || !formData.licenseNumber) {
+      // Validate basic info fields including password
+      if (!formData.name || !formData.email || !formData.password || !formData.number || !formData.licenseNumber) {
         setError('Please fill in all required fields');
         isValid = false;
       } else if (!validateHospitalName()) {
         isValid = false;
       } else if (!validateEmail(formData.email)) {
         setError('Please enter a valid email address');
+        isValid = false;
+      } else if (!isPasswordValid) {
+        setError('Password must meet all security requirements');
         isValid = false;
       }
     } else if (currentStep === 2) {
@@ -223,6 +257,7 @@ const CreateHospitalForm = () => {
       // Add all hospital details
       formDataToSubmit.append('name', formData.name.trim());
       formDataToSubmit.append('email', formData.email.trim());
+      formDataToSubmit.append('password', formData.password);
       
       // Parse number properly
       const parsedNumber = formData.number.replace(/\D/g, '');
@@ -280,6 +315,7 @@ const CreateHospitalForm = () => {
     setFormData({
       name: '',
       email: '',
+      password: '',
       number: '',
       address: '',
       licenseNumber: '',
@@ -386,6 +422,75 @@ const CreateHospitalForm = () => {
               !formData.email || !validateEmail(formData.email) ? "border-red-500 bg-red-50" : "border-black"
             }`}
           />
+        </div>
+
+        {/* Password Field with Validation */}
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="password">Password*</Label>
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              id="password"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              onFocus={() => setPasswordFocused(true)}
+              onBlur={() => setPasswordFocused(false)}
+              required
+              placeholder="Enter a secure password"
+              className={`w-full p-2 pr-10 border-2 rounded-2xl ${
+                formData.password && isPasswordValid
+                  ? 'border-green-500 bg-green-50'
+                  : formData.password && !isPasswordValid
+                  ? 'border-red-500 bg-red-50'
+                  : !formData.password
+                  ? 'border-red-500 bg-red-50'
+                  : 'border-black'
+              }`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
+
+          {/* Password Strength Indicator */}
+          {formData.password && (
+            <div className="mt-2">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs font-medium text-gray-700">Password Strength</span>
+                <span className={`text-xs font-medium ${
+                  strengthInfo.strength === 100 ? 'text-green-600' : 
+                  strengthInfo.strength >= 75 ? 'text-yellow-600' : 
+                  strengthInfo.strength >= 50 ? 'text-orange-600' : 'text-red-600'
+                }`}>
+                  {strengthInfo.label}
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                <div 
+                  className={`h-1.5 rounded-full transition-all duration-300 ${strengthInfo.color}`}
+                  style={{ width: `${strengthInfo.strength}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+
+          {/* Password Requirements */}
+          {(formData.password || passwordFocused) && (
+            <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+              <h4 className="text-xs font-medium text-gray-700 mb-2">Password Requirements:</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                <ValidationRule isValid={passwordValidation.length} text="12+ characters" />
+                <ValidationRule isValid={passwordValidation.uppercase} text="1 uppercase letter" />
+                <ValidationRule isValid={passwordValidation.lowercase} text="1 lowercase letter" />
+                <ValidationRule isValid={passwordValidation.specialChar} text="1 special character" />
+              </div>
+            </div>
+          )}
         </div>
         
         <div className="space-y-2">
@@ -591,13 +696,11 @@ const CreateHospitalForm = () => {
     </div>
   );
 
-  
-
   return (
     <div className="w-full max-w-5xl mx-auto">
       <Card className="p-9">
         <CardContent className="p-3">
-          <form onSubmit={step === 3 ? handleSubmit : (e) => e.preventDefault()}>
+          <div onSubmit={step === 3 ? handleSubmit : (e) => e.preventDefault()}>
             {!success && <StepProgress />}
             
             {error && (
@@ -647,9 +750,10 @@ const CreateHospitalForm = () => {
                 )}
               </div>
             )}
-          </form>
+                      </div>
         </CardContent>
       </Card>
+      <Toaster />
     </div>
   );
 };

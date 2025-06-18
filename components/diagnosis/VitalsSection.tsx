@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { AlertTriangle, Check, Info, Heart, Thermometer, Activity, Wind, Droplets, Weight } from "lucide-react";
+import { AlertTriangle, Check, Info, Heart, Thermometer, Activity, Ruler, Weight } from "lucide-react";
 
 interface VitalsProps {
   vitals: any;
@@ -21,6 +21,7 @@ interface VitalField {
   suggestions?: string[];
   validation: (value: string) => { isValid: boolean; message?: string; level?: 'error' | 'warning' | 'info' };
   inputFilter?: (value: string) => string;
+  readonly?: boolean;
 }
 
 const VITAL_FIELDS: VitalField[] = [
@@ -115,54 +116,28 @@ const VITAL_FIELDS: VitalField[] = [
     }
   },
   {
-    key: 'respiratory_rate',
-    label: 'Respiratory Rate',
-    unit: '/min',
-    placeholder: '16',
-    icon: Wind,
+    key: 'height',
+    label: 'Height',
+    unit: 'cm',
+    placeholder: '170',
+    icon: Ruler,
     type: 'number',
-    min: 8,
-    max: 40,
+    min: 50,
+    max: 250,
     step: 1,
-    normalRange: { min: 12, max: 20, unit: 'breaths/min' },
+    normalRange: { min: 150, max: 200, unit: 'cm (varies by individual)' },
     inputFilter: (value: string) => {
-      // Allow only numbers
-      return value.replace(/[^0-9]/g, '');
+      // Allow only numbers and one decimal point
+      return value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
     },
     validation: (value: string) => {
       if (!value) return { isValid: true };
-      const rr = parseInt(value);
-      if (isNaN(rr)) return { isValid: false, message: 'Please enter a valid respiratory rate' };
-      if (rr < 8 || rr > 40) return { isValid: false, message: 'Respiratory rate must be between 8-40/min' };
-      if (rr < 10) return { isValid: true, message: 'Bradypnea - slow breathing', level: 'warning' };
-      if (rr > 24) return { isValid: true, message: 'Tachypnea - rapid breathing', level: 'warning' };
-      if (rr < 12 || rr > 20) return { isValid: true, message: 'Outside normal range', level: 'info' };
-      return { isValid: true, message: 'Normal respiratory rate', level: 'info' };
-    }
-  },
-  {
-    key: 'oxygen_saturation',
-    label: 'Oxygen Saturation',
-    unit: '%',
-    placeholder: '98',
-    icon: Droplets,
-    type: 'number',
-    min: 70,
-    max: 100,
-    step: 1,
-    normalRange: { min: 95, max: 100, unit: '%' },
-    inputFilter: (value: string) => {
-      // Allow only numbers
-      return value.replace(/[^0-9]/g, '');
-    },
-    validation: (value: string) => {
-      if (!value) return { isValid: true };
-      const spo2 = parseInt(value);
-      if (isNaN(spo2)) return { isValid: false, message: 'Please enter a valid oxygen saturation' };
-      if (spo2 < 70 || spo2 > 100) return { isValid: false, message: 'Oxygen saturation must be between 70-100%' };
-      if (spo2 < 90) return { isValid: true, message: 'Severe hypoxemia - immediate attention needed', level: 'error' };
-      if (spo2 < 95) return { isValid: true, message: 'Mild hypoxemia', level: 'warning' };
-      return { isValid: true, message: 'Normal oxygen saturation', level: 'info' };
+      const height = parseFloat(value);
+      if (isNaN(height)) return { isValid: false, message: 'Please enter a valid height' };
+      if (height < 50 || height > 250) return { isValid: false, message: 'Height must be between 50-250 cm' };
+      if (height < 100) return { isValid: true, message: 'Very short stature', level: 'info' };
+      if (height > 220) return { isValid: true, message: 'Very tall stature', level: 'info' };
+      return { isValid: true, message: 'Height recorded', level: 'info' };
     }
   },
   {
@@ -189,27 +164,126 @@ const VITAL_FIELDS: VitalField[] = [
       if (weight > 150) return { isValid: true, message: 'Consider BMI assessment', level: 'info' };
       return { isValid: true, message: 'Weight recorded', level: 'info' };
     }
+  },
+  {
+    key: 'bmi',
+    label: 'BMI',
+    unit: 'kg/m²',
+    placeholder: 'Auto-calculated',
+    icon: Activity,
+    type: 'text',
+    readonly: true,
+    normalRange: { min: 18.5, max: 24.9, unit: 'kg/m²' },
+    inputFilter: (value: string) => value, // No filtering for readonly field
+    validation: (value: string) => {
+      if (!value) return { isValid: true, message: 'Enter height and weight to calculate BMI', level: 'info' };
+      const bmi = parseFloat(value);
+      if (isNaN(bmi)) return { isValid: true };
+      
+      if (bmi < 16) return { isValid: true, message: 'Severely underweight', level: 'error' };
+      if (bmi < 18.5) return { isValid: true, message: 'Underweight', level: 'warning' };
+      if (bmi >= 18.5 && bmi <= 24.9) return { isValid: true, message: 'Normal weight', level: 'info' };
+      if (bmi >= 25 && bmi <= 29.9) return { isValid: true, message: 'Overweight', level: 'warning' };
+      if (bmi >= 30 && bmi <= 34.9) return { isValid: true, message: 'Obesity Class I', level: 'warning' };
+      if (bmi >= 35 && bmi <= 39.9) return { isValid: true, message: 'Obesity Class II', level: 'error' };
+      if (bmi >= 40) return { isValid: true, message: 'Obesity Class III (Severe)', level: 'error' };
+      
+      return { isValid: true, message: 'BMI calculated', level: 'info' };
+    }
   }
 ];
 
-const VitalInput = ({ field, value, onChange, error, showSuggestions }: {
-  field: VitalField;
-  value: string;
-  onChange: (value: string) => void;
-  error?: { isValid: boolean; message?: string; level?: 'error' | 'warning' | 'info' };
-  showSuggestions?: boolean;
-}) => {
+const convertVitalsForBackend = (vitals) => {
+  const converted = { ...vitals };
+  
+  // Convert numeric fields to proper types, send null for empty values
+  const numericFields = [
+    'temperature', 'heart_rate', 'weight', 'height', 'bmi'
+  ];
+  
+  numericFields.forEach(field => {
+    const value = vitals[field];
+    if (!value || value === '') {
+      converted[field] = null;
+    } else {
+      const numValue = parseFloat(value);
+      if (!isNaN(numValue)) {
+        converted[field] = numValue;
+      } else {
+        converted[field] = null;
+      }
+    }
+  });
+  
+  return converted;
+};
+
+const prepareDiagnosisData = (formData) => {
+  const diagnosisData = {
+    ...formData,
+    // Send vitals as strings (empty string for null values)
+    temperature: formData.temperature || "",
+    heart_rate: formData.heart_rate || "",
+    weight: formData.weight || "",
+    height: formData.height || "",
+    bmi: formData.bmi || "",
+    blood_pressure: formData.blood_pressure || "",
+  };
+  
+  return diagnosisData;
+};
+
+// Alternative: If you want to keep numeric conversion but ensure consistency
+const prepareDiagnosisDataWithNumbers = (formData) => {
+  const diagnosisData = {
+    ...formData,
+    // Convert to numbers, but send null for empty values (not empty strings)
+    temperature: formData.temperature && formData.temperature !== '' ? parseFloat(formData.temperature) : null,
+    heart_rate: formData.heart_rate && formData.heart_rate !== '' ? parseInt(formData.heart_rate) : null,
+    weight: formData.weight && formData.weight !== '' ? parseFloat(formData.weight) : null,
+    height: formData.height && formData.height !== '' ? parseFloat(formData.height) : null,
+    bmi: formData.bmi && formData.bmi !== '' ? parseFloat(formData.bmi) : null,
+    blood_pressure: formData.blood_pressure || "",
+  };
+  
+  return diagnosisData;
+};
+
+// Helper function to calculate BMI
+const calculateBMI = (weight, height) => {
+  if (!weight || !height || weight === '' || height === '') return '';
+  
+  const weightNum = parseFloat(weight);
+  const heightNum = parseFloat(height);
+  
+  if (isNaN(weightNum) || isNaN(heightNum) || heightNum === 0) return '';
+  
+  // Convert height from cm to meters
+  const heightInMeters = heightNum / 100;
+  const bmi = weightNum / (heightInMeters * heightInMeters);
+  
+  return bmi.toFixed(1);
+};
+
+// Modified VitalInput component with better data handling
+const VitalInput = ({ field, value, onChange, error, showSuggestions }) => {
   const [focused, setFocused] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const IconComponent = field.icon;
 
-  const handleInputChange = (inputValue: string) => {
+  const handleInputChange = (inputValue) => {
     // Apply input filter if available
     const filteredValue = field.inputFilter ? field.inputFilter(inputValue) : inputValue;
     onChange(filteredValue);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e) => {
+    // Prevent input for readonly fields
+    if (field.readonly) {
+      e.preventDefault();
+      return;
+    }
+    
     // For number inputs, prevent non-numeric characters (except allowed ones)
     if (field.type === 'number') {
       const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
@@ -221,7 +295,12 @@ const VitalInput = ({ field, value, onChange, error, showSuggestions }: {
     }
   };
 
-  const handlePaste = (e: React.ClipboardEvent) => {
+  const handlePaste = (e) => {
+    if (field.readonly) {
+      e.preventDefault();
+      return;
+    }
+    
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
     const filteredText = field.inputFilter ? field.inputFilter(pastedText) : pastedText;
@@ -244,7 +323,7 @@ const VitalInput = ({ field, value, onChange, error, showSuggestions }: {
     return null;
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
+  const handleSuggestionClick = (suggestion) => {
     onChange(suggestion);
     setShowDropdown(false);
   };
@@ -255,27 +334,31 @@ const VitalInput = ({ field, value, onChange, error, showSuggestions }: {
         <IconComponent className="h-4 w-4 mr-2 text-gray-500" />
         {field.label}
         <span className="ml-1 text-gray-400">({field.unit})</span>
+        {field.readonly && <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">Auto</span>}
       </label>
       
       <div className="relative">
         <input
           type="text"
-          value={value}
+          value={value || ''}
           onChange={(e) => handleInputChange(e.target.value)}
           onKeyDown={handleKeyPress}
           onPaste={handlePaste}
           onFocus={() => {
             setFocused(true);
-            if (field.suggestions && showSuggestions) setShowDropdown(true);
+            if (field.suggestions && showSuggestions && !field.readonly) setShowDropdown(true);
           }}
           onBlur={() => {
             setFocused(false);
             setTimeout(() => setShowDropdown(false), 200);
           }}
-          className={`w-full p-3 pr-10 border rounded-lg transition-all duration-200 ${getStatusColor()}`}
+          className={`w-full p-3 pr-10 border rounded-lg transition-all duration-200 ${getStatusColor()} ${
+            field.readonly ? 'bg-gray-50 cursor-not-allowed' : ''
+          }`}
           placeholder={field.placeholder}
           autoComplete="off"
           spellCheck="false"
+          readOnly={field.readonly}
         />
         
         {/* Status Icon */}
@@ -284,7 +367,7 @@ const VitalInput = ({ field, value, onChange, error, showSuggestions }: {
         </div>
         
         {/* Suggestions Dropdown */}
-        {field.suggestions && showDropdown && showSuggestions && (
+        {field.suggestions && showDropdown && showSuggestions && !field.readonly && (
           <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
             {field.suggestions.map((suggestion, index) => (
               <button
@@ -313,7 +396,7 @@ const VitalInput = ({ field, value, onChange, error, showSuggestions }: {
       )}
       
       {/* Normal Range Info */}
-      {focused && (
+      {focused && !field.readonly && (
         <div className="mt-1 text-xs text-gray-500 flex items-center">
           <Info className="h-3 w-3 mr-1 flex-shrink-0" />
           Normal range: {field.normalRange.min}{field.normalRange.unit.includes('systolic') ? '' : `-${field.normalRange.max}`} {field.normalRange.unit}
@@ -323,13 +406,22 @@ const VitalInput = ({ field, value, onChange, error, showSuggestions }: {
   );
 };
 
-export default function VitalsSection({ vitals, onChange }: VitalsProps) {
-  const [validationErrors, setValidationErrors] = useState<Record<string, any>>({});
+export default function VitalsSection({ vitals, onChange }) {
+  const [validationErrors, setValidationErrors] = useState<Record<string, { isValid: boolean; message?: string; level?: 'error' | 'warning' | 'info' }>>({});
   const [showSuggestions, setShowSuggestions] = useState(true);
 
-  const updateVital = (field: string, value: string) => {
+  const updateVital = (field, value) => {
     // Update the vital value
     const newVitals = { ...vitals, [field]: value };
+    
+    // Auto-calculate BMI when height or weight changes
+    if (field === 'height' || field === 'weight') {
+      const height = field === 'height' ? value : vitals.height;
+      const weight = field === 'weight' ? value : vitals.weight;
+      const bmi = calculateBMI(weight, height);
+      newVitals.bmi = bmi;
+    }
+    
     onChange(newVitals);
 
     // Validate the field
@@ -341,11 +433,23 @@ export default function VitalsSection({ vitals, onChange }: VitalsProps) {
         [field]: validation
       }));
     }
+    
+    // Also validate BMI if it was updated
+    if (field === 'height' || field === 'weight') {
+      const bmiField = VITAL_FIELDS.find(f => f.key === 'bmi');
+      if (bmiField) {
+        const bmiValidation = bmiField.validation(newVitals.bmi);
+        setValidationErrors(prev => ({
+          ...prev,
+          bmi: bmiValidation
+        }));
+      }
+    }
   };
 
-  // Validate all fields on mount
+  // Validate all fields on mount and when vitals change
   useEffect(() => {
-    const errors: Record<string, any> = {};
+    const errors = {};
     VITAL_FIELDS.forEach(field => {
       const value = vitals[field.key] || '';
       errors[field.key] = field.validation(value);
@@ -354,8 +458,8 @@ export default function VitalsSection({ vitals, onChange }: VitalsProps) {
   }, [vitals]);
 
   const getOverallStatus = () => {
-    const hasErrors = Object.values(validationErrors).some((error: any) => !error.isValid);
-    const hasWarnings = Object.values(validationErrors).some((error: any) => error.level === 'error' || error.level === 'warning');
+    const hasErrors = Object.values(validationErrors).some((error) => !error.isValid);
+    const hasWarnings = Object.values(validationErrors).some((error) => error.level === 'error' || error.level === 'warning');
     
     if (hasErrors) return { color: 'red', message: 'Please fix validation errors' };
     if (hasWarnings) return { color: 'yellow', message: 'Some values need attention' };
@@ -364,7 +468,7 @@ export default function VitalsSection({ vitals, onChange }: VitalsProps) {
 
   const status = getOverallStatus();
 
-  return (
+   return (
     <div className="space-y-6">
       {/* Header with Status */}
       <div className="flex items-center justify-between">
@@ -409,10 +513,14 @@ export default function VitalsSection({ vitals, onChange }: VitalsProps) {
                 temperature: '37.0',
                 heart_rate: '72',
                 blood_pressure: '120/80',
-                respiratory_rate: '16',
-                oxygen_saturation: '98',
-                weight: vitals.weight || ''
+                height: vitals.height || '',
+                weight: vitals.weight || '',
+                bmi: ''
               };
+              // Recalculate BMI if height and weight exist
+              if (normalVitals.height && normalVitals.weight) {
+                normalVitals.bmi = calculateBMI(normalVitals.weight, normalVitals.height);
+              }
               onChange({ ...vitals, ...normalVitals });
             }}
             className="px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm hover:bg-blue-200 transition-colors"
@@ -425,7 +533,7 @@ export default function VitalsSection({ vitals, onChange }: VitalsProps) {
               const emptyVitals = Object.keys(vitals).reduce((acc, key) => {
                 if (key !== 'timestamp') acc[key] = '';
                 return acc;
-              }, {} as any);
+              }, {});
               onChange({ ...emptyVitals, timestamp: vitals.timestamp });
             }}
             className="px-3 py-1 bg-gray-100 text-gray-700 rounded-md text-sm hover:bg-gray-200 transition-colors"
@@ -435,6 +543,20 @@ export default function VitalsSection({ vitals, onChange }: VitalsProps) {
         </div>
       </div>
 
+      {/* BMI Information */}
+      {vitals.bmi && (
+        <div className="bg-blue-50 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-blue-800 mb-2">BMI Information</h4>
+          <div className="text-sm text-blue-700">
+            <p><strong>Current BMI:</strong> {vitals.bmi} kg/m²</p>
+            <div className="mt-2 text-xs">
+              <p><strong>BMI Categories:</strong></p>
+              <p>• Underweight: &lt; 18.5 • Normal: 18.5-24.9 • Overweight: 25-29.9 • Obese: ≥ 30</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Timestamp */}
       <div className="text-xs text-gray-500 text-right">
         Last updated: {new Date(vitals.timestamp || new Date()).toLocaleString()}
@@ -442,3 +564,6 @@ export default function VitalsSection({ vitals, onChange }: VitalsProps) {
     </div>
   );
 }
+
+// Export the helper functions for use in parent components
+export { convertVitalsForBackend, prepareDiagnosisData };

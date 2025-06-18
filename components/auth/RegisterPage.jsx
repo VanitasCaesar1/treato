@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@radix-ui/react-label";
 import { toast } from "react-hot-toast";
-import { Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle, Check, X } from "lucide-react";
 
 const RegistrationComponent = () => {
   const router = useRouter();
@@ -45,6 +45,24 @@ const RegistrationComponent = () => {
     general: ""
   });
 
+  // Password validation functions
+  const getPasswordValidation = (password) => {
+    const validations = {
+      length: password.length >= 12,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    };
+
+    const isValid = Object.values(validations).every(Boolean);
+    
+    return {
+      isValid,
+      validations,
+      message: isValid ? "" : "Password must meet all requirements"
+    };
+  };
+
   // Validation functions
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -55,8 +73,9 @@ const RegistrationComponent = () => {
 
   const validatePassword = (password) => {
     if (!password) return "Password is required";
-    if (password.length < 8) return "Password must be at least 8 characters long";
-    return "";
+    
+    const validation = getPasswordValidation(password);
+    return validation.message;
   };
 
   const validateConfirmPassword = (password, confirmPassword) => {
@@ -144,6 +163,46 @@ const RegistrationComponent = () => {
     }));
   };
 
+  // Password strength indicator component
+  const PasswordStrengthIndicator = ({ password }) => {
+    const validation = getPasswordValidation(password);
+    
+    if (!password) return null;
+
+    const requirements = [
+      { key: 'length', label: 'At least 12 characters', met: validation.validations.length },
+      { key: 'uppercase', label: 'At least 1 uppercase letter (A-Z)', met: validation.validations.uppercase },
+      { key: 'lowercase', label: 'At least 1 lowercase letter (a-z)', met: validation.validations.lowercase },
+      { key: 'special', label: 'At least 1 special character (!@#$%^&*)', met: validation.validations.special }
+    ];
+
+    return (
+      <div className="mt-2 p-3 bg-gray-50 rounded-lg border">
+        <h4 className="text-sm font-medium mb-2">Password Requirements:</h4>
+        <div className="space-y-1">
+          {requirements.map((req) => (
+            <div key={req.key} className="flex items-center space-x-2">
+              {req.met ? (
+                <Check size={14} className="text-green-600" />
+              ) : (
+                <X size={14} className="text-red-500" />
+              )}
+              <span className={`text-xs ${req.met ? 'text-green-600' : 'text-red-500'}`}>
+                {req.label}
+              </span>
+            </div>
+          ))}
+        </div>
+        {validation.isValid && (
+          <div className="mt-2 flex items-center space-x-2">
+            <CheckCircle size={16} className="text-green-600" />
+            <span className="text-sm text-green-600 font-medium">Password meets all requirements!</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Validate current step fields
   const validateStepFields = (step) => {
     const fieldsToValidate = {
@@ -219,7 +278,7 @@ const RegistrationComponent = () => {
           username: formData.username,
           mobile_no: formData.mobileNo,
           location: formData.location,
-          aadhaar_id: formData.aadhaarId, // Make sure this is digits only
+          aadhaar_id: formData.aadhaarId,
           age: parseInt(formData.age),
           blood_group: formData.bloodGroup,
           address: formData.address
@@ -230,16 +289,13 @@ const RegistrationComponent = () => {
 
       if (response.ok) {
         toast.success("Registration successful! Redirecting to login...");
-        // Give the toast time to be seen before redirecting
         setTimeout(() => {
           router.push("/login");
         }, 2000);
       } else {
-        // Handle specific API error messages
         const errorMessage = data.error || "Registration failed";
         toast.error(errorMessage);
         
-        // Map API errors to form fields when possible
         if (errorMessage.includes("email")) {
           setErrors(prev => ({ ...prev, email: errorMessage }));
         } else if (errorMessage.includes("username")) {
@@ -470,6 +526,7 @@ const RegistrationComponent = () => {
                     {errors.password && (
                       <p className="text-red-500 text-sm">{errors.password}</p>
                     )}
+                    <PasswordStrengthIndicator password={formData.password} />
                   </div>
                   <div className="space-y-2 relative">
                     <Label htmlFor="confirmPassword">Confirm Password*</Label>

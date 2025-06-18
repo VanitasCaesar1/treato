@@ -19,10 +19,8 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useRouter, useSearchParams } from "next/navigation";
 
 // Type definitions
 interface Appointment {
@@ -156,9 +154,6 @@ const PIE_DATA = [
 ];
 
 const Dashboard = () => {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  
   // State for appointments and UI
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
@@ -286,7 +281,24 @@ const Dashboard = () => {
     ]);
   }, []);
 
-  // Fetch appointments
+  // Get organization ID with better error handling
+  const getOrganizationId = useCallback(() => {
+    try {
+      // Try multiple storage methods
+      const orgId = sessionStorage.getItem('organizationId') || 
+                   localStorage.getItem('organizationId') || 
+                   sessionStorage.getItem('orgId') ||
+                   localStorage.getItem('orgId');
+      
+      console.log('Organization ID retrieved:', orgId);
+      return orgId;
+    } catch (error) {
+      console.warn('Could not access storage for organization ID:', error);
+      return null;
+    }
+  }, []);
+
+  // Fetch appointments with improved error handling
   const fetchAppointments = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -295,57 +307,127 @@ const Dashboard = () => {
     try {
       const queryParams = new URLSearchParams();
       
-      const orgId = sessionStorage.getItem('organizationId');
-      if (orgId) queryParams.append("orgId", orgId);
+      // Get organization ID
+      const orgId = getOrganizationId();
+      if (orgId) {
+        queryParams.append("orgId", orgId);
+      } else {
+        console.warn('No organization ID found in storage');
+      }
       
+      // Set date range for today
       const today = new Date().toISOString().split("T")[0];
       queryParams.append("startDate", today);
       queryParams.append("endDate", today);
 
+      // Pagination
       queryParams.append("limit", pagination.limit.toString());
       queryParams.append("offset", pagination.offset.toString());
       
       console.log("Fetching appointments with params:", queryParams.toString());
       
-      const response = await fetch(`/api/appointments?${queryParams.toString()}`);
+      const response = await fetch(`/api/appointments?${queryParams.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          // Add any additional headers if needed
+        },
+        credentials: 'same-origin', // Include cookies for auth
+      });
+      
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`API Error (${response.status}): ${errorData.error || response.statusText}`);
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        let errorData = null;
+        
+        try {
+          errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (jsonError) {
+          console.warn('Could not parse error response as JSON:', jsonError);
+          // If we can't parse JSON, try to get text
+          try {
+            const textResponse = await response.text();
+            console.log('Error response text:', textResponse);
+            if (textResponse) {
+              errorMessage = textResponse;
+            }
+          } catch (textError) {
+            console.warn('Could not parse error response as text:', textError);
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
       
       const data = await response.json();
       console.log("Appointments data received:", data);
       
-      const processedAppointments = processAppointments(data);
+      // Handle different response structures
+      let appointmentsArray = [];
+      if (data.appointments && Array.isArray(data.appointments)) {
+        appointmentsArray = data.appointments;
+      } else if (data.data && Array.isArray(data.data)) {
+        appointmentsArray = data.data;
+      } else if (Array.isArray(data)) {
+        appointmentsArray = data;
+      } else {
+        console.warn('Unexpected response structure:', data);
+        appointmentsArray = [];
+      }
+      
+      const processedAppointments = processAppointments({ appointments: appointmentsArray });
       setAppointments(processedAppointments);
       
+      // Update pagination
+      const totalCount = data.pagination?.total || data.total || data.count || processedAppointments.length;
       setPagination(prev => ({
         ...prev,
-        total: data.pagination?.total || data.total || 0,
+        total: totalCount,
         hasMore: processedAppointments.length === pagination.limit &&
-                (pagination.offset + processedAppointments.length) < (data.pagination?.total || data.total || 0)
+                (pagination.offset + processedAppointments.length) < totalCount
       }));
       
+      // Update stats
       updateStats(processedAppointments, data.stats);
+      
     } catch (err: any) {
       console.error("Error fetching appointments:", err);
-      setError(err.message || "Failed to fetch appointments");
+      const errorMessage = err.message || "Failed to fetch appointments";
+      setError(errorMessage);
       
-      if (err.message.includes("Unauthorized") || err.message.includes("AUTH_REQUIRED")) {
+      // Set specific error details based on error type
+      if (errorMessage.includes("401") || errorMessage.includes("Unauthorized") || errorMessage.includes("AUTH_REQUIRED")) {
         setErrorDetails({
           title: "Authentication Error",
           description: "You need to be logged in to access this data. Please refresh the page or log in again."
         });
-      } else if (err.message.includes("Invalid doctor ID format")) {
+      } else if (errorMessage.includes("403") || errorMessage.includes("Forbidden")) {
         setErrorDetails({
-          title: "Doctor ID Format Error",
-          description: "The API is expecting doctor IDs in UUID format. Please verify your doctor ID selection."
+          title: "Access Denied",
+          description: "You don't have permission to access this data. Please contact your administrator."
         });
-      } else if (err.message.includes("Service unavailable")) {  
+      } else if (errorMessage.includes("404") || errorMessage.includes("Not Found")) {
         setErrorDetails({
-          title: "Service Unavailable",
-          description: "The appointments service is currently unavailable. Please try again later."
+          title: "Service Not Found",
+          description: "The appointments service could not be found. Please check your configuration."
+        });
+      } else if (errorMessage.includes("500") || errorMessage.includes("Internal Server Error")) {
+        setErrorDetails({
+          title: "Server Error",
+          description: "There was an internal server error. Please try again later."
+        });
+      } else if (errorMessage.includes("Network Error") || errorMessage.includes("fetch")) {
+        setErrorDetails({
+          title: "Network Error",
+          description: "Could not connect to the server. Please check your internet connection."
+        });
+      } else {
+        setErrorDetails({
+          title: "Unknown Error",
+          description: errorMessage
         });
       }
       
@@ -353,7 +435,7 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [pagination.limit, pagination.offset, processAppointments, updateStats]);
+  }, [pagination.limit, pagination.offset, processAppointments, updateStats, getOrganizationId]);
 
   // Handle page change
   const loadMore = useCallback(() => {
@@ -365,18 +447,22 @@ const Dashboard = () => {
   
   const handleAppointmentClick = useCallback((appointment: Appointment) => {
     const appointmentId = appointment.appointment_id || appointment.id;
-    router.push(`/dashboard/diagnosis/new?appointmentId=${appointmentId}`);
-  }, [router]);
+    // For now, just log the click since we don't have router in this environment
+    console.log('Appointment clicked:', appointmentId);
+    // In your actual component, you would use:
+    // router.push(`/dashboard/diagnosis/new?appointmentId=${appointmentId}`);
+  }, []);
 
   // Refresh appointments
   const refreshAppointments = useCallback(() => {
+    setPagination(prev => ({ ...prev, offset: 0 })); // Reset to first page
     fetchAppointments();
   }, [fetchAppointments]);
 
-  // Load appointments on initial render
+  // Load appointments on initial render and when pagination changes
   useEffect(() => {
     fetchAppointments();
-  }, [fetchAppointments, pagination.offset, pagination.limit]);
+  }, [fetchAppointments]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -603,7 +689,12 @@ const Dashboard = () => {
                       {errorDetails ? (
                         <>
                           <AlertTitle className="text-rose-800">{errorDetails.title}</AlertTitle>
-                          <AlertDescription className="text-rose-700">{errorDetails.description}</AlertDescription>
+                          <AlertDescription className="text-rose-700 mt-2">
+                            {errorDetails.description}
+                            <div className="mt-2 text-sm text-rose-600">
+                              <strong>Debug Info:</strong> {error}
+                            </div>
+                          </AlertDescription>
                         </>
                       ) : (
                         <>
@@ -619,86 +710,93 @@ const Dashboard = () => {
                       <Calendar className="h-10 w-10 text-slate-400" />
                     </div>
                     <h3 className="text-xl font-semibold text-slate-800 mb-3">No appointments today</h3>
-                    <p className="text-slate-600 max-w-md mx-auto leading-relaxed">
-                      Your schedule is clear for today. Take this opportunity to catch up on other tasks or prepare for upcoming appointments.
-                    </p>
+                    <p className="text-slate-600 mb-6">You're all caught up! There are no appointments scheduled for today.</p>
+                    <Button 
+                      onClick={refreshAppointments}
+                      variant="outline"
+                      className="px-6 py-2 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Refresh
+                    </Button>
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-100">
                     {appointments.map((appointment, index) => (
-                      <div 
-                        key={appointment.id} 
-                        className="group p-6 hover:bg-slate-50/80 cursor-pointer transition-all duration-200"
+                      <div
+                        key={appointment.id}
+                        className="group p-6 hover:bg-slate-50/50 transition-all duration-200 cursor-pointer"
                         onClick={() => handleAppointmentClick(appointment)}
                       >
-                        <div className="flex items-center gap-6">
-                          <div className="text-center min-w-0">
-                            <div className="text-lg font-bold text-slate-800">
-                              {appointment.time || "N/A"}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-6 flex-1">
+                            {/* Patient Avatar */}
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-lg shadow-lg">
+                              {appointment.patient_name?.charAt(0)?.toUpperCase() || "?"}
                             </div>
-                            <div className="text-xs text-slate-500">
-                              {formatDate(appointment.appointment_date || "")}
+                            
+                            {/* Appointment Details */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h3 className="font-semibold text-slate-800 text-lg">
+                                  {appointment.patient_name || "Unknown Patient"}
+                                </h3>
+                                <Badge 
+                                  className={`text-xs font-medium border transition-colors ${
+                                    STATUS_STYLES[appointment.appointment_status as keyof typeof STATUS_STYLES] || 
+                                    STATUS_STYLES.pending
+                                  }`}
+                                >
+                                  {appointment.appointment_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
+                                </Badge>
+                                {appointment.validity && (
+                                  <Badge 
+                                    className={`text-xs font-medium border ${
+                                      VALIDITY_STYLES[appointment.validity as keyof typeof VALIDITY_STYLES] || 
+                                      VALIDITY_STYLES.valid
+                                    }`}
+                                  >
+                                    {appointment.validity.toUpperCase()}
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center gap-6 text-sm text-slate-600">
+                                <div className="flex items-center gap-2">
+                                  <User className="h-4 w-4" />
+                                  <span className="font-medium">{appointment.doctor_name || "Unknown Doctor"}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Clock className="h-4 w-4" />
+                                  <span>{appointment.time || "No time set"}</span>
+                                </div>
+                                {appointment.appointment_date && (
+                                  <div className="flex items-center gap-2">
+                                    <Calendar className="h-4 w-4" />
+                                    <span>{formatDate(appointment.appointment_date)}</span>
+                                  </div>
+                                )}
+                                {appointment.fee_type && (
+                                  <div className="flex items-center gap-2">
+                                    <Package className="h-4 w-4" />
+                                    <span className="capitalize">{appointment.fee_type}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                           
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                                {appointment.patient_name?.substring(0, 1) || "?"}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="font-semibold text-slate-800 truncate">
-                                  {appointment.patient_name}
-                                </div>
-                                <div className="text-sm text-slate-500">
-                                  ID: {appointment.patient_id?.substring(0, 8) || "Unknown"}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          
+                          {/* Action Button */}
                           <div className="flex items-center gap-3">
-                            <Badge className={`border ${
-                              appointment.fee_type === "recurring" 
-                                ? "bg-blue-50 text-blue-700 border-blue-200" 
-                                : appointment.fee_type === "emergency" 
-                                  ? "bg-red-50 text-red-700 border-red-200" 
-                                  : "bg-slate-50 text-slate-700 border-slate-200"
-                            }`}>
-                              {appointment.fee_type === "recurring" 
-                                ? "Recurring" 
-                                : appointment.fee_type === "emergency" 
-                                  ? "Emergency" 
-                                  : "Regular"}
-                            </Badge>
-                          </div>
-                          
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
-                              {appointment.doctor_name?.substring(0, 1) || "D"}
-                              </div>
-                              <div className="text-sm text-slate-600">
-                                Dr. {appointment.doctor_name || "Unknown"}
-                              </div>
-                            </div>
-                            
-                            <Badge 
-                              className={`border ${STATUS_STYLES[appointment.appointment_status as keyof typeof STATUS_STYLES] || STATUS_STYLES.pending}`}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-blue-50 hover:text-blue-600 rounded-xl"
                             >
-                              {appointment.appointment_status?.replace("_", " ").toUpperCase() || "PENDING"}
-                            </Badge>
-                            
-                            {appointment.validity && (
-                              <Badge 
-                                className={`border ${VALIDITY_STYLES[appointment.validity as keyof typeof VALIDITY_STYLES] || VALIDITY_STYLES.valid}`}
-                              >
-                                {appointment.validity === "valid" ? "Valid" : "Expired"}
-                              </Badge>
-                            )}
+                              View Details
+                              <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
                           </div>
-                          
-                          <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
                         </div>
                       </div>
                     ))}
@@ -707,12 +805,12 @@ const Dashboard = () => {
               </div>
 
               {/* Load More Button */}
-              {!loading && !error && pagination.hasMore && (
+              {!loading && !error && appointments.length > 0 && pagination.hasMore && (
                 <div className="p-6 border-t border-slate-100 bg-slate-50/50">
-                  <Button 
+                  <Button
                     onClick={loadMore}
                     variant="outline"
-                    className="w-full border-slate-200 text-slate-700 hover:bg-white hover:border-slate-300 rounded-xl py-3 transition-all duration-200"
+                    className="w-full py-3 rounded-xl border-slate-200 text-slate-700 hover:bg-white hover:shadow-sm transition-all duration-200"
                   >
                     Load More Appointments
                   </Button>
@@ -720,6 +818,23 @@ const Dashboard = () => {
               )}
             </Card>
           </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-4">
+          <Button
+            variant="outline"
+            className="flex items-center gap-3 px-6 py-3 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200"
+          >
+            <Printer className="h-5 w-5" />
+            Print Report
+          </Button>
+          <Button
+            className="flex items-center gap-3 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            <Download className="h-5 w-5" />
+            Export Data
+          </Button>
         </div>
       </div>
     </div>

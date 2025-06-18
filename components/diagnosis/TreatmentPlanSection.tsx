@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, Trash2, ChevronDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 interface MedicineSearchResult {
   id: string;
@@ -20,11 +19,6 @@ interface Medication {
 
 interface TreatmentPlan {
   medications: Medication[];
-  follow_up: {
-    date: string;
-    duration: string;
-    notes: string;
-  };
   procedures?: string[];
   lifestyle_changes?: string[];
   referrals?: string[];
@@ -34,211 +28,63 @@ interface TreatmentPlanProps {
   treatment_plan: TreatmentPlan;
   onChange: (plan: TreatmentPlan) => void;
 }
+
 // Dropdown options
-const DOSAGE_OPTIONS = [
-  '1-0-0-0', '0-1-0-0', '0-0-1-0', '0-0-0-1',
-  '1-1-0-0', '1-0-1-0', '1-0-0-1', '0-1-1-0', '0-1-0-1', '0-0-1-1',
-  '1-1-1-0', '1-1-0-1', '1-0-1-1', '0-1-1-1',
-  '1-1-1-1',
-  '2-0-0-0', '0-2-0-0', '0-0-2-0', '0-0-0-2',
-  '2-2-0-0', '2-0-2-0', '2-0-0-2', '0-2-2-0', '0-2-0-2', '0-0-2-2',
-  '2-2-2-0', '2-2-0-2', '2-0-2-2', '0-2-2-2',
-  '2-2-2-2',
-  '1/2-0-0-0', '0-1/2-0-0', '0-0-1/2-0', '0-0-0-1/2',
-  '1/2-1/2-0-0', '1/2-0-1/2-0', '1/2-0-0-1/2',
-  '1/2-1/2-1/2-0', '1/2-1/2-0-1/2', '1/2-0-1/2-1/2', '0-1/2-1/2-1/2',
-  '1/2-1/2-1/2-1/2'
-];
+const OPTIONS = {
+  dosage: ['1-0-0-0', '0-1-0-0', '0-0-1-0', '0-0-0-1', '1-1-0-0', '1-0-1-0', '1-0-0-1', '0-1-1-0', '0-1-0-1', '0-0-1-1', '1-1-1-0', '1-1-0-1', '1-0-1-1', '0-1-1-1', '1-1-1-1', '2-0-0-0', '0-2-0-0', '0-0-2-0', '0-0-0-2', '2-2-0-0', '2-0-2-0', '2-0-0-2', '0-2-2-0', '0-2-0-2', '0-0-2-2', '2-2-2-0', '2-2-0-2', '2-0-2-2', '0-2-2-2', '2-2-2-2', '1/2-0-0-0', '0-1/2-0-0', '0-0-1/2-0', '0-0-0-1/2', '1/2-1/2-0-0', '1/2-0-1/2-0', '1/2-0-0-1/2', '1/2-1/2-1/2-0', '1/2-1/2-0-1/2', '1/2-0-1/2-1/2', '0-1/2-1/2-1/2', '1/2-1/2-1/2-1/2'],
+  frequency: ['Once daily', 'Twice daily', 'Three times daily', 'Four times daily', 'Every 4 hours', 'Every 6 hours', 'Every 8 hours', 'Every 12 hours', 'Before meals', 'After meals', 'With meals', 'Before breakfast', 'After breakfast', 'Before lunch', 'After lunch', 'Before dinner', 'After dinner', 'At bedtime', 'Upon waking', 'As needed', 'As directed', 'Weekly', 'Twice weekly', 'Every other day'],
+  instructions: ['Take with food', 'Take on empty stomach', 'Take with plenty of water', 'Do not crush or chew', 'Swallow whole', 'Dissolve in water', 'Take before meals', 'Take after meals', 'Take at bedtime', 'Take in the morning', 'Avoid alcohol', 'Avoid dairy products', 'Do not take with antacids', 'Complete the full course', 'Take as needed for pain', 'Take as needed for fever', 'Apply topically', 'Use as directed', 'Store in refrigerator', 'Shake well before use']
+};
 
-const FREQUENCY_OPTIONS = [
-  'Once daily', 'Twice daily', 'Three times daily', 'Four times daily',
-  'Every 4 hours', 'Every 6 hours', 'Every 8 hours', 'Every 12 hours',
-  'Before meals', 'After meals', 'With meals',
-  'Before breakfast', 'After breakfast',
-  'Before lunch', 'After lunch',
-  'Before dinner', 'After dinner',
-  'At bedtime', 'Upon waking',
-  'As needed', 'As directed',
-  'Weekly', 'Twice weekly', 'Every other day'
-];
-
-const INSTRUCTION_OPTIONS = [
-  'Take with food',
-  'Take on empty stomach',
-  'Take with plenty of water',
-  'Do not crush or chew',
-  'Swallow whole',
-  'Dissolve in water',
-  'Take before meals',
-  'Take after meals',
-  'Take at bedtime',
-  'Take in the morning',
-  'Avoid alcohol',
-  'Avoid dairy products',
-  'Do not take with antacids',
-  'Complete the full course',
-  'Take as needed for pain',
-  'Take as needed for fever',
-  'Apply topically',
-  'Use as directed',
-  'Store in refrigerator',
-  'Shake well before use'
-];
-
-// Enhanced Dropdown Component
-const Dropdown: React.FC<{
+// iOS-style Smart Dropdown with fixed onChange signature
+interface SmartDropdownProps {
   value: string;
   onChange: (value: string) => void;
   options: string[];
   placeholder: string;
   className?: string;
-  id?: string;
-}> = ({ value, onChange, options, placeholder, className = '', id }) => {
+}
+
+const SmartDropdown: React.FC<SmartDropdownProps> = ({ value, onChange, options, placeholder, className = '' }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [filteredOptions, setFilteredOptions] = useState(options);
-  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [filtered, setFiltered] = useState(options);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const optionsListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const filtered = options.filter(option =>
-      option.toLowerCase().includes(value.toLowerCase())
-    );
-    setFilteredOptions(filtered);
-    setSelectedIndex(-1);
+    setFiltered(options.filter(opt => opt.toLowerCase().includes(value.toLowerCase())));
   }, [value, options]);
 
   useEffect(() => {
-    if (selectedIndex >= 0 && optionsListRef.current) {
-      const selectedElement = optionsListRef.current.children[selectedIndex] as HTMLElement;
-      if (selectedElement) {
-        selectedElement.scrollIntoView({
-          block: 'nearest',
-          behavior: 'smooth'
-        });
-      }
-    }
-  }, [selectedIndex]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+    const handleClick = (e: MouseEvent) => {
+      if (!dropdownRef.current?.contains(e.target as Node)) {
         setIsOpen(false);
-        setSelectedIndex(-1);
       }
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
   }, []);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen) {
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        setIsOpen(true);
-        setSelectedIndex(0);
-        e.preventDefault();
-      }
-      return;
-    }
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedIndex(prev => 
-          prev < filteredOptions.length - 1 ? prev + 1 : prev
-        );
-        break;
-      
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedIndex(prev => prev > 0 ? prev - 1 : prev);
-        break;
-      
-      case 'Enter':
-        e.preventDefault();
-        if (selectedIndex >= 0 && selectedIndex < filteredOptions.length) {
-          const selectedOption = filteredOptions[selectedIndex];
-          onChange(selectedOption);
-          setIsOpen(false);
-          setSelectedIndex(-1);
-          inputRef.current?.blur();
-        }
-        break;
-      
-      case 'Escape':
-        setIsOpen(false);
-        setSelectedIndex(-1);
-        inputRef.current?.blur();
-        break;
-    }
-  };
-
-  const selectOption = (option: string, index: number) => {
-    onChange(option);
-    setIsOpen(false);
-    setSelectedIndex(-1);
-  };
-
-  const [shouldOpenUpward, setShouldOpenUpward] = useState(false);
-
-  const handleOpen = () => {
-    setIsOpen(true);
-    
-    if (dropdownRef.current) {
-      const rect = dropdownRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      const dropdownHeight = Math.min(200, filteredOptions.length * 40);
-      
-      setShouldOpenUpward(spaceBelow < dropdownHeight && spaceAbove > dropdownHeight);
-    }
-  };
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       <div className="relative">
         <input
-          ref={inputRef}
           type="text"
           value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            handleOpen();
-          }}
-          onFocus={handleOpen}
-          onKeyDown={handleKeyDown}
-          className="w-full p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8"
+          onChange={(e) => { onChange(e.target.value); setIsOpen(true); }}
+          onFocus={() => setIsOpen(true)}
+          className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-gray-900 placeholder-gray-500 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
           placeholder={placeholder}
-          id={id}
         />
-        <ChevronDown 
-          className={`absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 transition-transform pointer-events-none ${
-            isOpen ? 'rotate-180' : ''
-          }`}
-        />
+        <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </div>
       
-      {isOpen && filteredOptions.length > 0 && (
-        <div 
-          ref={optionsListRef}
-          className={`absolute left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto ${
-            shouldOpenUpward ? 'bottom-full mb-1' : 'top-full mt-1'
-          }`}
-          style={{ zIndex: 9999 }}
-        >
-          {filteredOptions.map((option, index) => (
+      {isOpen && filtered.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-100 max-h-48 overflow-y-auto z-50">
+          {filtered.map((option, idx) => (
             <button
-              key={index}
-              type="button"
-              onClick={() => selectOption(option, index)}
-              onMouseEnter={() => setSelectedIndex(index)}
-              className={`w-full p-2 text-left text-sm focus:outline-none first:rounded-t-lg last:rounded-b-lg transition-colors ${
-                index === selectedIndex 
-                  ? 'bg-blue-50 text-blue-900' 
-                  : 'hover:bg-gray-50'
-              }`}
+              key={idx}
+              onClick={() => { onChange(option); setIsOpen(false); }}
+              className="w-full px-4 py-3 text-left hover:bg-gray-50 first:rounded-t-xl last:rounded-b-xl transition-colors"
             >
               {option}
             </button>
@@ -249,400 +95,193 @@ const Dropdown: React.FC<{
   );
 };
 
-// API function for medicine search
-const apiCall = async (endpoint: string, options: RequestInit = {}) => {
-  const response = await fetch(endpoint, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
+// Medicine Search Component with fixed types
+interface MedicineSearchProps {
+  onSelect: (medicine: MedicineSearchResult | null) => void;
+  className?: string;
+}
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || `HTTP error! status: ${response.status}`);
-  }
+const MedicineSearch: React.FC<MedicineSearchProps> = ({ onSelect, className = '' }) => {
+  const [search, setSearch] = useState('');
+  const [results, setResults] = useState<MedicineSearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  return response.json();
-};
-
-// Helper function to safely get medications array
-const getMedicationsArray = (medications: any): Medication[] => {
-  if (Array.isArray(medications)) {
-    return medications;
-  }
-  if (medications === null || medications === undefined) {
-    return [];
-  }
-  if (typeof medications === 'object' && medications.medications) {
-    return Array.isArray(medications.medications) ? medications.medications : [];
-  }
-  return [];
-};
-
-// Helper function to safely get follow-up object
-const getFollowUpObject = (followUp: any) => {
-  if (followUp && typeof followUp === 'object') {
-    return {
-      date: followUp.date || '',
-      duration: followUp.duration || '',
-      notes: followUp.notes || ''
-    };
-  }
-  return {
-    date: '',
-    duration: '',
-    notes: ''
+  const searchMedicines = async (term: string) => {
+    if (!term.trim()) { setResults([]); return; }
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/medicines/search?term=${encodeURIComponent(term)}&limit=10`);
+      const data = await response.json();
+      setResults(data.medicines || []);
+    } catch (error) {
+      console.error('Medicine search error:', error);
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => searchMedicines(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  return (
+    <div className={`relative ${className}`}>
+      <div className="relative">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-gray-900 placeholder-gray-500 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
+          placeholder="Search medicines..."
+        />
+        {loading && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        )}
+      </div>
+      
+      {results.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-100 max-h-60 overflow-y-auto z-50">
+          {results.map((medicine) => (
+            <button
+              key={medicine.id}
+              onClick={() => { onSelect(medicine); setSearch(''); setResults([]); }}
+              className="w-full p-4 text-left hover:bg-gray-50 first:rounded-t-xl last:rounded-b-xl transition-colors border-b border-gray-50 last:border-0"
+            >
+              <div className="font-medium text-gray-900">{medicine.name}</div>
+              <div className="text-sm text-gray-500 mt-1">
+                {medicine.company} • {medicine.unit}
+                {medicine.strength && ` • ${medicine.strength}`}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ treatment_plan, onChange }) => {
-  // Medicine search states
-  const [medicineSearch, setMedicineSearch] = useState("");
-  const [medicineResults, setMedicineResults] = useState<MedicineSearchResult[]>([]);
-  const [searchingMedicine, setSearchingMedicine] = useState(false);
-  
-  const [individualSearches, setIndividualSearches] = useState<{[key: number]: string}>({});
-  const [individualResults, setIndividualResults] = useState<{[key: number]: MedicineSearchResult[]}>({});
-  const [individualSearching, setIndividualSearching] = useState<{[key: number]: boolean}>({});
-
-  // FIXED: Direct state management without internal state duplication
   const currentPlan = React.useMemo(() => ({
-    medications: getMedicationsArray(treatment_plan?.medications),
-    follow_up: getFollowUpObject(treatment_plan?.follow_up),
+    medications: Array.isArray(treatment_plan?.medications) ? treatment_plan.medications : [],
     procedures: treatment_plan?.procedures || [],
     lifestyle_changes: treatment_plan?.lifestyle_changes || [],
     referrals: treatment_plan?.referrals || []
   }), [treatment_plan]);
 
-  // FIXED: Direct update function that immediately calls onChange
   const updatePlan = useCallback((updater: (prev: TreatmentPlan) => TreatmentPlan) => {
-    const newPlan = updater(currentPlan);
-    console.log('🔄 Updating treatment plan:', newPlan);
-    onChange(newPlan);
+    onChange(updater(currentPlan));
   }, [currentPlan, onChange]);
 
-  const searchMedicines = async (term: string) => {
-    if (!term.trim()) {
-      setMedicineResults([]);
-      return;
-    }
-
-    setSearchingMedicine(true);
-    try {
-      const response = await apiCall(`/api/medicines/search?term=${encodeURIComponent(term)}&limit=10`);
-      setMedicineResults(response.medicines || []);
-    } catch (error) {
-      console.error('Error searching medicines:', error);
-      setMedicineResults([]);
-    } finally {
-      setSearchingMedicine(false);
-    }
-  };
-
-  const searchIndividualMedicine = async (term: string, medicationIndex: number) => {
-    if (!term.trim()) {
-      setIndividualResults(prev => ({ ...prev, [medicationIndex]: [] }));
-      return;
-    }
-
-    setIndividualSearching(prev => ({ ...prev, [medicationIndex]: true }));
-    try {
-      const response = await apiCall(`/api/medicines/search?term=${encodeURIComponent(term)}&limit=10`);
-      setIndividualResults(prev => ({ ...prev, [medicationIndex]: response.medicines || [] }));
-    } catch (error) {
-      console.error('Error searching medicines:', error);
-      setIndividualResults(prev => ({ ...prev, [medicationIndex]: [] }));
-    } finally {
-      setIndividualSearching(prev => ({ ...prev, [medicationIndex]: false }));
-    }
-  };
-
-  useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      searchMedicines(medicineSearch);
-    }, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [medicineSearch]);
-
-  useEffect(() => {
-    const timers: NodeJS.Timeout[] = [];
-    Object.entries(individualSearches).forEach(([index, term]) => {
-      const timer = setTimeout(() => {
-        searchIndividualMedicine(term, parseInt(index));
-      }, 300);
-      timers.push(timer);
-    });
-    return () => timers.forEach(timer => clearTimeout(timer));
-  }, [individualSearches]);
-
-  const addMedication = (medicine?: MedicineSearchResult) => {
-    console.log('➕ Adding medication:', medicine);
+  const addMedication = (medicine: MedicineSearchResult | null) => {
+    const newMed: Medication = medicine 
+      ? { name: medicine.name, dosage: medicine.strength || '', frequency: '', instructions: '', medicine_id: medicine.id }
+      : { name: '', dosage: '', frequency: '', instructions: '' };
     
-    const newMedication: Medication = medicine 
-      ? { 
-          name: medicine.name, 
-          dosage: medicine.strength || "", 
-          frequency: "", 
-          instructions: "",
-          medicine_id: medicine.id 
-        }
-      : { name: "", dosage: "", frequency: "", instructions: "" };
-
-    updatePlan(prev => ({
-      ...prev,
-      medications: [...prev.medications, newMedication]
-    }));
-    
-    setMedicineSearch("");
-    setMedicineResults([]);
-  };
-
-  const removeMedication = (index: number) => {
-    console.log('🗑️ Removing medication at index:', index);
-    updatePlan(prev => ({
-      ...prev,
-      medications: prev.medications.filter((_, i) => i !== index)
-    }));
+    updatePlan(prev => ({ ...prev, medications: [...prev.medications, newMed] }));
   };
 
   const updateMedication = (index: number, field: keyof Medication, value: string) => {
-    console.log(`✏️ Updating medication ${index}, field ${field}:`, value);
     updatePlan(prev => ({
       ...prev,
-      medications: prev.medications.map((med, i) => 
-        i === index ? { ...med, [field]: value } : med
-      )
+      medications: prev.medications.map((med, i) => i === index ? { ...med, [field]: value } : med)
     }));
   };
 
-  const selectMedicineForSlot = (medicine: MedicineSearchResult, medicationIndex: number) => {
-    console.log('🎯 Selecting medicine for slot:', medicine, medicationIndex);
-    
-    updatePlan(prev => ({
-      ...prev,
-      medications: prev.medications.map((med, i) => 
-        i === medicationIndex ? { 
-          ...med, 
-          name: medicine.name,
-          dosage: medicine.strength || med.dosage,
-          medicine_id: medicine.id 
-        } : med
-      )
-    }));
-    
-    setIndividualSearches(prev => {
-      const newSearches = { ...prev };
-      delete newSearches[medicationIndex];
-      return newSearches;
-    });
-    setIndividualResults(prev => ({ ...prev, [medicationIndex]: [] }));
-  };
-
-  const updateIndividualSearch = (medicationIndex: number, value: string) => {
-    setIndividualSearches(prev => ({ ...prev, [medicationIndex]: value }));
-    updateMedication(medicationIndex, "name", value);
-  };
-
-  const updateFollowUp = (field: string, value: string) => {
-    console.log(`📅 Updating follow-up ${field}:`, value);
-    updatePlan(prev => ({
-      ...prev,
-      follow_up: {
-        ...prev.follow_up,
-        [field]: value
-      }
-    }));
+  const removeMedication = (index: number) => {
+    updatePlan(prev => ({ ...prev, medications: prev.medications.filter((_, i) => i !== index) }));
   };
 
   return (
-    <div className="space-y-6">
-      {/* Debug Info */}
-      <div className="bg-yellow-50 p-2 rounded text-xs text-gray-600">
-        <strong>Debug:</strong> Medications count: {currentPlan.medications.length}
-        <br />
-        <strong>Raw data:</strong> {JSON.stringify(currentPlan.medications.slice(0, 2))}
+    <div className="max-w-4xl mx-auto p-6 bg-white">
+      {/* Header */}
+      <div className="mb-8">
+        <h2 className="text-2xl font-semibold text-gray-900 mb-2">Treatment Plan</h2>
+        <p className="text-gray-600">Manage medications and prescriptions</p>
       </div>
 
       {/* Medications Section */}
-      <div>
-        <h4 className="font-medium text-gray-800 mb-3">Medications</h4>
-        
-        {/* Medicine Search */}
-        <div className="mb-4 relative">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Search & Add Medicine</label>
-          <input
-            type="text"
-            value={medicineSearch}
-            onChange={(e) => setMedicineSearch(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Search for medicines..."
-          />
-          {searchingMedicine && (
-            <div className="absolute right-2 top-9 animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-          )}
-          
-          {/* Search Results */}
-          {medicineResults.length > 0 && (
-            <div className="absolute w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto" style={{ zIndex: 10000 }}>
-              {medicineResults.map((medicine) => (
-                <button
-                  key={medicine.id}
-                  onClick={() => addMedication(medicine)}
-                  className="w-full p-3 text-left hover:bg-gray-50 border-b last:border-b-0"
-                >
-                  <div className="font-medium text-gray-800">{medicine.name}</div>
-                  <div className="text-sm text-gray-600">
-                    {medicine.company} • {medicine.unit}
-                    {medicine.strength && ` • ${medicine.strength}`}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-medium text-gray-900">Medications</h3>
+          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+            {currentPlan.medications.length} {currentPlan.medications.length === 1 ? 'item' : 'items'}
+          </span>
         </div>
-
+        
+        {/* Add Medicine */}
+        <MedicineSearch onSelect={addMedication} className="mb-6" />
+        
         {/* Medications List */}
         <div className="space-y-4">
           {currentPlan.medications.length === 0 ? (
-            <div className="text-gray-500 text-center py-4 border-2 border-dashed border-gray-200 rounded-lg">
-              No medications added yet. Use the search above or click "Add Medication Manually".
+            <div className="text-center py-12 bg-gray-50 rounded-2xl">
+              <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Plus className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500 mb-4">No medications added yet</p>
+              <button
+                onClick={() => addMedication(null)}
+                className="px-6 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors"
+              >
+                Add First Medication
+              </button>
             </div>
           ) : (
             currentPlan.medications.map((medication, index) => (
-              <div key={index} className="p-4 border border-gray-200 rounded-lg bg-gray-50 relative">
-                <div className="flex justify-between items-start mb-3">
-                  <span className="text-sm font-medium text-gray-700">Medication {index + 1}</span>
+              <div key={index} className="bg-gray-50 rounded-2xl p-6 hover:bg-gray-100 transition-colors">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-sm font-medium text-gray-600">Medicine {index + 1}</span>
                   <button
                     onClick={() => removeMedication(index)}
-                    className="text-red-500 hover:text-red-700 transition-colors"
+                    className="w-8 h-8 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center transition-colors"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="w-4 h-4 text-red-600" />
                   </button>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* Medicine Name with Search */}
-                  <div className="relative">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Medicine Name</label>
-                    <input
-                      type="text"
-                      value={individualSearches[index] !== undefined ? individualSearches[index] : (medication.name || "")}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        updateIndividualSearch(index, value);
-                      }}
-                      className="w-full p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Search medicine name..."
-                    />
-                    {individualSearching[index] && (
-                      <div className="absolute right-2 top-7 animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    )}
-                    
-                    {/* Individual Search Results */}
-                    {individualResults[index] && individualResults[index].length > 0 && (
-                      <div className="absolute w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto" style={{ zIndex: 10001 }}>
-                        {individualResults[index].map((medicine) => (
-                          <button
-                            key={medicine.id}
-                            onClick={() => selectMedicineForSlot(medicine, index)}
-                            className="w-full p-3 text-left hover:bg-gray-50 border-b last:border-b-0"
-                          >
-                            <div className="font-medium text-gray-800">{medicine.name}</div>
-                            <div className="text-sm text-gray-600">
-                              {medicine.company} • {medicine.unit}
-                              {medicine.strength && ` • ${medicine.strength}`}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Dosage with Dropdown */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Dosage <span className="text-gray-400">(Morning-Afternoon-Evening-Night)</span>
-                    </label>
-                    <Dropdown
-                      value={medication.dosage || ""}
-                      onChange={(value) => updateMedication(index, "dosage", value)}
-                      options={DOSAGE_OPTIONS}
-                      placeholder="e.g., 1-0-1-0"
-                      id={`dosage-${index}`}
-                    />
-                  </div>
-
-                  {/* Frequency with Dropdown */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Frequency</label>
-                    <Dropdown
-                      value={medication.frequency || ""}
-                      onChange={(value) => updateMedication(index, "frequency", value)}
-                      options={FREQUENCY_OPTIONS}
-                      placeholder="e.g., Twice daily"
-                      id={`frequency-${index}`}
-                    />
-                  </div>
-
-                  {/* Instructions with Dropdown */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Instructions</label>
-                    <Dropdown
-                      value={medication.instructions || ""}
-                      onChange={(value) => updateMedication(index, "instructions", value)}
-                      options={INSTRUCTION_OPTIONS}
-                      placeholder="e.g., Take with food"
-                      id={`instructions-${index}`}
-                    />
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <SmartDropdown
+                    value={medication.name || ''}
+                    onChange={(value) => updateMedication(index, 'name', value)}
+                    options={[]} // This would be populated by individual medicine search
+                    placeholder="Medicine name"
+                  />
+                  <SmartDropdown
+                    value={medication.dosage || ''}
+                    onChange={(value) => updateMedication(index, 'dosage', value)}
+                    options={OPTIONS.dosage}
+                    placeholder="Dosage (M-A-E-N)"
+                  />
+                  <SmartDropdown
+                    value={medication.frequency || ''}
+                    onChange={(value) => updateMedication(index, 'frequency', value)}
+                    options={OPTIONS.frequency}
+                    placeholder="Frequency"
+                  />
+                  <SmartDropdown
+                    value={medication.instructions || ''}
+                    onChange={(value) => updateMedication(index, 'instructions', value)}
+                    options={OPTIONS.instructions}
+                    placeholder="Instructions"
+                  />
                 </div>
               </div>
             ))
           )}
-          
-          <Button onClick={() => addMedication()} variant="outline" size="sm" className="w-full">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Medication Manually
-          </Button>
         </div>
-      </div>
-
-      {/* Follow-up Section */}
-      <div>
-        <h4 className="font-medium text-gray-800 mb-3">Follow-up</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Follow-up Date</label>
-            <input
-              type="date"
-              value={currentPlan.follow_up.date || ""}
-              onChange={(e) => updateFollowUp("date", e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-            <input
-              type="text"
-              value={currentPlan.follow_up.duration || ""}
-              onChange={(e) => updateFollowUp("duration", e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="e.g., 2 weeks"
-            />
-          </div>
-        </div>
-        <div className="mt-3">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Follow-up Notes</label>
-          <textarea
-            value={currentPlan.follow_up.notes || ""}
-            onChange={(e) => updateFollowUp("notes", e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            rows={2}
-            placeholder="Additional follow-up instructions..."
-          />
-        </div>
+        
+        {currentPlan.medications.length > 0 && (
+          <button
+            onClick={() => addMedication(null)}
+            className="mt-4 w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 hover:border-blue-300 hover:text-blue-600 transition-colors flex items-center justify-center"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Add Another Medication
+          </button>
+        )}
       </div>
     </div>
   );
