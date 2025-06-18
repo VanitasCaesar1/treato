@@ -1,14 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { api } from '@/lib/api';
 import { withAuth } from '@workos-inc/authkit-nextjs';
+
 /**
  * GET /api/diagnosis/[id]
  * Retrieves diagnosis by appointment_id as path parameter
  */
-export async function GET(
-  req: NextRequest, 
-  { params }: { params: { id: string } }
-) {
+export async function GET(req, { params }) {
   try {
     // Get auth data from WorkOS
     const { user, organizationId, role } = await withAuth();
@@ -128,7 +126,7 @@ export async function GET(
     console.log('✅ Returning transformed data:', safeData);
     return NextResponse.json(safeData);
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error retrieving diagnosis:', error);
     
     if (error.code === 'AUTH_REQUIRED') {
@@ -159,10 +157,7 @@ export async function GET(
  * PUT /api/diagnosis/[id]
  * Updates a specific diagnosis by ID
  */
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(req, { params }) {
   try {
     const { user, organizationId, role } = await withAuth();
     if (!user) {
@@ -186,7 +181,7 @@ export async function PUT(
 
     return NextResponse.json(response.data);
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error updating diagnosis:', error);
 
     if (error.code === 'AUTH_REQUIRED') {
@@ -215,7 +210,7 @@ export async function PUT(
 /**
  * Safe JSON serialization function to handle circular references and non-serializable values
  */
-function safeJsonSerialize(obj: any): any {
+function safeJsonSerialize(obj) {
   const seen = new WeakSet();
   
   return JSON.parse(JSON.stringify(obj, (key, value) => {
@@ -265,7 +260,7 @@ function safeJsonSerialize(obj: any): any {
  * DELETE /api/diagnosis/[id]
  * Deletes a specific diagnosis by ID
  */
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req, { params }) {
   try {
     const { id } = params;
 
@@ -299,7 +294,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
     return NextResponse.json(response.data);
 
-  } catch (error: any) {
+  } catch (error) {
     // Handle authentication errors
     if (error.code === 'AUTH_REQUIRED') {
       return NextResponse.json(
@@ -329,7 +324,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 /**
  * Transform diagnosis data from API format to frontend format
  */
-function transformDiagnosisFromAPI(diagnosis: any) {
+function transformDiagnosisFromAPI(diagnosis) {
   if (!diagnosis) {
     return null;
   }
