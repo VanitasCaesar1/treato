@@ -28,7 +28,7 @@
 @font-face {
     font-family: "RedHatDisplay-Light";
     src:
-        url("../fonts/RedHatDisplay-Light.woff2") format("woff2"),
+        url("../fonts/RedHatDisplay-Light.woff2") format("woff2"),         
         url("../fonts/RedHatDisplay-Light.woff") format("woff"),
         url("../fonts/RedHatDisplay-Light.ttf") format("truetype");
     font-weight: 300;

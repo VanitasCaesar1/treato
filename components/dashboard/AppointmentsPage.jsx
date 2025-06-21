@@ -1,5 +1,4 @@
-"use client"
-// dashboard/op
+'use client'
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -62,30 +61,72 @@ export default function AppointmentsPage() {
   const [pagination, setPagination] = useState(DEFAULT_PAGINATION);
   const [error, setError] = useState(null);
   const [errorDetails, setErrorDetails] = useState(null);
+  const [doctors, setDoctors] = useState([]);
+  const [doctorsLoading, setDoctorsLoading] = useState(true);
 
   // Create refs at the top level of component
   const prevFiltersRef = useRef(null);
   const prevPaginationRef = useRef(null);
+  const initialLoadRef = useRef(false);
 
   // Filters state - using backend parameter names
   const [filters, setFilters] = useState({
-    searchTerm: "",
+    search: "",
     appointment_status: "all",
     doctor_id: "all",
     fee_type: "all",
-    validity: "all",
+    is_valid: "all",
     start_date: "",
   });
 
-  // Form state for filter inputs
+  // Form state for filter inputs (separate from actual filters to allow for form validation)
   const [formState, setFormState] = useState({
-    searchTerm: "",
+    search: "",
     appointment_status: "all",
     doctor_id: "all",
     fee_type: "all",
-    validity: "all",
+    is_valid: "all",
     start_date: "",
   });
+
+  // Fetch doctors for the dropdown
+  const fetchDoctors = useCallback(async () => {
+    try {
+      setDoctorsLoading(true);
+      const response = await fetch('/api/doctors/search?limit=100', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch doctors: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log("Doctors API Response:", data);
+      
+      // Handle the response format from your API
+      const doctorsList = data.doctors || [];
+      
+      // Map the doctors to a consistent format
+      const formattedDoctors = doctorsList.map(doctor => ({
+        id: doctor.DoctorID || doctor.doctor_id || doctor.id,
+        name: doctor.Name || doctor.name || `Doctor ${doctor.DoctorID || doctor.doctor_id}`,
+        speciality: doctor.Speciality || doctor.speciality || doctor.specialization,
+      }));
+      
+      console.log("Formatted doctors:", formattedDoctors);
+      setDoctors(formattedDoctors);
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+      // Set empty array instead of throwing to prevent component crash
+      setDoctors([]);
+    } finally {
+      setDoctorsLoading(false);
+    }
+  }, []);
 
   // Process appointments data to ensure consistent format
   const processAppointments = useCallback((data) => {
@@ -107,10 +148,8 @@ export default function AppointmentsPage() {
       is_valid: app.is_valid !== undefined ? app.is_valid : (app.isValid !== undefined ? app.isValid : true),
       created_at: app.created_at || app.createdAt || '',
       updated_at: app.updated_at || app.updatedAt || '',
-      // Add proper support for slot times
       slot_start_time: app.slot_start_time || app.slotStartTime || '',
       slot_end_time: app.slot_end_time || app.slotEndTime || '',
-      // Track if there's an existing diagnosis
       diagnosis_id: app.diagnosis_id || app.diagnosisId || '',
       has_diagnosis: !!app.diagnosis_id || !!app.diagnosisId || !!app.has_diagnosis,
     }));
@@ -122,22 +161,17 @@ export default function AppointmentsPage() {
     const currentPage = Math.floor(pagination.offset / pagination.limit) + 1;
     
     const pageNumbers = [];
-    // Calculate which page numbers to show
     if (totalPages <= 5) {
-      // Show all pages if 5 or fewer
       for (let i = 1; i <= totalPages; i++) {
         pageNumbers.push(i);
       }
     } else {
-      // Always show first page
       pageNumbers.push(1);
       
-      // Show ellipsis or pages near current
       if (currentPage > 3) {
         pageNumbers.push("...");
       }
       
-      // Pages around current
       const startPage = Math.max(2, currentPage - 1);
       const endPage = Math.min(totalPages - 1, currentPage + 1);
       
@@ -145,50 +179,64 @@ export default function AppointmentsPage() {
         pageNumbers.push(i);
       }
       
-      // Show ellipsis if needed
       if (currentPage < totalPages - 2) {
         pageNumbers.push("...");
       }
       
-      // Always show last page
       pageNumbers.push(totalPages);
     }
 
     return { totalPages, currentPage, pageNumbers };
   }, [pagination]);
 
-  // Fetch appointments from API - FIXED parameter names
+  // FIXED: Fetch appointments from API with proper parameter handling
   const fetchAppointments = useCallback(async () => {
     setLoading(true);
     setError(null);
     setErrorDetails(null);
     
     try {
-      // Build query parameters using CORRECT backend parameter names
+      // Build query parameters using correct backend parameter names
       const queryParams = new URLSearchParams();
       
       // Add filters only if they have meaningful values
-      if (filters.appointment_status && filters.appointment_status !== "all") 
+      if (filters.appointment_status && filters.appointment_status !== "all") {
         queryParams.append("appointment_status", filters.appointment_status);
+      }
       
-      if (filters.doctor_id && filters.doctor_id !== "all") 
+      if (filters.doctor_id && filters.doctor_id !== "all") {
         queryParams.append("doctor_id", filters.doctor_id);
+      }
       
-      if (filters.fee_type && filters.fee_type !== "all") 
+      if (filters.fee_type && filters.fee_type !== "all") {
         queryParams.append("fee_type", filters.fee_type);
+      }
       
-      // Note: The backend doesn't seem to have a validity filter based on the Go code
-      // but we'll keep it for frontend compatibility
-      if (filters.validity && filters.validity !== "all") 
-        queryParams.append("is_valid", filters.validity);
+      // FIXED: Handle boolean parameter correctly
+      if (filters.is_valid && filters.is_valid !== "all") {
+        // Convert string to actual boolean for API
+        const booleanValue = filters.is_valid === "true";
+        queryParams.append("is_valid", booleanValue.toString());
+      }
       
-      if (filters.start_date) 
-        queryParams.append("start_date", filters.start_date);
+      // FIXED: Handle date parameter with proper formatting
+      if (filters.start_date) {
+        // Ensure the date is in YYYY-MM-DD format
+        const dateValue = new Date(filters.start_date);
+        if (!isNaN(dateValue.getTime())) {
+          // Format as ISO date string (YYYY-MM-DD)
+          const formattedDate = dateValue.toISOString().split('T')[0];
+          queryParams.append("start_date", formattedDate);
+          
+          // Also add end_date for same day filtering (optional - depends on your API)
+          // This ensures we get appointments for the entire selected day
+          queryParams.append("end_date", formattedDate);
+        }
+      }
 
-      // Search term - backend doesn't show search support in the provided code
-      // but we'll include it in case it's implemented
-      if (filters.searchTerm) 
-        queryParams.append("search", filters.searchTerm);
+      if (filters.search && filters.search.trim()) {
+        queryParams.append("search", filters.search.trim());
+      }
 
       // Pagination parameters
       queryParams.append("limit", pagination.limit.toString());
@@ -201,9 +249,6 @@ export default function AppointmentsPage() {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          // The backend expects X-Organization-ID header
-          // You'll need to set this based on your auth/org context
-          'X-Organization-ID': 'org_01234567890123456789012345', // Replace with actual org ID
         },
       });
       
@@ -213,19 +258,54 @@ export default function AppointmentsPage() {
       }
       
       const data = await response.json();
+      console.log("API Response:", data);
       
       // Process appointments data
       const processedAppointments = processAppointments(data);
-      setAppointments(processedAppointments);
       
-      // Update pagination
+      // FIXED: Additional client-side filtering for edge cases
+      let filteredAppointments = processedAppointments;
+      
+      // Client-side validation filter (backup in case backend doesn't handle it correctly)
+      if (filters.is_valid !== "all") {
+        const expectedValidState = filters.is_valid === "true";
+        filteredAppointments = filteredAppointments.filter(app => {
+          // Handle both boolean and string values
+          const appValidState = app.is_valid === true || app.is_valid === "true";
+          return appValidState === expectedValidState;
+        });
+      }
+      
+      // Client-side date filter (backup in case backend doesn't handle it correctly)
+      if (filters.start_date) {
+        const filterDate = new Date(filters.start_date);
+        if (!isNaN(filterDate.getTime())) {
+          filteredAppointments = filteredAppointments.filter(app => {
+            if (!app.appointment_date) return false;
+            
+            const appDate = new Date(app.appointment_date);
+            if (isNaN(appDate.getTime())) return false;
+            
+            // Compare dates (ignore time)
+            const filterDateString = filterDate.toISOString().split('T')[0];
+            const appDateString = appDate.toISOString().split('T')[0];
+            
+            return filterDateString === appDateString;
+          });
+        }
+      }
+      
+      setAppointments(filteredAppointments);
+      
+      // Update pagination (use original count for pagination, not filtered count)
       setPagination(prev => ({
         ...prev,
-        total: data.pagination?.total || data.total || 0,
+        total: data.pagination?.total || data.total || processedAppointments.length,
       }));
       
       // Update stats
-      updateStats(processedAppointments, data.stats);
+      updateStats(filteredAppointments, data.stats);
+      
     } catch (error) {
       console.error('Error fetching appointments:', error);
       setError(error.message || 'Failed to fetch appointments');
@@ -266,7 +346,6 @@ export default function AppointmentsPage() {
 
   // Calculate statistics
   const updateStats = useCallback((appointmentsData, backendStats = null) => {
-    // If backend provides stats, use them
     if (backendStats) {
       setStats(DEFAULT_STATS.map((stat, index) => ({
         ...stat,
@@ -275,16 +354,16 @@ export default function AppointmentsPage() {
       return;
     }
     
-    // Client-side stats calculation
     const total = appointmentsData.length;
     const completed = appointmentsData.filter(app => app.appointment_status === "completed").length;
     const notCompleted = appointmentsData.filter(app => app.appointment_status === "not_completed").length;
+    const scheduled = appointmentsData.filter(app => app.appointment_status === "scheduled").length;
     const uniqueDoctors = new Set(appointmentsData.map(app => app.doctor_id)).size;
     
     setStats([
       { label: "Total Appointments", value: total.toString(), icon: <Package className="h-4 w-4" /> },
       { label: "Waiting", value: notCompleted.toString(), icon: <TimerIcon className="h-4 w-4" /> },
-      { label: "In Progress", value: "0", icon: <Clock className="h-4 w-4" /> },
+      { label: "Scheduled", value: scheduled.toString(), icon: <Clock className="h-4 w-4" /> },
       { label: "Completed", value: completed.toString(), icon: <LogOut className="h-4 w-4" /> },
       { label: "Active Doctors", value: uniqueDoctors.toString(), icon: <User className="h-4 w-4" /> },
       { label: "Pending Bills", value: "0", icon: <DollarSign className="h-4 w-4" /> },
@@ -295,12 +374,10 @@ export default function AppointmentsPage() {
   const formatTime = useCallback((timeString) => {
     if (!timeString) return "";
     
-    // Check if it's already in HH:MM format
     if (/^\d{1,2}:\d{2}$/.test(timeString)) {
       return timeString;
     }
     
-    // Handle if timeString is a full date string
     try {
       const date = new Date(timeString);
       if (isNaN(date.getTime())) return "Invalid";
@@ -331,7 +408,7 @@ export default function AppointmentsPage() {
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return "";
-      return date.toLocaleDateString([], {month: 'short', day: 'numeric'});
+      return date.toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'});
     } catch (e) {
       return "";
     }
@@ -353,9 +430,20 @@ export default function AppointmentsPage() {
     }));
   }, []);
 
-  // Handle search form submission - FIXED parameter names
+  // FIXED: Handle search form submission with better validation
   const handleSearch = useCallback((e) => {
     if (e) e.preventDefault();
+
+    console.log("Applying filters:", formState);
+
+    // Validate date input
+    if (formState.start_date) {
+      const dateValue = new Date(formState.start_date);
+      if (isNaN(dateValue.getTime())) {
+        setError("Invalid date format. Please select a valid date.");
+        return;
+      }
+    }
 
     // Update filters state with form values
     setFilters({...formState});
@@ -369,15 +457,13 @@ export default function AppointmentsPage() {
     // Update URL query params for better shareability
     const newParams = new URLSearchParams();
     
-    // Use backend parameter names for URL as well
-    if (formState.searchTerm) newParams.set('search', formState.searchTerm);
+    if (formState.search && formState.search.trim()) newParams.set('search', formState.search.trim());
     if (formState.appointment_status !== 'all') newParams.set('appointment_status', formState.appointment_status);
     if (formState.doctor_id !== 'all') newParams.set('doctor_id', formState.doctor_id);
     if (formState.fee_type !== 'all') newParams.set('fee_type', formState.fee_type);
-    if (formState.validity !== 'all') newParams.set('is_valid', formState.validity);
+    if (formState.is_valid !== 'all') newParams.set('is_valid', formState.is_valid);
     if (formState.start_date) newParams.set('start_date', formState.start_date);
     
-    // Use Next.js router to update the URL without refreshing the page
     const newUrl = window.location.pathname + (newParams.toString() ? `?${newParams.toString()}` : '');
     router.push(newUrl, { scroll: false });
     
@@ -386,27 +472,24 @@ export default function AppointmentsPage() {
   // Reset all filters
   const resetFilters = useCallback(() => {
     const defaultFilters = {
-      searchTerm: "",
+      search: "",
       appointment_status: "all",
       doctor_id: "all",
       fee_type: "all",
-      validity: "all",
+      is_valid: "all",
       start_date: "",
     };
     
-    // Reset form state
-    setFormState(defaultFilters);
+    console.log("Resetting filters to default");
     
-    // Reset actual filters
+    setFormState(defaultFilters);
     setFilters(defaultFilters);
     
-    // Reset pagination
     setPagination(prev => ({
       ...prev,
       offset: 0
     }));
     
-    // Clear URL parameters
     router.push(window.location.pathname, { scroll: false });
   }, [router]);
 
@@ -416,67 +499,104 @@ export default function AppointmentsPage() {
   }, [router]);
   
   const handleAppointmentClick = useCallback((appointment) => {
-    // If there's an existing diagnosis, go to the diagnosis page
     if (appointment.diagnosis_id) {
       router.push(`/dashboard/op/${appointment.diagnosis_id}`);
     } else {
-      // Otherwise, go to create a new diagnosis for this appointment
       router.push(`/dashboard/diagnosis/new?appointmentId=${appointment.appointment_id}`);
     }
   }, [router]);
 
-  // Load initial URL parameters if any - FIXED parameter names
-  useEffect(() => {
-    const appointment_status = searchParams.get('appointment_status') || 'all';
-    const doctor_id = searchParams.get('doctor_id') || 'all';
-    const fee_type = searchParams.get('fee_type') || 'all';
-    const validity = searchParams.get('is_valid') || 'all';
-    const start_date = searchParams.get('start_date') || '';
-    const search = searchParams.get('search') || '';
+  // Get doctor name by ID - Fixed to properly look up doctor names
+  const getDoctorName = useCallback((doctorId) => {
+    if (!doctorId) return "Unknown Doctor";
     
-    if (appointment_status !== 'all' || doctor_id !== 'all' || fee_type !== 'all' || validity !== 'all' || start_date || search) {
-      const initialFilters = {
-        searchTerm: search,
-        appointment_status,
-        doctor_id,
-        fee_type,
-        validity,
-        start_date,
-      };
+    const doctor = doctors.find(d => d.id === doctorId);
+    if (doctor) {
+      return doctor.name;
+    }
+    
+    // Fallback: if doctor not found in list, return a formatted ID
+    return `Doctor ${doctorId.substring(0, 8)}...`;
+  }, [doctors]);
+
+  // Load initial URL parameters if any
+  useEffect(() => {
+    if (!initialLoadRef.current) {
+      const appointment_status = searchParams.get('appointment_status') || 'all';
+      const doctor_id = searchParams.get('doctor_id') || 'all';
+      const fee_type = searchParams.get('fee_type') || 'all';
+      const is_valid = searchParams.get('is_valid') || 'all';
+      const start_date = searchParams.get('start_date') || '';
+      const search = searchParams.get('search') || '';
       
-      setFormState(initialFilters);
-      setFilters(initialFilters);
+      if (appointment_status !== 'all' || doctor_id !== 'all' || fee_type !== 'all' || is_valid !== 'all' || start_date || search) {
+        const initialFilters = {
+          search,
+          appointment_status,
+          doctor_id,
+          fee_type,
+          is_valid,
+          start_date,
+        };
+        
+        console.log("Loading initial filters from URL:", initialFilters);
+        setFormState(initialFilters);
+        setFilters(initialFilters);
+      }
+      
+      initialLoadRef.current = true;
     }
   }, [searchParams]);
 
+  // Fetch doctors on component mount
+  useEffect(() => {
+    fetchDoctors();
+  }, [fetchDoctors]);
+
   // This effect will trigger whenever filters or pagination changes
   useEffect(() => {
-    // Create a reference to the current filters and pagination
     const currentFilters = JSON.stringify(filters);
     const currentPagination = JSON.stringify({
       limit: pagination.limit,
       offset: pagination.offset
     });
     
-    // Only fetch if filters or pagination actually changed
-    if (prevFiltersRef.current !== currentFilters || prevPaginationRef.current !== currentPagination) {
-      // Update our refs with the current values
+    // Only fetch if filters or pagination actually changed, and after initial load
+    if (initialLoadRef.current && 
+        (prevFiltersRef.current !== currentFilters || prevPaginationRef.current !== currentPagination)) {
+      
+      console.log("Filters or pagination changed, fetching appointments");
+      console.log("Current filters:", filters);
+      console.log("Current pagination:", { limit: pagination.limit, offset: pagination.offset });
+      
       prevFiltersRef.current = currentFilters;
       prevPaginationRef.current = currentPagination;
       
-      // Fetch appointments
       fetchAppointments();
     }
   }, [filters, pagination.limit, pagination.offset, fetchAppointments]);
+
+  // Initial load effect
+// Initial load effect
+  useEffect(() => {
+    if (initialLoadRef.current && !prevFiltersRef.current) {
+      console.log("Initial load, fetching appointments");
+      fetchAppointments();
+    }
+  }, [fetchAppointments]);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
           <h1 className="text-2xl font-medium text-gray-900 mb-4 sm:mb-0">Appointments</h1>
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-            
-          </div>
+          <Button 
+            onClick={handleNewAppointment}
+            className="bg-blue-600 text-white hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Appointment
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
@@ -521,14 +641,14 @@ export default function AppointmentsPage() {
         <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
           {/* Search and filters section */}
           <div className="p-4 md:p-6 border-b border-gray-100">
-            <form onSubmit={handleSearch} className="flex flex-col md:flex-row md:items-center gap-4 flex-wrap">
+            <div className="flex flex-col md:flex-row md:items-center gap-4 flex-wrap">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search patients or doctors..."
                   className="pl-10 h-10 bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500"
-                  value={formState.searchTerm}
-                  onChange={(e) => handleInputChange('searchTerm', e.target.value)}
+                  value={formState.search}
+                  onChange={(e) => handleInputChange('search', e.target.value)}
                 />
               </div>
               
@@ -543,8 +663,6 @@ export default function AppointmentsPage() {
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="not_completed">Not Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                  <SelectItem value="declined">Declined</SelectItem>
                   <SelectItem value="scheduled">Scheduled</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                 </SelectContent>
@@ -553,15 +671,18 @@ export default function AppointmentsPage() {
               <Select
                 value={formState.doctor_id}
                 onValueChange={(value) => handleInputChange('doctor_id', value)}
+                disabled={doctorsLoading}
               >
-                <SelectTrigger className="w-full md:w-[140px] bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500">
-                  <SelectValue placeholder="Doctor" />
+                <SelectTrigger className="w-full md:w-[180px] bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500">
+                  <SelectValue placeholder={doctorsLoading ? "Loading..." : "Select Doctor"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Doctors</SelectItem>
-                  {/* Replace these with actual doctor IDs from your system */}
-                  <SelectItem value="550e8400-e29b-41d4-a716-446655440000">Dr. Brandon McIntyre</SelectItem>
-                  <SelectItem value="550e8400-e29b-41d4-a716-446655440001">Dr. Sarah Johnson</SelectItem>
+                  {doctors.map((doctor) => (
+                    <SelectItem key={doctor.id} value={doctor.id}>
+                      {doctor.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               
@@ -581,16 +702,16 @@ export default function AppointmentsPage() {
               </Select>
               
               <Select
-                value={formState.validity}
-                onValueChange={(value) => handleInputChange('validity', value)}
+                value={formState.is_valid}
+                onValueChange={(value) => handleInputChange('is_valid', value)}
               >
                 <SelectTrigger className="w-full md:w-[140px] bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500">
                   <SelectValue placeholder="Validity" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="true">Valid</SelectItem>
-                  <SelectItem value="false">Expired</SelectItem>
+                  <SelectItem value="all">All Appointments</SelectItem>
+                  <SelectItem value="true">Valid Only</SelectItem>
+                  <SelectItem value="false">Expired Only</SelectItem>
                 </SelectContent>
               </Select>
               
@@ -601,26 +722,26 @@ export default function AppointmentsPage() {
                   className="pl-10 h-10 bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 w-full md:w-[180px]"
                   value={formState.start_date}
                   onChange={(e) => handleInputChange('start_date', e.target.value)}
+                  placeholder="Select date"
                 />
               </div>
               
               <div className="flex gap-2 w-full md:w-auto">
                 <Button 
-                  type="submit" 
+                  onClick={handleSearch}
                   className="bg-blue-600 text-white hover:bg-blue-700 flex-1 md:flex-none"
                 >
                   Search
                 </Button>
                 <Button 
-                  type="button" 
-                  variant="outline" 
                   onClick={resetFilters}
+                  variant="outline"
                   className="border-gray-300 text-gray-700 hover:bg-gray-50 flex-1 md:flex-none"
                 >
                   Reset
                 </Button>
               </div>
-            </form>
+            </div>
           </div>
 
           {error && !errorDetails && (
@@ -638,207 +759,181 @@ export default function AppointmentsPage() {
             </div>
           )}
 
-          {/* Filter summary */}
+          {/* Filter summary display */}
           {(filters.appointment_status !== 'all' || 
             filters.doctor_id !== 'all' || 
             filters.fee_type !== 'all' || 
-            filters.validity !== 'all' || 
+            filters.is_valid !== 'all' || 
             filters.start_date || 
-            filters.searchTerm) && (
+            filters.search) && (
             <div className="px-6 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
               <div className="text-sm text-blue-600">
-                <span className="font-medium">Filters applied:</span>{' '}
-                {filters.searchTerm && <span className="mr-2">Search: "{filters.searchTerm}"</span>}
-                {filters.appointment_status !== 'all' && <span className="mr-2">Status: {filters.appointment_status}</span>}
+                <span className="font-medium">Active filters:</span>{' '}
+                {filters.search && <span className="mr-2 bg-blue-100 px-2 py-1 rounded">Search: "{filters.search}"</span>}
+                {filters.appointment_status !== 'all' && <span className="mr-2 bg-blue-100 px-2 py-1 rounded">Status: {filters.appointment_status.replace('_', ' ')}</span>}
                 {filters.doctor_id !== 'all' && (
-                  <span className="mr-2">Doctor: {
-                    filters.doctor_id === '550e8400-e29b-41d4-a716-446655440000' 
-                      ? 'Dr. Brandon McIntyre' 
-                      : filters.doctor_id === '550e8400-e29b-41d4-a716-446655440001'
-                        ? 'Dr. Sarah Johnson'
-                        : filters.doctor_id
-                  }</span>
+                  <span className="mr-2 bg-blue-100 px-2 py-1 rounded">Doctor: {getDoctorName(filters.doctor_id)}</span>
                 )}
-                {filters.fee_type !== 'all' && <span className="mr-2">Fee Type: {filters.fee_type}</span>}
-                {filters.validity !== 'all' && <span className="mr-2">Validity: {filters.validity === 'true' ? 'Valid' : 'Expired'}</span>}
-                {filters.start_date && <span>Date: {filters.start_date}</span>}
+                {filters.fee_type !== 'all' && <span className="mr-2 bg-blue-100 px-2 py-1 rounded">Fee: {filters.fee_type}</span>}
+                {filters.is_valid !== 'all' && <span className="mr-2 bg-blue-100 px-2 py-1 rounded">Validity: {filters.is_valid === 'true' ? 'Valid' : 'Expired'}</span>}
+                {filters.start_date && <span className="mr-2 bg-blue-100 px-2 py-1 rounded">Date: {formatDate(filters.start_date)}</span>}
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={resetFilters}
-                className="text-blue-600 hover:bg-blue-100"
+                className="text-blue-600 hover:text-blue-700 hover:bg-blue-100"
               >
-                Clear All
+                Clear all
               </Button>
             </div>
           )}
-
-          {/* Table header with slot time range */}
-          <div className="px-6 py-3 bg-gray-50 border-b border-gray-100 hidden md:grid" 
-            style={{ gridTemplateColumns: "1.4fr 1.8fr 1.8fr 1fr 1fr 0.8fr 0.8fr 100px" }}>
-            <div className="text-xs font-medium text-gray-500">Fee</div>
-            <div className="text-xs font-medium text-gray-500">Status</div>
-            <div className="text-xs font-medium text-gray-500">Valid</div>
-            <div className="text-xs font-medium text-gray-500">Date</div>
-            <div className="text-xs font-medium text-gray-500">Actions</div>
-          </div>
 
           {/* Loading state */}
           {loading && (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-              <span className="ml-2 text-gray-600">Loading appointments...</span>
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-3" />
+              <span className="text-gray-600">Loading appointments...</span>
             </div>
           )}
 
-          {/* No data state */}
-          {!loading && appointments.length === 0 && !error && (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Package className="h-12 w-12 text-gray-300 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No appointments found</h3>
-              <p className="text-gray-500 text-center mb-4">
-                {Object.values(filters).some(filter => filter !== "" && filter !== "all") 
-                  ? "Try adjusting your filters to see more results."
-                  : "Get started by creating your first appointment."
-                }
-              </p>
-              <Button 
-                onClick={handleNewAppointment}
-                className="bg-blue-600 text-white hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                New Appointment
-              </Button>
-            </div>
-          )}
-
-          {/* Appointments list */}
-          {!loading && appointments.length > 0 && (
-            <div className="divide-y divide-gray-100">
-              {appointments.map((appointment) => (
-                <div
-                  key={`${appointment.id}-${appointment.appointment_id}`}
-                  className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors duration-150"
-                  onClick={() => handleAppointmentClick(appointment)}
-                >
-                  {/* Mobile layout */}
-                  <div className="md:hidden space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium text-gray-900">
-                        {appointment.patient_name || 'Unknown Patient'}
-                      </div>
-                      <Badge
-                        className={`${STATUS_STYLES[appointment.appointment_status] || STATUS_STYLES.not_completed} text-xs px-2 py-1`}
+          {/* Appointments table */}
+          {!loading && (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Patient
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Doctor
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date & Time
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Fee
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Validity
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {appointments.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                        <Package className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                        <p className="text-lg font-medium">No appointments found</p>
+                        <p className="text-sm">Try adjusting your filters or create a new appointment</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    appointments.map((appointment) => (
+                      <tr
+                        key={appointment.id}
+                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                        onClick={() => handleAppointmentClick(appointment)}
                       >
-                        {appointment.appointment_status?.replace('_', ' ').toUpperCase() || 'NOT COMPLETED'}
-                      </Badge>
-                    </div>
-                    
-                    <div className="text-sm text-gray-600">
-                      <div className="flex items-center mb-1">
-                        <User className="h-4 w-4 mr-2 text-gray-400" />
-                        {appointment.doctor_name || 'Unknown Doctor'}
-                      </div>
-                      <div className="flex items-center mb-1">
-                        <AlarmClock className="h-4 w-4 mr-2 text-gray-400" />
-                        {formatSlotTimeRange(appointment.slot_start_time, appointment.slot_end_time) || 'No time set'}
-                      </div>
-                      <div className="flex items-center mb-1">
-                        <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                        {formatDate(appointment.appointment_date)}
-                      </div>
-                      <div className="flex items-center">
-                        <DollarSign className="h-4 w-4 mr-2 text-gray-400" />
-                        ₹{appointment.appointment_fee || 0}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <Badge
-                        className={`${VALIDITY_STYLES[appointment.is_valid?.toString()] || VALIDITY_STYLES.true} text-xs px-2 py-1`}
-                      >
-                        {appointment.is_valid ? 'VALID' : 'EXPIRED'}
-                      </Badge>
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
-                    </div>
-                  </div>
-
-                  {/* Desktop layout */}
-                  <div className="hidden md:grid items-center"
-                    style={{ gridTemplateColumns: "1.4fr 1.8fr 1.8fr 1fr 1fr 0.8fr 0.8fr 100px" }}>
-                    
-                    <div className="flex items-center">
-                      <AlarmClock className="h-4 w-4 mr-2 text-gray-400" />
-                      <span className="text-sm text-gray-900">
-                        {formatSlotTimeRange(appointment.slot_start_time, appointment.slot_end_time) || 'No time set'}
-                      </span>
-                    </div>
-                    
-                    <div>
-                      <div className="font-medium text-gray-900 text-sm">
-                        {appointment.patient_name || 'Unknown Patient'}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        ID: {appointment.patient_id || 'N/A'}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div className="font-medium text-gray-900 text-sm">
-                        {appointment.doctor_name || 'Unknown Doctor'}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        ID: {appointment.doctor_id || 'N/A'}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div className="font-medium text-gray-900 text-sm">
-                        ₹{appointment.appointment_fee || 0}
-                      </div>
-                      <div className="text-xs text-gray-500 capitalize">
-                        {appointment.fee_type || 'default'}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Badge
-                        className={`${STATUS_STYLES[appointment.appointment_status] || STATUS_STYLES.not_completed} text-xs px-2 py-1`}
-                      >
-                        {appointment.appointment_status?.replace('_', ' ').toUpperCase() || 'NOT COMPLETED'}
-                      </Badge>
-                    </div>
-                    
-                    <div>
-                      <Badge
-                        className={`${VALIDITY_STYLES[appointment.is_valid?.toString()] || VALIDITY_STYLES.true} text-xs px-2 py-1`}
-                      >
-                        {appointment.is_valid ? 'VALID' : 'EXPIRED'}
-                      </Badge>
-                    </div>
-                    
-                    <div className="text-sm text-gray-600">
-                      {formatDate(appointment.appointment_date)}
-                    </div>
-                    
-                    <div className="flex justify-end">
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
-                    </div>
-                  </div>
-                </div>
-              ))}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                              <User className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {appointment.patient_name || 'Unknown Patient'}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                ID: {appointment.patient_id?.substring(0, 8)}...
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {appointment.doctor_name || getDoctorName(appointment.doctor_id)}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            ID: {appointment.doctor_id?.substring(0, 8)}...
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {formatDate(appointment.appointment_date)}
+                          </div>
+                          <div className="text-sm text-gray-500 flex items-center">
+                            <AlarmClock className="h-3 w-3 mr-1" />
+                            {formatSlotTimeRange(appointment.slot_start_time, appointment.slot_end_time)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Badge 
+                            className={`${STATUS_STYLES[appointment.appointment_status] || STATUS_STYLES.not_completed} capitalize`}
+                          >
+                            {appointment.appointment_status?.replace('_', ' ') || 'Not Completed'}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            ${appointment.appointment_fee || 0}
+                          </div>
+                          <div className="text-sm text-gray-500 capitalize">
+                            {appointment.fee_type || 'default'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Badge 
+                            className={`${VALIDITY_STYLES[appointment.is_valid?.toString()] || VALIDITY_STYLES.true}`}
+                          >
+                            {appointment.is_valid ? 'Valid' : 'Expired'}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end space-x-2">
+                            {appointment.has_diagnosis ? (
+                              <Link
+                                href={`/dashboard/op/${appointment.diagnosis_id}`}
+                                className="text-blue-600 hover:text-blue-900 flex items-center"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                View
+                                <ChevronRight className="h-4 w-4 ml-1" />
+                              </Link>
+                            ) : (
+                              <Link
+                                href={`/dashboard/diagnosis/new?appointmentId=${appointment.appointment_id}`}
+                                className="text-green-600 hover:text-green-900 flex items-center"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Start
+                                <ChevronRight className="h-4 w-4 ml-1" />
+                              </Link>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
 
           {/* Pagination */}
-          {!loading && appointments.length > 0 && paginationInfo.totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
+          {!loading && appointments.length > 0 && (
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-700">
-                  Showing {pagination.offset + 1} to {Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} appointments
+                  Showing {pagination.offset + 1} to {Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} results
                 </div>
-                
                 <div className="flex items-center space-x-2">
                   <Button
                     variant="outline"
@@ -850,26 +945,27 @@ export default function AppointmentsPage() {
                     Previous
                   </Button>
                   
-                  {paginationInfo.pageNumbers.map((pageNum, index) => (
-                    <React.Fragment key={index}>
-                      {pageNum === "..." ? (
-                        <span className="px-2 text-gray-500">...</span>
-                      ) : (
-                        <Button
-                          variant={paginationInfo.currentPage === pageNum ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handlePageChange((pageNum - 1) * pagination.limit)}
-                          className={
-                            paginationInfo.currentPage === pageNum
-                              ? "bg-blue-600 text-white"
+                  <div className="flex items-center space-x-1">
+                    {paginationInfo.pageNumbers.map((pageNum, index) => (
+                      <React.Fragment key={index}>
+                        {pageNum === "..." ? (
+                          <span className="px-2 text-gray-500">...</span>
+                        ) : (
+                          <Button
+                            variant={pageNum === paginationInfo.currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handlePageChange((pageNum - 1) * pagination.limit)}
+                            className={pageNum === paginationInfo.currentPage 
+                              ? "bg-blue-600 text-white" 
                               : "border-gray-300"
-                          }
-                        >
-                          {pageNum}
-                        </Button>
-                      )}
-                    </React.Fragment>
-                  ))}
+                            }
+                          >
+                            {pageNum}
+                          </Button>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
                   
                   <Button
                     variant="outline"
@@ -885,26 +981,6 @@ export default function AppointmentsPage() {
             </div>
           )}
         </div>
-
-        {/* Footer actions */}
-        {!loading && appointments.length > 0 && (
-          <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
-            <div className="flex space-x-4">
-              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
-                <Printer className="h-4 w-4 mr-2" />
-                Print Report
-              </Button>
-            </div>
-            
-            <div className="text-sm text-gray-500">
-              Last updated: {new Date().toLocaleTimeString()}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

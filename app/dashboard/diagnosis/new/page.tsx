@@ -5,7 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, ArrowLeft, ChevronDown, ChevronUp, Save, Printer, User, Stethoscope, Calendar } from "lucide-react";
 import { PrescriptionPDF, createPrescriptionData } from '@/components/diagnosis/PrescriptionPDF';
 import TreatmentPlan from "@/components/diagnosis/TreatmentPlanSection";
-import DiagnosisSection from "@/components/diagnosis/DiagnosisSection";
+import DiagnosisSection from '@/components/diagnosis/DiagnosisSection'
 import VitalsSection from "@/components/diagnosis/VitalsSection";
 import SymptomsSection from "@/components/diagnosis/SymptomsSection";
 import { 
