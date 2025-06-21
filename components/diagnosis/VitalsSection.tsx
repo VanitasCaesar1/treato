@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { AlertTriangle, Check, Info, Heart, Thermometer, Activity, Ruler, Weight } from "lucide-react";
+import { AlertTriangle, Check, Info, Heart, Thermometer, Activity, Ruler, Weight, Droplets } from "lucide-react";
 
 interface VitalsProps {
   vitals: any;
@@ -17,6 +17,7 @@ interface VitalField {
   min?: number;
   max?: number;
   step?: number;
+  maxLength?: number;
   normalRange: { min: number; max: number; unit: string };
   suggestions?: string[];
   validation: (value: string) => { isValid: boolean; message?: string; level?: 'error' | 'warning' | 'info' };
@@ -35,6 +36,7 @@ const VITAL_FIELDS: VitalField[] = [
     min: 30,
     max: 45,
     step: 0.1,
+    maxLength: 5,
     normalRange: { min: 36.5, max: 37.5, unit: '°C' },
     inputFilter: (value: string) => {
       // Allow only numbers, one decimal point, and minus sign
@@ -63,6 +65,7 @@ const VITAL_FIELDS: VitalField[] = [
     min: 30,
     max: 220,
     step: 1,
+    maxLength: 3,
     normalRange: { min: 60, max: 100, unit: 'bpm' },
     inputFilter: (value: string) => {
       // Allow only numbers
@@ -86,6 +89,7 @@ const VITAL_FIELDS: VitalField[] = [
     placeholder: '120/80',
     icon: Activity,
     type: 'text',
+    maxLength: 7,
     normalRange: { min: 120, max: 80, unit: 'mmHg (systolic/diastolic)' },
     suggestions: ['120/80', '110/70', '130/85', '140/90'],
     inputFilter: (value: string) => {
@@ -100,19 +104,119 @@ const VITAL_FIELDS: VitalField[] = [
     },
     validation: (value: string) => {
       if (!value) return { isValid: true };
+      
+      // Enhanced validation for blood pressure format
       const bpPattern = /^\d{2,3}\/\d{2,3}$/;
-      if (!bpPattern.test(value)) return { isValid: false, message: 'Format: systolic/diastolic (e.g., 120/80)' };
+      if (!bpPattern.test(value)) {
+        return { isValid: false, message: 'Format: systolic/diastolic (e.g., 120/80)' };
+      }
       
-      const [systolic, diastolic] = value.split('/').map(Number);
-      if (systolic < 70 || systolic > 250) return { isValid: false, message: 'Systolic must be 70-250 mmHg' };
-      if (diastolic < 40 || diastolic > 150) return { isValid: false, message: 'Diastolic must be 40-150 mmHg' };
-      if (systolic <= diastolic) return { isValid: false, message: 'Systolic must be higher than diastolic' };
+      const parts = value.split('/');
+      if (parts.length !== 2) {
+        return { isValid: false, message: 'Must contain exactly one "/" separator' };
+      }
       
-      if (systolic >= 180 || diastolic >= 120) return { isValid: true, message: 'Hypertensive crisis - urgent care needed', level: 'error' };
-      if (systolic >= 140 || diastolic >= 90) return { isValid: true, message: 'High blood pressure', level: 'warning' };
-      if (systolic < 90 || diastolic < 60) return { isValid: true, message: 'Low blood pressure', level: 'warning' };
-      if (systolic <= 120 && diastolic <= 80) return { isValid: true, message: 'Normal blood pressure', level: 'info' };
-      return { isValid: true, message: 'Elevated blood pressure', level: 'info' };
+      const [systolicStr, diastolicStr] = parts;
+      const systolic = parseInt(systolicStr);
+      const diastolic = parseInt(diastolicStr);
+      
+      // Check if values are valid numbers
+      if (isNaN(systolic) || isNaN(diastolic)) {
+        return { isValid: false, message: 'Both systolic and diastolic must be numbers' };
+      }
+      
+      // Range validation
+      if (systolic < 70 || systolic > 300) {
+        return { isValid: false, message: 'Systolic pressure must be between 70-300 mmHg' };
+      }
+      if (diastolic < 40 || diastolic > 200) {
+        return { isValid: false, message: 'Diastolic pressure must be between 40-200 mmHg' };
+      }
+      
+      // Logical validation
+      if (systolic <= diastolic) {
+        return { isValid: false, message: 'Systolic pressure must be higher than diastolic' };
+      }
+      
+      // Clinical validation
+      if (systolic >= 180 || diastolic >= 120) {
+        return { isValid: true, message: 'Hypertensive crisis - urgent medical attention needed', level: 'error' };
+      }
+      if (systolic >= 160 || diastolic >= 100) {
+        return { isValid: true, message: 'Stage 2 high blood pressure', level: 'warning' };
+      }
+      if (systolic >= 140 || diastolic >= 90) {
+        return { isValid: true, message: 'Stage 1 high blood pressure', level: 'warning' };
+      }
+      if (systolic >= 130 || diastolic >= 80) {
+        return { isValid: true, message: 'Elevated blood pressure', level: 'info' };
+      }
+      if (systolic < 90 || diastolic < 60) {
+        return { isValid: true, message: 'Low blood pressure (hypotension)', level: 'warning' };
+      }
+      if (systolic <= 120 && diastolic <= 80) {
+        return { isValid: true, message: 'Normal blood pressure', level: 'info' };
+      }
+      
+      return { isValid: true, message: 'Blood pressure recorded', level: 'info' };
+    }
+  },
+  {
+    key: 'blood_sugar',
+    label: 'Blood Sugar',
+    unit: 'mg/dL',
+    placeholder: '100',
+    icon: Droplets,
+    type: 'number',
+    min: 30,
+    max: 600,
+    step: 1,
+    maxLength: 3,
+    normalRange: { min: 70, max: 140, unit: 'mg/dL (fasting/random)' },
+    suggestions: ['90', '100', '110', '120'],
+    inputFilter: (value: string) => {
+      // Allow only numbers
+      return value.replace(/[^0-9]/g, '');
+    },
+    validation: (value: string) => {
+      if (!value) return { isValid: true };
+      const bloodSugar = parseInt(value);
+      if (isNaN(bloodSugar)) return { isValid: false, message: 'Please enter a valid blood sugar level' };
+      if (bloodSugar < 30 || bloodSugar > 600) {
+        return { isValid: false, message: 'Blood sugar must be between 30-600 mg/dL' };
+      }
+      
+      // Critical levels
+      if (bloodSugar < 54) {
+        return { isValid: true, message: 'Severe hypoglycemia - immediate treatment needed', level: 'error' };
+      }
+      if (bloodSugar > 400) {
+        return { isValid: true, message: 'Severe hyperglycemia - seek immediate medical care', level: 'error' };
+      }
+      
+      // Warning levels
+      if (bloodSugar < 70) {
+        return { isValid: true, message: 'Hypoglycemia - low blood sugar', level: 'warning' };
+      }
+      if (bloodSugar > 300) {
+        return { isValid: true, message: 'Very high blood sugar - medical attention advised', level: 'warning' };
+      }
+      if (bloodSugar > 200) {
+        return { isValid: true, message: 'High blood sugar - monitor closely', level: 'warning' };
+      }
+      
+      // Normal ranges (context-dependent)
+      if (bloodSugar >= 70 && bloodSugar <= 100) {
+        return { isValid: true, message: 'Normal fasting blood sugar', level: 'info' };
+      }
+      if (bloodSugar >= 70 && bloodSugar <= 140) {
+        return { isValid: true, message: 'Normal random blood sugar', level: 'info' };
+      }
+      if (bloodSugar > 140 && bloodSugar <= 180) {
+        return { isValid: true, message: 'Elevated blood sugar - consider diabetes screening', level: 'info' };
+      }
+      
+      return { isValid: true, message: 'Blood sugar recorded', level: 'info' };
     }
   },
   {
@@ -125,7 +229,8 @@ const VITAL_FIELDS: VitalField[] = [
     min: 50,
     max: 250,
     step: 1,
-    normalRange: { min: 150, max: 200, unit: 'cm (varies by individual)' },
+    maxLength: 3,
+    normalRange: { min: 150, max: 200, unit: 'cm' },
     inputFilter: (value: string) => {
       // Allow only numbers and one decimal point
       return value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
@@ -150,7 +255,8 @@ const VITAL_FIELDS: VitalField[] = [
     min: 20,
     max: 300,
     step: 0.1,
-    normalRange: { min: 50, max: 90, unit: 'kg (varies by individual)' },
+    maxLength: 5,
+    normalRange: { min: 50, max: 90, unit: 'kg' },
     inputFilter: (value: string) => {
       // Allow only numbers and one decimal point
       return value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
@@ -173,6 +279,7 @@ const VITAL_FIELDS: VitalField[] = [
     icon: Activity,
     type: 'text',
     readonly: true,
+    maxLength: 5,
     normalRange: { min: 18.5, max: 24.9, unit: 'kg/m²' },
     inputFilter: (value: string) => value, // No filtering for readonly field
     validation: (value: string) => {
@@ -198,7 +305,7 @@ const convertVitalsForBackend = (vitals) => {
   
   // Convert numeric fields to proper types, send null for empty values
   const numericFields = [
-    'temperature', 'heart_rate', 'weight', 'height', 'bmi'
+    'temperature', 'heart_rate', 'weight', 'height', 'bmi', 'blood_sugar'
   ];
   
   numericFields.forEach(field => {
@@ -228,6 +335,7 @@ const prepareDiagnosisData = (formData) => {
     height: formData.height || "",
     bmi: formData.bmi || "",
     blood_pressure: formData.blood_pressure || "",
+    blood_sugar: formData.blood_sugar || "",
   };
   
   return diagnosisData;
@@ -244,6 +352,7 @@ const prepareDiagnosisDataWithNumbers = (formData) => {
     height: formData.height && formData.height !== '' ? parseFloat(formData.height) : null,
     bmi: formData.bmi && formData.bmi !== '' ? parseFloat(formData.bmi) : null,
     blood_pressure: formData.blood_pressure || "",
+    blood_sugar: formData.blood_sugar && formData.blood_sugar !== '' ? parseInt(formData.blood_sugar) : null,
   };
   
   return diagnosisData;
@@ -272,6 +381,11 @@ const VitalInput = ({ field, value, onChange, error, showSuggestions }) => {
   const IconComponent = field.icon;
 
   const handleInputChange = (inputValue) => {
+    // Apply maxLength constraint
+    if (field.maxLength && inputValue.length > field.maxLength) {
+      inputValue = inputValue.substring(0, field.maxLength);
+    }
+    
     // Apply input filter if available
     const filteredValue = field.inputFilter ? field.inputFilter(inputValue) : inputValue;
     onChange(filteredValue);
@@ -303,7 +417,13 @@ const VitalInput = ({ field, value, onChange, error, showSuggestions }) => {
     
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
-    const filteredText = field.inputFilter ? field.inputFilter(pastedText) : pastedText;
+    let filteredText = field.inputFilter ? field.inputFilter(pastedText) : pastedText;
+    
+    // Apply maxLength constraint
+    if (field.maxLength && filteredText.length > field.maxLength) {
+      filteredText = filteredText.substring(0, field.maxLength);
+    }
+    
     onChange(filteredText);
   };
 
@@ -359,6 +479,7 @@ const VitalInput = ({ field, value, onChange, error, showSuggestions }) => {
           autoComplete="off"
           spellCheck="false"
           readOnly={field.readonly}
+          maxLength={field.maxLength}
         />
         
         {/* Status Icon */}
@@ -481,12 +602,7 @@ export default function VitalsSection({ vitals, onChange }) {
           <span className="text-sm font-medium text-gray-700">{status.message}</span>
         </div>
         
-        <button
-          onClick={() => setShowSuggestions(!showSuggestions)}
-          className="text-sm text-blue-600 hover:text-blue-800"
-        >
-          {showSuggestions ? 'Hide' : 'Show'} suggestions
-        </button>
+      
       </div>
 
       {/* Vital Signs Grid */}

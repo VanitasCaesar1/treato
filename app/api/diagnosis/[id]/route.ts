@@ -3,10 +3,13 @@ import { api } from '@/lib/api';
 import { withAuth } from '@workos-inc/authkit-nextjs';
 
 /**
- * GET /api/diagnosis
- * Retrieves diagnosis by appointment_id as query parameter
+ * GET /api/diagnosis/[id]
+ * Retrieves diagnosis by appointment_id from URL path parameter
  */
-export async function GET(req: NextRequest) {
+export async function GET(
+  req: NextRequest, 
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     // Get auth data from WorkOS
     const { user, organizationId, role } = await withAuth();
@@ -17,16 +20,19 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Get query parameters from URL
+    // ✅ FIX: Await the params promise and use 'id' to match [id] folder name
+    const resolvedParams = await params;
+    const appointmentId = resolvedParams.id;
+    
+    // Get other query parameters from URL (for pagination, etc.)
     const searchParams = req.nextUrl.searchParams;
-    const appointmentId = searchParams.get('appointment_id');
     const page = searchParams.get('page') || '1';
     const limit = searchParams.get('limit') || '10';
 
     // DEBUG: Log all received parameters
     console.log('=== DIAGNOSIS GET REQUEST DEBUG ===');
     console.log('Full URL:', req.nextUrl.toString());
-    console.log('Query parameter appointment_id:', appointmentId);
+    console.log('Path parameter appointmentId:', appointmentId);
     console.log('Query parameters:');
     for (const [key, value] of searchParams.entries()) {
       console.log(` ${key}: ${value}`);
@@ -34,25 +40,17 @@ export async function GET(req: NextRequest) {
 
     // Check if appointment_id is provided
     if (!appointmentId) {
-      console.error('❌ Missing required appointment_id parameter!');
+      console.error('❌ Missing required appointmentId path parameter!');
       return NextResponse.json(
         {
-          error: 'appointment_id parameter is required',
-          details: 'appointment_id must be provided as a query parameter'
+          error: 'appointmentId parameter is required',
+          details: 'appointmentId must be provided as a path parameter'
         },
         { status: 400 }
       );
     }
 
     console.log('✅ Proceeding with backend request...');
-
-    // Prepare query parameters
-    const queryParams = {
-      appointment_id: appointmentId,
-      page,
-      limit,
-      org_id: organizationId
-    };
 
     const requestOptions = {
       headers: {
@@ -62,10 +60,11 @@ export async function GET(req: NextRequest) {
       }
     };
 
-    // Forward the request to the backend
+    // Forward the request to the backend using path parameter
+    // Backend expects: GET /api/diagnosis/:id
     const response = await api.get(
-      `/api/diagnosis`, 
-      queryParams,
+      `/api/diagnosis/${appointmentId}`, 
+      {}, // No query params needed for the main request
       requestOptions
     );
 
@@ -139,59 +138,6 @@ export async function GET(req: NextRequest) {
       const status = error.response.status;
       const errorMessage = error.response.data?.error || 'Failed to retrieve diagnosis';
       console.error(`Backend error ${status}:`, errorMessage);
-      return NextResponse.json(
-        { error: errorMessage },
-        { status }
-      );
-    }
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * POST /api/diagnosis
- * Creates a new diagnosis
- */
-export async function POST(req: NextRequest) {
-  try {
-    const { user, organizationId, role } = await withAuth();
-    if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
-
-    const body = await req.json();
-
-    // Forward the request to the backend
-    const response = await api.post(`/api/diagnosis`, body, {
-      headers: {
-        'X-User-ID': user.id,
-        'X-Organization-ID': organizationId,
-        'X-User-Role': role,
-      }
-    });
-
-    return NextResponse.json(response.data);
-
-  } catch (error: any) {
-    console.error('Error creating diagnosis:', error);
-
-    if (error.code === 'AUTH_REQUIRED') {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    if (error.response) {
-      const status = error.response.status;
-      const errorMessage = error.response.data?.error || 'Failed to create diagnosis';
       return NextResponse.json(
         { error: errorMessage },
         { status }
