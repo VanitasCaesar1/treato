@@ -51,7 +51,7 @@ export async function GET(req, { params }) {
     console.log(`[DoctorAppointments:${requestId}] Auth completed:`, {
       userPresent: !!user,
       orgIdPresent: !!organizationId,
-      doctorId: params.id
+      userExternalId: user?.externalId
     });
     
     // Validate authentication
@@ -59,12 +59,12 @@ export async function GET(req, { params }) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 });
     }
     
-    // Get and validate doctor ID from params
-    const doctorId = params.id;
+    // Get doctor ID from user's external_id instead of params
+    const doctorId = user.externalId;
     if (!doctorId) {
       return NextResponse.json({ 
-        error: "Missing doctor ID",
-        details: "Doctor ID is required in the URL path"
+        error: "No doctor ID found",
+        details: "Doctor ID not found in user profile"
       }, { status: 400 });
     }
     

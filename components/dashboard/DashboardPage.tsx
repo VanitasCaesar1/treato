@@ -299,143 +299,157 @@ const Dashboard = () => {
   }, []);
 
   // Fetch appointments with improved error handling
-  const fetchAppointments = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setErrorDetails(null);
+  // Modified fetchAppointments function to use doctor-specific API
+const fetchAppointments = useCallback(async () => {
+  setLoading(true);
+  setError(null);
+  setErrorDetails(null);
+  
+  try {
+    const queryParams = new URLSearchParams();
     
-    try {
-      const queryParams = new URLSearchParams();
-      
-      // Get organization ID
-      const orgId = getOrganizationId();
-      if (orgId) {
-        queryParams.append("orgId", orgId);
-      } else {
-        console.warn('No organization ID found in storage');
-      }
-      
-      // Set date range for today
-      const today = new Date().toISOString().split("T")[0];
-      queryParams.append("startDate", today);
-      queryParams.append("endDate", today);
-
-      // Pagination
-      queryParams.append("limit", pagination.limit.toString());
-      queryParams.append("offset", pagination.offset.toString());
-      
-      console.log("Fetching appointments with params:", queryParams.toString());
-      
-      const response = await fetch(`/api/appointments?${queryParams.toString()}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add any additional headers if needed
-        },
-        credentials: 'same-origin', // Include cookies for auth
-      });
-      
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        let errorData = null;
-        
-        try {
-          errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (jsonError) {
-          console.warn('Could not parse error response as JSON:', jsonError);
-          // If we can't parse JSON, try to get text
-          try {
-            const textResponse = await response.text();
-            console.log('Error response text:', textResponse);
-            if (textResponse) {
-              errorMessage = textResponse;
-            }
-          } catch (textError) {
-            console.warn('Could not parse error response as text:', textError);
-          }
-        }
-        
-        throw new Error(errorMessage);
-      }
-      
-      const data = await response.json();
-      console.log("Appointments data received:", data);
-      
-      // Handle different response structures
-      let appointmentsArray = [];
-      if (data.appointments && Array.isArray(data.appointments)) {
-        appointmentsArray = data.appointments;
-      } else if (data.data && Array.isArray(data.data)) {
-        appointmentsArray = data.data;
-      } else if (Array.isArray(data)) {
-        appointmentsArray = data;
-      } else {
-        console.warn('Unexpected response structure:', data);
-        appointmentsArray = [];
-      }
-      
-      const processedAppointments = processAppointments({ appointments: appointmentsArray });
-      setAppointments(processedAppointments);
-      
-      // Update pagination
-      const totalCount = data.pagination?.total || data.total || data.count || processedAppointments.length;
-      setPagination(prev => ({
-        ...prev,
-        total: totalCount,
-        hasMore: processedAppointments.length === pagination.limit &&
-                (pagination.offset + processedAppointments.length) < totalCount
-      }));
-      
-      // Update stats
-      updateStats(processedAppointments, data.stats);
-      
-    } catch (err: any) {
-      console.error("Error fetching appointments:", err);
-      const errorMessage = err.message || "Failed to fetch appointments";
-      setError(errorMessage);
-      
-      // Set specific error details based on error type
-      if (errorMessage.includes("401") || errorMessage.includes("Unauthorized") || errorMessage.includes("AUTH_REQUIRED")) {
-        setErrorDetails({
-          title: "Authentication Error",
-          description: "You need to be logged in to access this data. Please refresh the page or log in again."
-        });
-      } else if (errorMessage.includes("403") || errorMessage.includes("Forbidden")) {
-        setErrorDetails({
-          title: "Access Denied",
-          description: "You don't have permission to access this data. Please contact your administrator."
-        });
-      } else if (errorMessage.includes("404") || errorMessage.includes("Not Found")) {
-        setErrorDetails({
-          title: "Service Not Found",
-          description: "The appointments service could not be found. Please check your configuration."
-        });
-      } else if (errorMessage.includes("500") || errorMessage.includes("Internal Server Error")) {
-        setErrorDetails({
-          title: "Server Error",
-          description: "There was an internal server error. Please try again later."
-        });
-      } else if (errorMessage.includes("Network Error") || errorMessage.includes("fetch")) {
-        setErrorDetails({
-          title: "Network Error",
-          description: "Could not connect to the server. Please check your internet connection."
-        });
-      } else {
-        setErrorDetails({
-          title: "Unknown Error",
-          description: errorMessage
-        });
-      }
-      
-      setAppointments([]);
-    } finally {
-      setLoading(false);
+    // Get organization ID
+    const orgId = getOrganizationId();
+    if (orgId) {
+      queryParams.append("orgId", orgId);
+    } else {
+      console.warn('No organization ID found in storage');
     }
-  }, [pagination.limit, pagination.offset, processAppointments, updateStats, getOrganizationId]);
+    
+    // Get doctor ID (you'll need to store this in storage or get from user context)
+    const doctorId = sessionStorage.getItem('doctorId') || 
+                    localStorage.getItem('doctorId') || 
+                    sessionStorage.getItem('currentDoctorId') ||
+                    localStorage.getItem('currentDoctorId');
+    
+    if (!doctorId) {
+      throw new Error('Doctor ID not found. Please ensure you are logged in as a doctor.');
+    }
+    
+    // Set date range for today
+    const today = new Date().toISOString().split("T")[0];
+    queryParams.append("startDate", today);
+    queryParams.append("endDate", today);
+
+    // Pagination
+    queryParams.append("limit", pagination.limit.toString());
+    queryParams.append("offset", pagination.offset.toString());
+    
+    console.log("Fetching appointments with params:", queryParams.toString());
+    
+    // Use the doctor-specific API route
+    const response = await fetch(`/api/appointments/doctor/${doctorId}?${queryParams.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'same-origin',
+    });
+    
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      let errorData = null;
+      
+      try {
+        errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch (jsonError) {
+        console.warn('Could not parse error response as JSON:', jsonError);
+        try {
+          const textResponse = await response.text();
+          console.log('Error response text:', textResponse);
+          if (textResponse) {
+            errorMessage = textResponse;
+          }
+        } catch (textError) {
+          console.warn('Could not parse error response as text:', textError);
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    const data = await response.json();
+    console.log("Appointments data received:", data);
+    
+    // Handle the response structure from your doctor API
+    let appointmentsArray = [];
+    if (data.appointments && Array.isArray(data.appointments)) {
+      appointmentsArray = data.appointments;
+    } else if (data.data && Array.isArray(data.data)) {
+      appointmentsArray = data.data;
+    } else if (Array.isArray(data)) {
+      appointmentsArray = data;
+    } else {
+      console.warn('Unexpected response structure:', data);
+      appointmentsArray = [];
+    }
+    
+    const processedAppointments = processAppointments({ appointments: appointmentsArray });
+    setAppointments(processedAppointments);
+    
+    // Update pagination from the doctor API response
+    const paginationData = data.pagination || {};
+    setPagination(prev => ({
+      ...prev,
+      total: paginationData.total || processedAppointments.length,
+      hasMore: paginationData.hasMore || false
+    }));
+    
+    // Update stats
+    updateStats(processedAppointments, data.stats);
+    
+  } catch (err) {
+    console.error("Error fetching appointments:", err);
+    const errorMessage = err.message || "Failed to fetch appointments";
+    setError(errorMessage);
+    
+    // Set specific error details based on error type
+    if (errorMessage.includes("401") || errorMessage.includes("Unauthorized") || errorMessage.includes("AUTH_REQUIRED")) {
+      setErrorDetails({
+        title: "Authentication Error",
+        description: "You need to be logged in to access this data. Please refresh the page or log in again."
+      });
+    } else if (errorMessage.includes("403") || errorMessage.includes("Forbidden")) {
+      setErrorDetails({
+        title: "Access Denied",
+        description: "You don't have permission to access this data. Please contact your administrator."
+      });
+    } else if (errorMessage.includes("404") || errorMessage.includes("Not Found")) {
+      setErrorDetails({
+        title: "Service Not Found",
+        description: "The appointments service could not be found. Please check your configuration."
+      });
+    } else if (errorMessage.includes("Doctor ID not found")) {
+      setErrorDetails({
+        title: "Doctor ID Missing",
+        description: "Could not identify the current doctor. Please log in again or contact support."
+      });
+    } else if (errorMessage.includes("500") || errorMessage.includes("Internal Server Error")) {
+      setErrorDetails({
+        title: "Server Error",
+        description: "There was an internal server error. Please try again later."
+      });
+    } else if (errorMessage.includes("Network Error") || errorMessage.includes("fetch")) {
+      setErrorDetails({
+        title: "Network Error",
+        description: "Could not connect to the server. Please check your internet connection."
+      });
+    } else {
+      setErrorDetails({
+        title: "Unknown Error",
+        description: errorMessage
+      });
+    }
+    
+    setAppointments([]);
+  } finally {
+    setLoading(false);
+  }
+}, [pagination.limit, pagination.offset, processAppointments, updateStats, getOrganizationId]);
 
   // Handle page change
   const loadMore = useCallback(() => {

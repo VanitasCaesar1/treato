@@ -2,19 +2,294 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, ArrowLeft, ChevronDown, ChevronUp, Save, Printer, User, Stethoscope, Calendar } from "lucide-react";
+import { AlertCircle, ArrowLeft, ChevronDown, ChevronUp, Save, Printer, User, Stethoscope, Calendar, Star } from "lucide-react";
 import { PrescriptionPDF, createPrescriptionData } from '@/components/diagnosis/PrescriptionPDF';
 import TreatmentPlan from "@/components/diagnosis/TreatmentPlanSection";
 import DiagnosisSection from '@/components/diagnosis/DiagnosisSection'
 import VitalsSection from "@/components/diagnosis/VitalsSection";
 import SymptomsSection from "@/components/diagnosis/SymptomsSection";
-import { 
-  SpecializationSection, 
-  getSpecializationConfig, 
-  useSpecializationData 
-} from './SpecializationImports'
+import DermatologySection from "@/components/diagnosis/DermatologySection";
+import CardiologySection from "@/components/diagnosis/CardiologySection";
+import OrthopedicsSection from "@/components/diagnosis/OrthopedicsSection";
+import NeurologySection from "@/components/diagnosis/NeurologySection";
+import PsychiatrySection from "@/components/diagnosis/PsychiatrySection";
 
-// Hooks
+// ===== SPECIALIZATION CONFIGURATION =====
+const SPECIALIZATION_CONFIG = {
+  'dermatology': {
+    component: DermatologySection,
+    icon: '🧴',
+    title: 'Dermatology Assessment',
+    description: 'Skin conditions, lesions, and dermatological examination',
+    fields: ['lesion_description', 'distribution', 'skin_color_changes', 'affected_areas']
+  },
+  'dermatologist': {
+    component: DermatologySection,
+    icon: '🧴',
+    title: 'Dermatology Assessment',
+    description: 'Skin conditions, lesions, and dermatological examination',
+    fields: ['lesion_description', 'distribution', 'skin_color_changes', 'affected_areas']
+  },
+  'cardiology': {
+    component: CardiologySection,
+    icon: '❤️',
+    title: 'Cardiac Assessment',
+    description: 'Heart conditions, ECG findings, and cardiovascular examination',
+    fields: ['ecg_findings', 'heart_sounds', 'chest_pain_assessment', 'cardiac_risk_factors']
+  },
+  'cardiologist': {
+    component: CardiologySection,
+    icon: '❤️',
+    title: 'Cardiac Assessment',
+    description: 'Heart conditions, ECG findings, and cardiovascular examination',
+    fields: ['ecg_findings', 'heart_sounds', 'chest_pain_assessment', 'cardiac_risk_factors']
+  },
+  'neurology': {
+    component: NeurologySection,
+    icon: '🧠',
+    title: 'Neurological Assessment',
+    description: 'Neurological examination, reflexes, and cognitive assessment',
+    fields: ['neurological_exam', 'reflexes', 'cognitive_status', 'motor_function']
+  },
+  'neurologist': {
+    component: NeurologySection,
+    icon: '🧠',
+    title: 'Neurological Assessment',
+    description: 'Neurological examination, reflexes, and cognitive assessment',
+    fields: ['neurological_exam', 'reflexes', 'cognitive_status', 'motor_function']
+  },
+  'orthopedics': {
+    component: OrthopedicsSection,
+    icon: '🦴',
+    title: 'Orthopedic Assessment',
+    description: 'Musculoskeletal examination, joint mobility, and bone health',
+    fields: ['joint_examination', 'range_of_motion', 'muscle_strength', 'gait_analysis']
+  },
+  'orthopedist': {
+    component: OrthopedicsSection,
+    icon: '🦴',
+    title: 'Orthopedic Assessment',
+    description: 'Musculoskeletal examination, joint mobility, and bone health',
+    fields: ['joint_examination', 'range_of_motion', 'muscle_strength', 'gait_analysis']
+  },
+  'psychiatry': {
+    component: PsychiatrySection,
+    icon: '🧠',
+    title: 'Psychiatric Assessment',
+    description: 'Mental health evaluation and psychological assessment',
+    fields: ['mental_status', 'mood_assessment', 'cognitive_function', 'risk_assessment']
+  },
+  'psychiatrist': {
+    component: PsychiatrySection,
+    icon: '🧠',
+    title: 'Psychiatric Assessment',
+    description: 'Mental health evaluation and psychological assessment',
+    fields: ['mental_status', 'mood_assessment', 'cognitive_function', 'risk_assessment']
+  },
+};
+
+// Fixed specialization utility functions
+const getSpecializationConfig = (specialization) => {
+  if (!specialization) return null;
+  
+  let normalized;
+  
+  // Handle different data types
+  if (typeof specialization === 'string') {
+    normalized = specialization.toLowerCase().trim();
+  } else if (typeof specialization === 'object' && specialization !== null) {
+    // Try different possible property names
+    const possibleKeys = ['name', 'type', 'primary', 'title', 'specialty'];
+    let found = false;
+    
+    for (const key of possibleKeys) {
+      if (specialization[key]) {
+        normalized = String(specialization[key]).toLowerCase().trim();
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      // If it's an object but no recognized keys, convert to string
+      normalized = String(specialization).toLowerCase().trim();
+    }
+  } else {
+    normalized = String(specialization).toLowerCase().trim();
+  }
+  
+  // Handle edge cases
+  if (!normalized || 
+      normalized === '[object object]' || 
+      normalized === 'undefined' || 
+      normalized === 'null' ||
+      normalized === 'nan') {
+    return null;
+  }
+  
+  // Check for exact matches first
+  if (SPECIALIZATION_CONFIG[normalized]) {
+    return SPECIALIZATION_CONFIG[normalized];
+  }
+  
+  // Check for partial matches (e.g., if someone enters "cardiac" for "cardiology")
+  const partialMatches = Object.keys(SPECIALIZATION_CONFIG).filter(key => 
+    key.includes(normalized) || normalized.includes(key)
+  );
+  
+  if (partialMatches.length > 0) {
+    return SPECIALIZATION_CONFIG[partialMatches[0]];
+  }
+  
+  return null;
+};
+// Enhanced function to extract specialization from doctor data
+const getSpecializationFromDoctor = (doctorData) => {
+  if (!doctorData) return null;
+  
+  console.log('🔍 Extracting specialization from doctor data:', doctorData);
+  
+  // Try multiple possible field names and structures
+  const possiblePaths = [
+    // Direct string fields
+    'specialization',
+    'Specialization', 
+    'specialty',
+    'Specialty',
+    'department',
+    'Department',
+    'field',
+    'Field',
+    
+    // Nested object fields
+    'specialization.primary',
+    'specialization.name',
+    'specialization.type',
+    'Specialization.primary',
+    'Specialization.name',
+    'Specialization.type',
+    'specialty.primary',
+    'specialty.name',
+    'specialty.type',
+  ];
+  
+  for (const path of possiblePaths) {
+    const value = getNestedValue(doctorData, path);
+    if (value && typeof value === 'string' && value.trim()) {
+      console.log(`✅ Found specialization at path '${path}':`, value);
+      return value.trim();
+    }
+  }
+  
+  console.log('❌ No specialization found in doctor data');
+  return null;
+};
+
+// Helper function to get nested object values
+const getNestedValue = (obj, path) => {
+  if (!obj || !path) return null;
+  
+  const keys = path.split('.');
+  let current = obj;
+  
+  for (const key of keys) {
+    if (current && typeof current === 'object' && key in current) {
+      current = current[key];
+    } else {
+      return null;
+    }
+  }
+  
+  return current;
+};
+
+
+// Enhanced SpecializationWrapper component
+const SpecializationWrapper = ({ doctorData, specializationData, onSpecializationChange }) => {
+  const specialization = getSpecializationFromDoctor(doctorData);
+  const config = getSpecializationConfig(specialization);
+
+  console.log('🔬 SpecializationWrapper Debug:', {
+    doctorData: doctorData,
+    extractedSpecialization: specialization,
+    config: config,
+    specializationData: specializationData,
+    availableConfigs: Object.keys(SPECIALIZATION_CONFIG)
+  });
+
+  // If no specialization found in doctor data, show debug info
+  if (!specialization) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-2xl flex items-center justify-center">
+          <Star className="h-8 w-8 text-gray-400" />
+        </div>
+        <p className="text-gray-600 font-medium mb-2">No specialization information found</p>
+        <details className="text-xs text-gray-500 mt-4">
+          <summary className="cursor-pointer">Debug Info</summary>
+          <div className="mt-2 p-2 bg-gray-50 rounded text-left">
+            <p><strong>Doctor Data Keys:</strong> {Object.keys(doctorData || {}).join(', ')}</p>
+            <p><strong>Available Specializations:</strong> {Object.keys(SPECIALIZATION_CONFIG).join(', ')}</p>
+          </div>
+        </details>
+      </div>
+    );
+  }
+
+  // If specialization found but no config, show coming soon
+  if (!config) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-16 h-16 mx-auto mb-4 bg-purple-100 rounded-2xl flex items-center justify-center">
+          <Star className="h-8 w-8 text-purple-400" />
+        </div>
+        <h4 className="font-semibold text-lg mb-2 text-gray-800">
+          {specialization.charAt(0).toUpperCase() + specialization.slice(1)}
+        </h4>
+        <p className="text-gray-600 mb-2">
+          Specialized assessment tools for this field are coming soon.
+        </p>
+        <p className="text-sm text-purple-600 font-medium">
+          Currently using general assessment
+        </p>
+        <details className="text-xs text-gray-500 mt-4">
+          <summary className="cursor-pointer">Debug Info</summary>
+          <div className="mt-2 p-2 bg-gray-50 rounded text-left">
+            <p><strong>Found Specialization:</strong> "{specialization}"</p>
+            <p><strong>Available Configs:</strong> {Object.keys(SPECIALIZATION_CONFIG).join(', ')}</p>
+          </div>
+        </details>
+      </div>
+    );
+  }
+
+
+  // Render the specialization component
+  const SpecializationComponent = config.component;
+
+  return (
+    <div>
+      <div className="mb-6 p-4 bg-purple-50 rounded-xl border border-purple-100">
+        <div className="flex items-center mb-2">
+          <span className="text-2xl mr-2">{config.icon}</span>
+          <h4 className="font-semibold text-purple-800 text-lg">
+            {config.title}
+          </h4>
+        </div>
+        <p className="text-sm text-purple-600">
+          {config.description}
+        </p>
+      </div>
+      <SpecializationComponent
+        data={specializationData || {}}
+        onChange={onSpecializationChange}
+        doctorInfo={doctorData}
+      />
+    </div>
+  );
+};
+
+// ===== HOOKS =====
 const useURLParams = () => {
   const [params, setParams] = useState({});
   useEffect(() => {
@@ -31,7 +306,7 @@ const useRouter = () => ({
   push: (url) => window && (window.location.href = url)
 });
 
-// Types & Constants
+// ===== TYPES & CONSTANTS =====
 interface DiagnosisFormData {
   appointment_id: string; 
   patient_id: string; 
@@ -53,7 +328,6 @@ interface DiagnosisFormData {
 const DEFAULT_FORM: DiagnosisFormData = {
   appointment_id: "", patient_id: "", doctor_id: "", org_id: "",
   vitals: { timestamp: new Date().toISOString() },
-  // Updated to match SymptomsSection format
   symptoms: [{ id: Date.now(), name: "", severity: "moderate" }],
   diagnosis_info: [{ condition: "", code: "", notes: "" }],
   status: "draft", notes: "",
@@ -73,7 +347,7 @@ const SECTIONS = {
   notes: { icon: "✏️", title: "Additional Notes" }
 };
 
-// Utility Functions
+// ===== UTILITY FUNCTIONS =====
 class APIError extends Error {
   status?: number;
   constructor(message: string, status?: number) {
@@ -106,7 +380,7 @@ const fetchExistingDiagnosis = async (appointmentId: string) => {
   }
 };
 
-// Updated transformation functions with proper symptom mapping
+// Transform diagnosis data to form format
 const transformDiagnosisToForm = (diagnosis: any): DiagnosisFormData => {
   const vitals = diagnosis.vitals || {
     temperature: diagnosis.temperature,
@@ -117,7 +391,6 @@ const transformDiagnosisToForm = (diagnosis: any): DiagnosisFormData => {
     timestamp: diagnosis.created_at || new Date().toISOString()
   };
 
-  // Transform backend symptoms to match SymptomsSection format
   let symptoms = [];
   if (diagnosis.symptoms?.length) {
     symptoms = diagnosis.symptoms.map((symptom, index) => ({
@@ -149,6 +422,29 @@ const transformDiagnosisToForm = (diagnosis: any): DiagnosisFormData => {
     duration: med.duration || "", instructions: med.instructions || "", route: med.route || "oral"
   })) || [];
 
+  // Parse specialization data
+  let specializationData = {};
+  let specializationType = "";
+    // Try to extract specialization type
+  if (diagnosis.specialty) {
+    specializationType = diagnosis.specialty;
+  } else if (diagnosis.doctor_specialty) {
+    specializationType = diagnosis.doctor_specialty;
+  }
+
+   if (diagnosis.specialty_data) {
+    try {
+      if (typeof diagnosis.specialty_data === 'string') {
+        specializationData = JSON.parse(diagnosis.specialty_data);
+      } else if (typeof diagnosis.specialty_data === 'object') {
+        specializationData = diagnosis.specialty_data;
+      }
+    } catch (e) {
+      console.warn('Failed to parse specialty_data:', e);
+      specializationData = {};
+    }
+  }
+
   return {
     appointment_id: diagnosis.appointment_id || "",
     patient_id: diagnosis.patient_id || "",
@@ -164,39 +460,42 @@ const transformDiagnosisToForm = (diagnosis: any): DiagnosisFormData => {
       referrals: diagnosis.referrals || [], lab_orders: diagnosis.lab_orders || []
     },
     specialization: {
-      type: diagnosis.specialty || "",
-      data: diagnosis.specialty_data || {}
+      type: specializationType,
+      data: specializationData
     }
   };
 };
 
+// ===== COMPONENTS =====
+// Enhanced CollapsibleSection for specialization
 const CollapsibleSection = ({ sectionKey, section, isOpen, onToggle, children, doctorData }) => {
-  // For specialization section, check if we should show it
+  // Special handling for specialization section
   if (sectionKey === 'specialization') {
-    const config = getSpecializationConfig(
-      doctorData?.specialization?.primary || 
-      doctorData?.Specialization?.primary ||
-      doctorData?.specialization ||
-      doctorData?.Specialization ||
-      doctorData?.specialty
-    );
-    
-    if (!config) {
-      return null; // Don't render if no matching specialization
-    }
-    
-    // Update section info with dynamic data
-    section = {
-      ...section,
-      icon: config.icon,
-      title: config.title,
-      description: config.description
-    };
-  }
+    const specialization = getSpecializationFromDoctor(doctorData);
+    const config = getSpecializationConfig(specialization);
 
-  return (
+    if (config) {
+      section = {
+        ...section,
+        icon: config.icon,
+        title: config.title,
+        description: config.description
+      };
+    } else {
+      section = {
+        ...section,
+        icon: "🔬",
+        title: specialization ? `${specialization.charAt(0).toUpperCase() + specialization.slice(1)} Assessment` : "Specialization Assessment",
+        description: specialization ? `Assessment tools for ${specialization}` : "Specialized medical assessment"
+      };
+    }
+  }
+return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      <button onClick={onToggle} className="w-full p-6 flex items-center justify-between hover:bg-gray-50 transition-colors">
+      <button 
+        onClick={onToggle} 
+        className="w-full p-6 flex items-center justify-between hover:bg-gray-50 transition-colors"
+      >
         <div className="flex items-center space-x-3">
           <span className="text-2xl">{section.icon}</span>
           <div className="text-left">
@@ -207,20 +506,27 @@ const CollapsibleSection = ({ sectionKey, section, isOpen, onToggle, children, d
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          {sectionKey === 'specialization' && doctorData?.specialization && (
+          {sectionKey === 'specialization' && doctorData && (
             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-              {doctorData.specialization.primary || doctorData.specialization}
+              {getSpecializationFromDoctor(doctorData) || "General"}
             </span>
           )}
-          {isOpen ? <ChevronUp className="h-5 w-5 text-gray-500" /> : <ChevronDown className="h-5 w-5 text-gray-500" />}
+          {isOpen ? (
+            <ChevronUp className="h-5 w-5 text-gray-500" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-gray-500" />
+          )}
         </div>
       </button>
-      {isOpen && <div className="p-6 pt-0 border-t border-gray-100">{children}</div>}
+      {isOpen && (
+        <div className="p-6 pt-0 border-t border-gray-100">
+          {children}
+        </div>
+      )}
     </div>
   );
 };
 
-// ✅ ALSO FIX: Update the NotesSection to ensure proper state management
 const NotesSection = ({ notes, onChange }) => {
   const handleNotesChange = (value) => {
     console.log('📝 Notes changed:', { value, length: value.length });
@@ -263,7 +569,7 @@ const PrescriptionHeader = ({ appointmentData, doctorData }) => (
       <div className="text-right">
         <p className="text-sm text-gray-500">Doctor</p>
         <p className="font-medium text-gray-800">{doctorData?.name || "Loading..."}</p>
-        <p className="text-sm text-gray-500">{doctorData?.specialization?.primary || ""}</p>
+        <p className="text-sm text-gray-500">{getSpecializationFromDoctor(doctorData) || ""}</p>
       </div>
     </div>
   </div>
@@ -333,18 +639,17 @@ const ActionButtons = ({ submitting, onBack, onSave, prescriptionData }) => (
   </div>
 );
 
-// Updated transform function to work with SymptomsSection format
+// Transform form data for API
 const transformDiagnosisData = (form, appointmentData, doctorData, patientData) => {
-  // Transform symptoms from SymptomsSection format to backend format
   const symptoms = form.symptoms
-    ?.filter(s => s.name?.trim()) // Filter based on 'name' field
+    ?.filter(s => s.name?.trim())
     .map((s, index) => ({
       symptom_id: s.id || index + 1,
       name: s.name || "",
-      description: s.name || "", // Use name as description
+      description: s.name || "",
       severity: s.severity || "moderate",
-      category: "General", // Default category since SymptomsSection doesn't have categories
-      onset_date: null, // SymptomsSection doesn't have onset date
+      category: "General",
+      onset_date: null,
       duration: null,
       location: null,
       notes: null,
@@ -356,7 +661,6 @@ const transformDiagnosisData = (form, appointmentData, doctorData, patientData) 
 
   console.log('🔍 Frontend sending symptoms as structured objects:', symptoms);
 
-  // Enhanced symptom data for detailed tracking
   const symptomTimeline = symptoms.map(s => ({
     symptom_name: s.name,
     onset_date: null,
@@ -378,7 +682,7 @@ const transformDiagnosisData = (form, appointmentData, doctorData, patientData) 
       moderate: symptoms.filter(s => s.severity === 'moderate').length,
       severe: symptoms.filter(s => s.severity === 'severe').length
     },
-    categories: ["General"], // Default since SymptomsSection doesn't have categories
+    categories: ["General"],
     locations: [],
     avg_pain_scale: null,
     last_updated: new Date().toISOString()
@@ -394,8 +698,6 @@ const transformDiagnosisData = (form, appointmentData, doctorData, patientData) 
   })) || [];
 
   const validDiagnoses = form.diagnosis_info?.filter(d => d.condition?.trim()) || [];
-  
-  // ✅ FIX: Ensure clinical notes are properly handled
   const clinicalNotes = form.notes || form.clinical_notes || "";
   
   console.log('📝 Frontend clinical notes processing:', {
@@ -404,25 +706,25 @@ const transformDiagnosisData = (form, appointmentData, doctorData, patientData) 
     final_clinical_notes: clinicalNotes,
     notes_length: clinicalNotes.length
   });
+
+  // Handle specialization data
+  const specializationData = form.specialization?.data || {};
+  const specializationType = form.specialization?.type || getSpecializationFromDoctor(doctorData) || "";
   
   return {
-    // Basic IDs
     appointment_id: form.appointment_id,
     patient_id: form.patient_id,
     doctor_id: form.doctor_id,
     org_id: form.org_id || "",
     status: form.status || "finalized",
     
-    // Patient info
     patient_name: appointmentData?.patient_name || patientData?.name || "",
     patient_age: patientData?.age || null,
     patient_gender: patientData?.gender || "",
     
-    // Doctor info
     doctor_name: doctorData?.name || "",
-    doctor_specialty: doctorData?.specialization?.primary || "",
+    doctor_specialty: getSpecializationFromDoctor(doctorData) || "",
     
-    // Vitals as strings (as your backend expects)
     temperature: form.vitals?.temperature?.toString() || "",
     blood_pressure: form.vitals?.blood_pressure?.toString() || "",
     heart_rate: form.vitals?.heart_rate?.toString() || "",
@@ -432,55 +734,45 @@ const transformDiagnosisData = (form, appointmentData, doctorData, patientData) 
     respiratory_rate: form.vitals?.respiratory_rate?.toString() || "",
     oxygen_saturation: form.vitals?.oxygen_saturation?.toString() || "",
     
-    // Symptoms as proper objects
     symptoms: symptoms,
-    
-    // Complaints based on first symptom
     chief_complaint: symptoms[0]?.name || "",
     primary_complaint: symptoms[0]?.name || "",
     
-    // Enhanced symptom data as JSON strings for detailed tracking
     symptom_timeline: JSON.stringify(symptomTimeline),
     symptom_summary: JSON.stringify(symptomSummary),
     symptom_categories: ["General"],
     
-    // Optional enhanced symptom fields (can be null)
     symptom_triggers: null,
     symptom_relieving_factors: null,
     symptom_quality_details: null,
     symptom_progression: null,
     symptom_radiation_patterns: null,
     
-    // ✅ FIX: Physical exam and clinical notes - ensure both are sent
     physical_exam: clinicalNotes,
     clinical_notes: clinicalNotes,
-    notes: clinicalNotes, // Send as 'notes' as well for compatibility
+    notes: clinicalNotes,
     
-    // Diagnosis
     primary_diagnosis: validDiagnoses[0]?.condition || "Pending diagnosis",
     secondary_diagnoses: validDiagnoses.slice(1).map(d => d.condition.trim()).filter(Boolean),
     icd_codes: validDiagnoses.map(d => d.code).filter(Boolean),
     
-    // Treatment
     medications,
     procedures: form.treatment_plan?.procedures || [],
     recommendations: form.treatment_plan?.lifestyle_changes?.filter(Boolean).join('; ') || "",
     
-    // Follow-up
     follow_up_date: form.treatment_plan?.follow_up?.date || null,
     follow_up_notes: form.treatment_plan?.follow_up?.notes || "",
     
-    // Additional
     lab_orders: form.treatment_plan?.lab_orders || [],
     referrals: form.treatment_plan?.referrals || [],
-    specialty: form.specialization?.type || null,
-    specialty_data: JSON.stringify(form.specialization?.data || {}),
+    specialty: specializationType,
+    specialty_data: JSON.stringify(specializationData),
     test_results: [],
     attachments: []
   };
 };
 
-// Main Component
+// ===== MAIN COMPONENT =====
 export default function DiagnosisPage() {
   const router = useRouter();
   const { get } = useURLParams();
@@ -493,7 +785,7 @@ export default function DiagnosisPage() {
 
   const [form, setForm] = useState<DiagnosisFormData>(DEFAULT_FORM);
   const [openSections, setOpenSections] = useState({
-    vitals: true, symptoms: true, diagnosis: true, treatment: true, notes: false
+    vitals: true, symptoms: true, diagnosis: true, specialization: true, treatment: true, notes: false
   });
 
   const prescriptionData = createPrescriptionData(appointmentId || '', state.appointmentData, state.doctorData, state.patientData, form);
@@ -534,93 +826,108 @@ export default function DiagnosisPage() {
         let existingDiagnosis = null;
         try {
           existingDiagnosis = await fetchExistingDiagnosis(appointmentId);
-        } catch (err) {
-          console.warn('Could not fetch existing diagnosis:', err.message);
+        } catch (error) {
+          console.warn('Failed to fetch existing diagnosis:', error);
         }
 
-        const initialForm = existingDiagnosis ? 
-          { ...transformDiagnosisToForm(existingDiagnosis), appointment_id: appointmentId, patient_id: appointmentData.patient_id, doctor_id: doctorId, org_id: orgId || "" } :
-          { ...DEFAULT_FORM, appointment_id: appointmentId, patient_id: appointmentData.patient_id, doctor_id: doctorId, org_id: orgId || "" };
+        const patientData = patientRes.patient || null;
+        const medicalHistory = historyRes.history || [];
 
-        setState(prev => ({
-          ...prev, appointmentData, doctorData: normalizedDoctorData,
-          patientData: patientRes?.patient || null, medicalHistory: historyRes?.history || [],
-          loading: false, error: null
+        setForm(prev => ({
+          ...prev,
+          appointment_id: appointmentId,
+          patient_id: appointmentData.patient_id,
+          doctor_id: doctorId,
+          org_id: orgId,
+          ...(existingDiagnosis ? transformDiagnosisToForm(existingDiagnosis) : {})
         }));
 
-        setForm(initialForm);
+        setState(prev => ({
+          ...prev,
+          appointmentData,
+          doctorData: normalizedDoctorData,
+          patientData,
+          medicalHistory,
+          loading: false
+        }));
 
-      } catch (error: any) {
-        setState(prev => ({ ...prev, error: error.message || "Failed to load appointment data", loading: false }));
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setState(prev => ({
+          ...prev,
+          error: `Failed to load data: ${error.message}`,
+          loading: false
+        }));
       }
     };
 
     loadData();
   }, [appointmentId]);
 
-  const toggleSection = (sectionKey: string) => {
-    setOpenSections(prev => ({ ...prev, [sectionKey]: !prev[sectionKey] }));
-  };
-
-  const updateForm = (field: string) => (value: any) => {
+  const handleFormChange = (field, value) => {
+    console.log(`📝 Form field changed: ${field}`, value);
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
-// ✅ ALSO FIX: Update the save handler to include additional logging
-const handleSave = async () => {
-  try {
-    setState(prev => ({ ...prev, submitting: true, error: null }));
-    
-    if (!form.appointment_id || !form.patient_id || !form.doctor_id) {
-      throw new Error("Missing required appointment, patient, or doctor information");
+  const handleSpecializationChange = (data) => {
+  console.log('🔬 Specialization data changed:', {
+    newData: data,
+    dataType: typeof data,
+    keys: Object.keys(data || {})
+  });
+  
+  setForm(prev => ({
+    ...prev,
+    specialization: {
+      ...prev.specialization,
+      data: { ...prev.specialization.data, ...data }
     }
-
-    // Log the form state before transformation
-    console.log('🔍 Form state before transformation:', {
-      notes: form.notes,
-      clinical_notes: form.clinical_notes,
-      notes_length: form.notes?.length || 0
-    });
-
-    const transformedData = transformDiagnosisData(form, state.appointmentData, state.doctorData, state.patientData);
-    
-    // Enhanced logging for debugging
-    console.log('🔍 Symptoms from form:', form.symptoms);
-    console.log('📤 Transformed symptoms:', transformedData.symptoms);
-    console.log('📝 Clinical notes in payload:', {
-      clinical_notes: transformedData.clinical_notes,
-      physical_exam: transformedData.physical_exam,
-      notes: transformedData.notes,
-      length: transformedData.clinical_notes?.length || 0
-    });
-    console.log('📤 Full API payload keys:', Object.keys(transformedData));
-
-    const response = await apiCall('/api/diagnosis', { 
-      method: 'POST', 
-      body: JSON.stringify(transformedData) 
-    });
-    
-    console.log('✅ API Response:', response);
-    
-    setForm(prev => ({ ...prev, status: 'finalized' }));
-    alert('Diagnosis saved successfully!');
-    
-  } catch (error) {
-    const errorMessage = error.message || error.data?.error || 'Failed to save diagnosis';
-    console.error('❌ Save error:', error);
-    setState(prev => ({ ...prev, error: errorMessage }));
-    alert(`Error: ${errorMessage}`);
-  } finally {
-    setState(prev => ({ ...prev, submitting: false }));
-  }
+  }));
 };
+
+  const toggleSection = (section) => {
+    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const handleSave = async () => {
+    try {
+      setState(prev => ({ ...prev, submitting: true, error: null }));
+
+      const diagnosisData = transformDiagnosisData(form, state.appointmentData, state.doctorData, state.patientData);
+      
+      console.log('💾 Saving diagnosis data:', diagnosisData);
+
+      const response = await apiCall('/api/diagnosis', {
+        method: 'POST',
+        body: JSON.stringify(diagnosisData),
+      });
+
+      console.log('✅ Diagnosis saved successfully:', response);
+      
+      // Show success message or redirect
+      alert('Diagnosis saved successfully!');
+      
+    } catch (error) {
+      console.error('❌ Error saving diagnosis:', error);
+      setState(prev => ({
+        ...prev,
+        error: `Failed to save diagnosis: ${error.message}`
+      }));
+    } finally {
+      setState(prev => ({ ...prev, submitting: false }));
+    }
+  };
+
+  const handleBack = () => {
+    router.back();
+  };
 
   if (state.loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading appointment data...</p>
+          <p className="text-gray-600">Loading diagnosis form...</p>
         </div>
       </div>
     );
@@ -628,63 +935,136 @@ const handleSave = async () => {
 
   if (state.error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Alert className="max-w-md">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{state.error}</AlertDescription>
-          <Button onClick={() => router.back()} className="mt-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />Go Back
-          </Button>
-        </Alert>
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-2xl mx-auto">
+          <Alert className="border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertTitle className="text-red-800">Error</AlertTitle>
+            <AlertDescription className="text-red-700">{state.error}</AlertDescription>
+          </Alert>
+          <div className="mt-6">
+            <Button onClick={handleBack} variant="outline">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Go Back
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-20">
       <div className="max-w-7xl mx-auto p-6">
-        <PrescriptionHeader appointmentData={state.appointmentData} doctorData={state.doctorData} />
+        <PrescriptionHeader 
+          appointmentData={state.appointmentData} 
+          doctorData={state.doctorData}
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Main Content */}
           <div className="lg:col-span-3 space-y-6">
-            {state.error && (
-              <Alert className="border-red-200 bg-red-50">
-                <AlertCircle className="h-4 w-4 text-red-600" />
-                <AlertTitle className="text-red-800">Error</AlertTitle>
-                <AlertDescription className="text-red-700">{state.error}</AlertDescription>
-              </Alert>
-            )}
+            {/* Vitals Section */}
+            <CollapsibleSection
+              sectionKey="vitals"
+              section={SECTIONS.vitals}
+              isOpen={openSections.vitals}
+              onToggle={() => toggleSection('vitals')}
+              doctorData={state.doctorData}
+            >
+              <VitalsSection
+                vitals={form.vitals}
+                onChange={(vitals) => handleFormChange('vitals', vitals)}
+              />
+            </CollapsibleSection>
 
-            {Object.entries(SECTIONS).map(([key, section]) => (
-              <CollapsibleSection
-                key={key}
-                sectionKey={key}
-                section={section}
-                isOpen={openSections[key]}
-                onToggle={() => toggleSection(key)}
+            {/* Symptoms Section */}
+            <CollapsibleSection
+              sectionKey="symptoms"
+              section={SECTIONS.symptoms}
+              isOpen={openSections.symptoms}
+              onToggle={() => toggleSection('symptoms')}
+              doctorData={state.doctorData}
+            >
+              <SymptomsSection
+                symptoms={form.symptoms}
+                onChange={(symptoms) => handleFormChange('symptoms', symptoms)}
+              />
+            </CollapsibleSection>
+
+            {/* Diagnosis Section */}
+            <CollapsibleSection
+              sectionKey="diagnosis"
+              section={SECTIONS.diagnosis}
+              isOpen={openSections.diagnosis}
+              onToggle={() => toggleSection('diagnosis')}
+              doctorData={state.doctorData}
+            >
+              <DiagnosisSection
+                diagnosis_info={form.diagnosis_info}
+                onChange={(diagnosis_info) => handleFormChange('diagnosis_info', diagnosis_info)}
+              />
+            </CollapsibleSection>
+
+            {/* Specialization Section */}
+            <CollapsibleSection
+              sectionKey="specialization"
+              section={SECTIONS.specialization}
+              isOpen={openSections.specialization}
+              onToggle={() => toggleSection('specialization')}
+              doctorData={state.doctorData}
+            >
+              <SpecializationWrapper
                 doctorData={state.doctorData}
-              >
-                {key === 'vitals' && <VitalsSection vitals={form.vitals} onChange={updateForm('vitals')} />}
-                {key === 'symptoms' && <SymptomsSection symptoms={form.symptoms} onChange={updateForm('symptoms')} />}
-                {key === 'diagnosis' && <DiagnosisSection diagnosis_info={form.diagnosis_info} onChange={updateForm('diagnosis_info')} />}
-                {key === 'treatment' && <TreatmentPlan treatment_plan={form.treatment_plan} onChange={updateForm('treatment_plan')} />}
-                {key === 'notes' && <NotesSection notes={form.notes} onChange={updateForm('notes')} />}
-              </CollapsibleSection>
-            ))}
+                specializationData={form.specialization?.data}
+                onSpecializationChange={handleSpecializationChange}
+              />
+            </CollapsibleSection>
+
+            {/* Treatment Plan Section */}
+            <CollapsibleSection
+              sectionKey="treatment"
+              section={SECTIONS.treatment}
+              isOpen={openSections.treatment}
+              onToggle={() => toggleSection('treatment')}
+              doctorData={state.doctorData}
+            >
+              <TreatmentPlan
+                treatment_plan={form.treatment_plan}
+                onChange={(treatment_plan) => handleFormChange('treatment_plan', treatment_plan)}
+              />
+            </CollapsibleSection>
+
+            {/* Notes Section */}
+            <CollapsibleSection
+              sectionKey="notes"
+              section={SECTIONS.notes}
+              isOpen={openSections.notes}
+              onToggle={() => toggleSection('notes')}
+              doctorData={state.doctorData}
+            >
+              <NotesSection
+                notes={form.notes}
+                onChange={(notes) => handleFormChange('notes', notes)}
+              />
+            </CollapsibleSection>
           </div>
 
-          <SidebarPanel 
-            patientData={state.patientData} 
-            medicalHistory={state.medicalHistory} 
-            loading={false} 
-          />
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            <SidebarPanel
+              patientData={state.patientData}
+              medicalHistory={state.medicalHistory}
+              loading={state.loading}
+            />
+          </div>
         </div>
       </div>
 
+      {/* Action Buttons */}
       <ActionButtons
         submitting={state.submitting}
-        onBack={() => router.back()}
+        onBack={handleBack}
         onSave={handleSave}
         prescriptionData={prescriptionData}
       />
