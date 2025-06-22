@@ -57,6 +57,7 @@ export default function AppointmentsPage() {
   // State management
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState([]);
+  const [allAppointments, setAllAppointments] = useState([]); // Store all appointments for client-side filtering
   const [stats, setStats] = useState(DEFAULT_STATS);
   const [pagination, setPagination] = useState(DEFAULT_PAGINATION);
   const [error, setError] = useState(null);
@@ -155,6 +156,91 @@ export default function AppointmentsPage() {
     }));
   }, []);
 
+  // Client-side search function for patient and doctor names
+  const performClientSideSearch = useCallback((appointmentsList, searchTerm) => {
+    if (!searchTerm || !searchTerm.trim()) return appointmentsList;
+    
+    const lowerSearchTerm = searchTerm.toLowerCase().trim();
+    
+    return appointmentsList.filter(appointment => {
+      // Search in patient name
+      const patientName = (appointment.patient_name || '').toLowerCase();
+      const patientId = (appointment.patient_id || '').toLowerCase();
+      
+      // Search in doctor name (both from appointment data and from doctors list)
+      const doctorName = (appointment.doctor_name || '').toLowerCase();
+      const doctorFromList = doctors.find(d => d.id === appointment.doctor_id);
+      const doctorListName = doctorFromList ? doctorFromList.name.toLowerCase() : '';
+      const doctorId = (appointment.doctor_id || '').toLowerCase();
+      
+      // Check if search term matches any of these fields
+      return (
+        patientName.includes(lowerSearchTerm) ||
+        patientId.includes(lowerSearchTerm) ||
+        doctorName.includes(lowerSearchTerm) ||
+        doctorListName.includes(lowerSearchTerm) ||
+        doctorId.includes(lowerSearchTerm)
+      );
+    });
+  }, [doctors]);
+
+  // Apply all filters (both server-side and client-side)
+  const applyFilters = useCallback((appointmentsList) => {
+    let filteredAppointments = [...appointmentsList];
+    
+    // Apply client-side search first
+    if (filters.search && filters.search.trim()) {
+      filteredAppointments = performClientSideSearch(filteredAppointments, filters.search);
+    }
+    
+    // Apply other filters
+    if (filters.appointment_status !== "all") {
+      filteredAppointments = filteredAppointments.filter(app => 
+        app.appointment_status === filters.appointment_status
+      );
+    }
+    
+    if (filters.doctor_id !== "all") {
+      filteredAppointments = filteredAppointments.filter(app => 
+        app.doctor_id === filters.doctor_id
+      );
+    }
+    
+    if (filters.fee_type !== "all") {
+      filteredAppointments = filteredAppointments.filter(app => 
+        app.fee_type === filters.fee_type
+      );
+    }
+    
+    if (filters.is_valid !== "all") {
+      const expectedValidState = filters.is_valid === "true";
+      filteredAppointments = filteredAppointments.filter(app => {
+        const appValidState = app.is_valid === true || app.is_valid === "true";
+        return appValidState === expectedValidState;
+      });
+    }
+    
+    if (filters.start_date) {
+      const filterDate = new Date(filters.start_date);
+      if (!isNaN(filterDate.getTime())) {
+        filteredAppointments = filteredAppointments.filter(app => {
+          if (!app.appointment_date) return false;
+          
+          const appDate = new Date(app.appointment_date);
+          if (isNaN(appDate.getTime())) return false;
+          
+          // Compare dates (ignore time)
+          const filterDateString = filterDate.toISOString().split('T')[0];
+          const appDateString = appDate.toISOString().split('T')[0];
+          
+          return filterDateString === appDateString;
+        });
+      }
+    }
+    
+    return filteredAppointments;
+  }, [filters, performClientSideSearch]);
+
   // Calculate pagination information
   const paginationInfo = useMemo(() => {
     const totalPages = Math.ceil(pagination.total / pagination.limit) || 1;
@@ -189,17 +275,17 @@ export default function AppointmentsPage() {
     return { totalPages, currentPage, pageNumbers };
   }, [pagination]);
 
-  // FIXED: Fetch appointments from API with proper parameter handling
+  // IMPROVED: Fetch appointments from API with search handled client-side
   const fetchAppointments = useCallback(async () => {
     setLoading(true);
     setError(null);
     setErrorDetails(null);
     
     try {
-      // Build query parameters using correct backend parameter names
+      // Build query parameters - EXCLUDE search from server request for now
       const queryParams = new URLSearchParams();
       
-      // Add filters only if they have meaningful values
+      // Add filters only if they have meaningful values (excluding search)
       if (filters.appointment_status && filters.appointment_status !== "all") {
         queryParams.append("appointment_status", filters.appointment_status);
       }
@@ -212,35 +298,33 @@ export default function AppointmentsPage() {
         queryParams.append("fee_type", filters.fee_type);
       }
       
-      // FIXED: Handle boolean parameter correctly
+      // Handle boolean parameter correctly
       if (filters.is_valid && filters.is_valid !== "all") {
-        // Convert string to actual boolean for API
         const booleanValue = filters.is_valid === "true";
         queryParams.append("is_valid", booleanValue.toString());
       }
       
-      // FIXED: Handle date parameter with proper formatting
+      // Handle date parameter with proper formatting
       if (filters.start_date) {
-        // Ensure the date is in YYYY-MM-DD format
         const dateValue = new Date(filters.start_date);
         if (!isNaN(dateValue.getTime())) {
-          // Format as ISO date string (YYYY-MM-DD)
           const formattedDate = dateValue.toISOString().split('T')[0];
           queryParams.append("start_date", formattedDate);
-          
-          // Also add end_date for same day filtering (optional - depends on your API)
-          // This ensures we get appointments for the entire selected day
           queryParams.append("end_date", formattedDate);
         }
       }
 
-      if (filters.search && filters.search.trim()) {
-        queryParams.append("search", filters.search.trim());
+      // For search functionality, we'll get more data and filter client-side
+      // Increase limit when there's a search to get more data for filtering
+      const effectiveLimit = filters.search && filters.search.trim() ? 100 : pagination.limit;
+      queryParams.append("limit", effectiveLimit.toString());
+      
+      // Only use offset if there's no search (pagination doesn't work well with client-side search)
+      if (!filters.search || !filters.search.trim()) {
+        queryParams.append("offset", pagination.offset.toString());
+      } else {
+        queryParams.append("offset", "0");
       }
-
-      // Pagination parameters
-      queryParams.append("limit", pagination.limit.toString());
-      queryParams.append("offset", pagination.offset.toString());
       
       console.log("Fetching appointments with params:", queryParams.toString());
       
@@ -263,47 +347,36 @@ export default function AppointmentsPage() {
       // Process appointments data
       const processedAppointments = processAppointments(data);
       
-      // FIXED: Additional client-side filtering for edge cases
-      let filteredAppointments = processedAppointments;
+      // Store all appointments for client-side filtering
+      setAllAppointments(processedAppointments);
       
-      // Client-side validation filter (backup in case backend doesn't handle it correctly)
-      if (filters.is_valid !== "all") {
-        const expectedValidState = filters.is_valid === "true";
-        filteredAppointments = filteredAppointments.filter(app => {
-          // Handle both boolean and string values
-          const appValidState = app.is_valid === true || app.is_valid === "true";
-          return appValidState === expectedValidState;
-        });
+      // Apply client-side filters
+      const filteredAppointments = applyFilters(processedAppointments);
+      
+      // Handle pagination for filtered results
+      let paginatedAppointments = filteredAppointments;
+      let totalCount = filteredAppointments.length;
+      
+      // If we're doing client-side search, handle pagination client-side too
+      if (filters.search && filters.search.trim()) {
+        const startIndex = pagination.offset;
+        const endIndex = startIndex + pagination.limit;
+        paginatedAppointments = filteredAppointments.slice(startIndex, endIndex);
+        totalCount = filteredAppointments.length;
+      } else {
+        // For server-side filtering, use server pagination info
+        totalCount = data.pagination?.total || data.total || processedAppointments.length;
       }
       
-      // Client-side date filter (backup in case backend doesn't handle it correctly)
-      if (filters.start_date) {
-        const filterDate = new Date(filters.start_date);
-        if (!isNaN(filterDate.getTime())) {
-          filteredAppointments = filteredAppointments.filter(app => {
-            if (!app.appointment_date) return false;
-            
-            const appDate = new Date(app.appointment_date);
-            if (isNaN(appDate.getTime())) return false;
-            
-            // Compare dates (ignore time)
-            const filterDateString = filterDate.toISOString().split('T')[0];
-            const appDateString = appDate.toISOString().split('T')[0];
-            
-            return filterDateString === appDateString;
-          });
-        }
-      }
+      setAppointments(paginatedAppointments);
       
-      setAppointments(filteredAppointments);
-      
-      // Update pagination (use original count for pagination, not filtered count)
+      // Update pagination
       setPagination(prev => ({
         ...prev,
-        total: data.pagination?.total || data.total || processedAppointments.length,
+        total: totalCount,
       }));
       
-      // Update stats
+      // Update stats based on filtered results
       updateStats(filteredAppointments, data.stats);
       
     } catch (error) {
@@ -339,10 +412,11 @@ export default function AppointmentsPage() {
       }
       
       setAppointments([]);
+      setAllAppointments([]);
     } finally {
       setLoading(false);
     }
-  }, [filters, pagination.limit, pagination.offset, processAppointments]);
+  }, [filters, pagination.limit, pagination.offset, processAppointments, applyFilters]);
 
   // Calculate statistics
   const updateStats = useCallback((appointmentsData, backendStats = null) => {
@@ -430,7 +504,7 @@ export default function AppointmentsPage() {
     }));
   }, []);
 
-  // FIXED: Handle search form submission with better validation
+  // IMPROVED: Handle search form submission with better validation
   const handleSearch = useCallback((e) => {
     if (e) e.preventDefault();
 
@@ -468,6 +542,83 @@ export default function AppointmentsPage() {
     router.push(newUrl, { scroll: false });
     
   }, [formState, router]);
+
+  // Real-time search functionality
+  const handleRealTimeSearch = useCallback((searchValue) => {
+    // Update form state immediately
+    setFormState(prev => ({ ...prev, search: searchValue }));
+    
+    // Apply real-time filtering if we have data
+    if (allAppointments.length > 0) {
+      const tempFilters = { ...filters, search: searchValue };
+      
+      // Create a temporary filtered list
+      let filteredAppointments = [...allAppointments];
+      
+      // Apply search
+      if (searchValue && searchValue.trim()) {
+        filteredAppointments = performClientSideSearch(filteredAppointments, searchValue);
+      }
+      
+      // Apply other filters
+      if (tempFilters.appointment_status !== "all") {
+        filteredAppointments = filteredAppointments.filter(app => 
+          app.appointment_status === tempFilters.appointment_status
+        );
+      }
+      
+      if (tempFilters.doctor_id !== "all") {
+        filteredAppointments = filteredAppointments.filter(app => 
+          app.doctor_id === tempFilters.doctor_id
+        );
+      }
+      
+      if (tempFilters.fee_type !== "all") {
+        filteredAppointments = filteredAppointments.filter(app => 
+          app.fee_type === tempFilters.fee_type
+        );
+      }
+      
+      if (tempFilters.is_valid !== "all") {
+        const expectedValidState = tempFilters.is_valid === "true";
+        filteredAppointments = filteredAppointments.filter(app => {
+          const appValidState = app.is_valid === true || app.is_valid === "true";
+          return appValidState === expectedValidState;
+        });
+      }
+      
+      if (tempFilters.start_date) {
+        const filterDate = new Date(tempFilters.start_date);
+        if (!isNaN(filterDate.getTime())) {
+          filteredAppointments = filteredAppointments.filter(app => {
+            if (!app.appointment_date) return false;
+            
+            const appDate = new Date(app.appointment_date);
+            if (isNaN(appDate.getTime())) return false;
+            
+            const filterDateString = filterDate.toISOString().split('T')[0];
+            const appDateString = appDate.toISOString().split('T')[0];
+            
+            return filterDateString === appDateString;
+          });
+        }
+      }
+      
+      // Apply pagination
+      const startIndex = 0; // Reset to first page for search
+      const endIndex = startIndex + pagination.limit;
+      const paginatedAppointments = filteredAppointments.slice(startIndex, endIndex);
+      
+      setAppointments(paginatedAppointments);
+      setPagination(prev => ({
+        ...prev,
+        total: filteredAppointments.length,
+        offset: 0
+      }));
+      
+      updateStats(filteredAppointments);
+    }
+  }, [allAppointments, filters, pagination.limit, performClientSideSearch, updateStats]);
 
   // Reset all filters
   const resetFilters = useCallback(() => {
@@ -577,7 +728,6 @@ export default function AppointmentsPage() {
   }, [filters, pagination.limit, pagination.offset, fetchAppointments]);
 
   // Initial load effect
-// Initial load effect
   useEffect(() => {
     if (initialLoadRef.current && !prevFiltersRef.current) {
       console.log("Initial load, fetching appointments");
@@ -599,208 +749,194 @@ export default function AppointmentsPage() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-          {stats.map((stat, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-gray-400">{stat.icon}</div>
-                <span className="text-xl font-medium text-gray-900">
-                  {stat.value}
-                </span>
-              </div>
-              <div className="text-xs text-gray-500">{stat.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Error displays */}
-        {error && errorDetails && (
-          <Alert className="mb-6 bg-red-50 border-red-100">
+        {/* Error Alert */}
+        {error && (
+          <Alert className="mb-6 border-red-200 bg-red-50">
             <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertTitle className="text-red-600">{errorDetails.title}</AlertTitle>
-            <AlertDescription className="text-red-600">
-              {errorDetails.description}
-              <div className="mt-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="bg-white border-red-200 text-red-600 hover:bg-red-50"
-                  onClick={fetchAppointments}
-                >
-                  <RefreshCw className="h-3 w-3 mr-2" />
-                  Try Again
-                </Button>
-              </div>
+            <AlertTitle className="text-red-800">Error</AlertTitle>
+            <AlertDescription className="text-red-700">
+              {error}
+              {errorDetails && (
+                <div className="mt-2">
+                  <strong>{errorDetails.title}:</strong> {errorDetails.description}
+                </div>
+              )}
             </AlertDescription>
           </Alert>
         )}
 
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
-          {/* Search and filters section */}
-          <div className="p-4 md:p-6 border-b border-gray-100">
-            <div className="flex flex-col md:flex-row md:items-center gap-4 flex-wrap">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search patients or doctors..."
-                  className="pl-10 h-10 bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500"
-                  value={formState.search}
-                  onChange={(e) => handleInputChange('search', e.target.value)}
-                />
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+          {stats.map((stat, index) => (
+            <Card key={index} className="p-4">
+              <div className="flex items-center">
+                <div className="p-2 bg-blue-50 rounded-lg mr-3">
+                  {stat.icon}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                  <p className="text-xl font-semibold text-gray-900">{stat.value}</p>
+                </div>
               </div>
-              
-              <Select
-                value={formState.appointment_status}
-                onValueChange={(value) => handleInputChange('appointment_status', value)}
-              >
-                <SelectTrigger className="w-full md:w-[140px] bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="not_completed">Not Completed</SelectItem>
-                  <SelectItem value="scheduled">Scheduled</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select
-                value={formState.doctor_id}
-                onValueChange={(value) => handleInputChange('doctor_id', value)}
-                disabled={doctorsLoading}
-              >
-                <SelectTrigger className="w-full md:w-[180px] bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500">
-                  <SelectValue placeholder={doctorsLoading ? "Loading..." : "Select Doctor"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Doctors</SelectItem>
-                  {doctors.map((doctor) => (
-                    <SelectItem key={doctor.id} value={doctor.id}>
-                      {doctor.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <Select
-                value={formState.fee_type}
-                onValueChange={(value) => handleInputChange('fee_type', value)}
-              >
-                <SelectTrigger className="w-full md:w-[140px] bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500">
-                  <SelectValue placeholder="Fee Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="default">Default</SelectItem>
-                  <SelectItem value="emergency">Emergency</SelectItem>
-                  <SelectItem value="recurring">Recurring</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select
-                value={formState.is_valid}
-                onValueChange={(value) => handleInputChange('is_valid', value)}
-              >
-                <SelectTrigger className="w-full md:w-[140px] bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500">
-                  <SelectValue placeholder="Validity" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Appointments</SelectItem>
-                  <SelectItem value="true">Valid Only</SelectItem>
-                  <SelectItem value="false">Expired Only</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <div className="relative flex items-center w-full md:w-auto">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            </Card>
+          ))}
+        </div>
+
+        {/* Filters */}
+        <Card className="mb-6">
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3">
+              {/* Search Input */}
+              <div className="xl:col-span-2">
+                <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
+                  Search Patient/Doctor
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="search"
+                    type="text"
+                    placeholder="Search by patient or doctor name..."
+                    value={formState.search}
+                    onChange={(e) => handleRealTimeSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              {/* Status Filter */}
+              <div>
+                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <Select
+                  value={formState.appointment_status}
+                  onValueChange={(value) => handleInputChange('appointment_status', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="not_completed">Not Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Doctor Filter */}
+              <div>
+                <label htmlFor="doctor" className="block text-sm font-medium text-gray-700 mb-1">
+                  Doctor
+                </label>
+                <Select
+                  value={formState.doctor_id}
+                  onValueChange={(value) => handleInputChange('doctor_id', value)}
+                  disabled={doctorsLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={doctorsLoading ? "Loading..." : "All Doctors"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Doctors</SelectItem>
+                    {doctors.map((doctor) => (
+                      <SelectItem key={doctor.id} value={doctor.id}>
+                        {doctor.name} {doctor.speciality && `(${doctor.speciality})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Fee Type Filter */}
+              <div>
+                <label htmlFor="feeType" className="block text-sm font-medium text-gray-700 mb-1">
+                  Fee Type
+                </label>
+                <Select
+                  value={formState.fee_type}
+                  onValueChange={(value) => handleInputChange('fee_type', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Fee Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Fee Types</SelectItem>
+                    <SelectItem value="default">Default</SelectItem>
+                    <SelectItem value="emergency">Emergency</SelectItem>
+                    <SelectItem value="recurring">Recurring</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Validity Filter */}
+              <div>
+                <label htmlFor="validity" className="block text-sm font-medium text-gray-700 mb-1">
+                  Validity
+                </label>
+                <Select
+                  value={formState.is_valid}
+                  onValueChange={(value) => handleInputChange('is_valid', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="true">Valid</SelectItem>
+                    <SelectItem value="false">Invalid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Date Filter */}
+              <div>
+                <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+                  Appointment Date
+                </label>
                 <Input
+                  id="date"
                   type="date"
-                  className="pl-10 h-10 bg-gray-50 border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 w-full md:w-[180px]"
                   value={formState.start_date}
                   onChange={(e) => handleInputChange('start_date', e.target.value)}
-                  placeholder="Select date"
                 />
               </div>
-              
-              <div className="flex gap-2 w-full md:w-auto">
-                <Button 
-                  onClick={handleSearch}
-                  className="bg-blue-600 text-white hover:bg-blue-700 flex-1 md:flex-none"
-                >
-                  Search
-                </Button>
-                <Button 
-                  onClick={resetFilters}
-                  variant="outline"
-                  className="border-gray-300 text-gray-700 hover:bg-gray-50 flex-1 md:flex-none"
-                >
-                  Reset
-                </Button>
-              </div>
+            </div>
+
+            {/* Filter Actions */}
+            <div className="flex flex-wrap gap-2 mt-4">
+              <Button onClick={handleSearch} className="bg-blue-600 text-white hover:bg-blue-700">
+                <Search className="h-4 w-4 mr-2" />
+                Apply Filters
+              </Button>
+              <Button variant="outline" onClick={resetFilters}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Reset Filters
+              </Button>
             </div>
           </div>
+        </Card>
 
-          {error && !errorDetails && (
-            <div className="bg-red-50 p-4 border-b border-red-100">
-              <p className="text-red-600">Error: {error}</p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-2 bg-white border-red-200 text-red-600 hover:bg-red-50"
-                onClick={fetchAppointments}
-              >
-                <RefreshCw className="h-3 w-3 mr-2" />
-                Try Again
-              </Button>
-            </div>
-          )}
-
-          {/* Filter summary display */}
-          {(filters.appointment_status !== 'all' || 
-            filters.doctor_id !== 'all' || 
-            filters.fee_type !== 'all' || 
-            filters.is_valid !== 'all' || 
-            filters.start_date || 
-            filters.search) && (
-            <div className="px-6 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
-              <div className="text-sm text-blue-600">
-                <span className="font-medium">Active filters:</span>{' '}
-                {filters.search && <span className="mr-2 bg-blue-100 px-2 py-1 rounded">Search: "{filters.search}"</span>}
-                {filters.appointment_status !== 'all' && <span className="mr-2 bg-blue-100 px-2 py-1 rounded">Status: {filters.appointment_status.replace('_', ' ')}</span>}
-                {filters.doctor_id !== 'all' && (
-                  <span className="mr-2 bg-blue-100 px-2 py-1 rounded">Doctor: {getDoctorName(filters.doctor_id)}</span>
-                )}
-                {filters.fee_type !== 'all' && <span className="mr-2 bg-blue-100 px-2 py-1 rounded">Fee: {filters.fee_type}</span>}
-                {filters.is_valid !== 'all' && <span className="mr-2 bg-blue-100 px-2 py-1 rounded">Validity: {filters.is_valid === 'true' ? 'Valid' : 'Expired'}</span>}
-                {filters.start_date && <span className="mr-2 bg-blue-100 px-2 py-1 rounded">Date: {formatDate(filters.start_date)}</span>}
+        {/* Appointments Table */}
+        <Card>
+          <div className="overflow-x-auto">
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                <span>Loading appointments...</span>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={resetFilters}
-                className="text-blue-600 hover:text-blue-700 hover:bg-blue-100"
-              >
-                Clear all
-              </Button>
-            </div>
-          )}
-
-          {/* Loading state */}
-          {loading && (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-3" />
-              <span className="text-gray-600">Loading appointments...</span>
-            </div>
-          )}
-
-          {/* Appointments table */}
-          {!loading && (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            ) : appointments.length === 0 ? (
+              <div className="text-center py-8">
+                <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No appointments found</h3>
+                <p className="text-gray-500">
+                  {Object.values(filters).some(val => val && val !== 'all') 
+                    ? "Try adjusting your filters or search terms."
+                    : "No appointments have been created yet."}
+                </p>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -819,7 +955,7 @@ export default function AppointmentsPage() {
                       Fee
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Validity
+                      Valid
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -827,159 +963,174 @@ export default function AppointmentsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {appointments.length === 0 ? (
-                    <tr>
-                      <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
-                        <Package className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-                        <p className="text-lg font-medium">No appointments found</p>
-                        <p className="text-sm">Try adjusting your filters or create a new appointment</p>
+                  {appointments.map((appointment) => (
+                    <tr key={appointment.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <User className="h-4 w-4 text-blue-600" />
+                          </div>
+                          <div className="ml-3">
+                            <div className="text-sm font-medium text-gray-900">
+                              {appointment.patient_name || 'Unknown Patient'}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              ID: {appointment.patient_id || 'N/A'}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {appointment.doctor_name || getDoctorName(appointment.doctor_id)}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          ID: {appointment.doctor_id?.substring(0, 8)}...
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                          <div>
+                            <div className="text-sm text-gray-900">
+                              {formatDate(appointment.appointment_date)}
+                            </div>
+                            <div className="text-sm text-gray-500 flex items-center">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {formatSlotTimeRange(appointment.slot_start_time, appointment.slot_end_time)}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge 
+                          className={`${STATUS_STYLES[appointment.appointment_status] || STATUS_STYLES.pending} border-0`}
+                        >
+                          {appointment.appointment_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          ₹{appointment.appointment_fee || 0}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {appointment.fee_type || 'default'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge 
+                          className={`${VALIDITY_STYLES[appointment.is_valid?.toString()] || VALIDITY_STYLES.false} border-0`}
+                        >
+                          {appointment.is_valid ? 'VALID' : 'INVALID'}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleAppointmentClick(appointment)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          {appointment.has_diagnosis ? 'View Details' : 'Create Diagnosis'}
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
                       </td>
                     </tr>
-                  ) : (
-                    appointments.map((appointment) => (
-                      <tr
-                        key={appointment.id}
-                        className="hover:bg-gray-50 cursor-pointer transition-colors"
-                        onClick={() => handleAppointmentClick(appointment)}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <User className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {appointment.patient_name || 'Unknown Patient'}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                ID: {appointment.patient_id?.substring(0, 8)}...
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {appointment.doctor_name || getDoctorName(appointment.doctor_id)}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            ID: {appointment.doctor_id?.substring(0, 8)}...
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {formatDate(appointment.appointment_date)}
-                          </div>
-                          <div className="text-sm text-gray-500 flex items-center">
-                            <AlarmClock className="h-3 w-3 mr-1" />
-                            {formatSlotTimeRange(appointment.slot_start_time, appointment.slot_end_time)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <Badge 
-                            className={`${STATUS_STYLES[appointment.appointment_status] || STATUS_STYLES.not_completed} capitalize`}
-                          >
-                            {appointment.appointment_status?.replace('_', ' ') || 'Not Completed'}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            ${appointment.appointment_fee || 0}
-                          </div>
-                          <div className="text-sm text-gray-500 capitalize">
-                            {appointment.fee_type || 'default'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <Badge 
-                            className={`${VALIDITY_STYLES[appointment.is_valid?.toString()] || VALIDITY_STYLES.true}`}
-                          >
-                            {appointment.is_valid ? 'Valid' : 'Expired'}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end space-x-2">
-                            {appointment.has_diagnosis ? (
-                              <Link
-                                href={`/dashboard/op/${appointment.diagnosis_id}`}
-                                className="text-blue-600 hover:text-blue-900 flex items-center"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                View
-                                <ChevronRight className="h-4 w-4 ml-1" />
-                              </Link>
-                            ) : (
-                              <Link
-                                href={`/dashboard/diagnosis/new?appointmentId=${appointment.appointment_id}`}
-                                className="text-green-600 hover:text-green-900 flex items-center"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                Start
-                                <ChevronRight className="h-4 w-4 ml-1" />
-                              </Link>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Pagination */}
           {!loading && appointments.length > 0 && (
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+            <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
               <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-700">
-                  Showing {pagination.offset + 1} to {Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} results
-                </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex-1 flex justify-between sm:hidden">
                   <Button
                     variant="outline"
-                    size="sm"
                     onClick={() => handlePageChange(Math.max(0, pagination.offset - pagination.limit))}
                     disabled={pagination.offset === 0}
-                    className="border-gray-300"
                   >
                     Previous
                   </Button>
-                  
-                  <div className="flex items-center space-x-1">
-                    {paginationInfo.pageNumbers.map((pageNum, index) => (
-                      <React.Fragment key={index}>
-                        {pageNum === "..." ? (
-                          <span className="px-2 text-gray-500">...</span>
-                        ) : (
-                          <Button
-                            variant={pageNum === paginationInfo.currentPage ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => handlePageChange((pageNum - 1) * pagination.limit)}
-                            className={pageNum === paginationInfo.currentPage 
-                              ? "bg-blue-600 text-white" 
-                              : "border-gray-300"
-                            }
-                          >
-                            {pageNum}
-                          </Button>
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </div>
-                  
                   <Button
                     variant="outline"
-                    size="sm"
                     onClick={() => handlePageChange(pagination.offset + pagination.limit)}
                     disabled={pagination.offset + pagination.limit >= pagination.total}
-                    className="border-gray-300"
                   >
                     Next
                   </Button>
                 </div>
+                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-gray-700">
+                      Showing{' '}
+                      <span className="font-medium">{pagination.offset + 1}</span>
+                      {' '}to{' '}
+                      <span className="font-medium">
+                        {Math.min(pagination.offset + pagination.limit, pagination.total)}
+                      </span>
+                      {' '}of{' '}
+                      <span className="font-medium">{pagination.total}</span>
+                      {' '}results
+                    </p>
+                  </div>
+                  <div>
+                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                      <Button
+                        variant="outline"
+                        onClick={() => handlePageChange(Math.max(0, pagination.offset - pagination.limit))}
+                        disabled={pagination.offset === 0}
+                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                      >
+                        Previous
+                      </Button>
+                      
+                      {paginationInfo.pageNumbers.map((pageNum, index) => (
+                        <React.Fragment key={index}>
+                          {pageNum === "..." ? (
+                            <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                              ...
+                            </span>
+                          ) : (
+                            <Button
+                              variant={paginationInfo.currentPage === pageNum ? "default" : "outline"}
+                              onClick={() => handlePageChange((pageNum - 1) * pagination.limit)}
+                              className="relative inline-flex items-center px-4 py-2 border text-sm font-medium"
+                            >
+                              {pageNum}
+                            </Button>
+                          )}
+                        </React.Fragment>
+                      ))}
+                      
+                      <Button
+                        variant="outline"
+                        onClick={() => handlePageChange(pagination.offset + pagination.limit)}
+                        disabled={pagination.offset + pagination.limit >= pagination.total}
+                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                      >
+                        Next
+                      </Button>
+                    </nav>
+                  </div>
+                </div>
               </div>
             </div>
           )}
+        </Card>
+
+        {/* Action Buttons */}
+        <div className="mt-6 flex flex-wrap gap-4">
+          <Button variant="outline" className="flex items-center">
+            <Printer className="h-4 w-4 mr-2" />
+            Print Report
+          </Button>
+          <Button variant="outline" className="flex items-center">
+            <Download className="h-4 w-4 mr-2" />
+            Export Data
+          </Button>
         </div>
       </div>
     </div>
