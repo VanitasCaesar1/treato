@@ -13,7 +13,15 @@ const registerSchema = z.object({
   aadhaar_id: z.string().regex(/^\d{12}$/, "Aadhaar ID must be exactly 12 digits"),
   age: z.number().min(18, "Age must be at least 18").max(120, "Age must be less than 120"),
   blood_group: z.string().min(1, "Blood group is required"),
-  address: z.string().min(1, "Address is required")
+  address: z.string().min(1, "Address is required"),
+  // Add optional fields for doctor-specific data
+  imr_number: z.string().optional().default(""),
+  specialization: z.string().optional().default(""),
+  qualification: z.string().optional().default(""),
+  slot_duration: z.number().min(15).max(120).optional().default(30),
+  years_of_experience: z.number().min(0).max(50).optional().default(0),
+  bio: z.string().optional().default(""),
+  languages_spoken: z.array(z.string()).optional().default([])
 });
 
 // Registration handler
@@ -41,7 +49,7 @@ export async function POST(request: NextRequest) {
     
     const userData = validationResult.data;
     
-    // Format data for backend API - exactly matching the Go backend's expected format
+    // Format data for backend API - matching the Go backend's expected format
     const doctorData = {
       email: userData.email,
       password: userData.password,
@@ -51,20 +59,23 @@ export async function POST(request: NextRequest) {
       bloodGroup: userData.blood_group,
       location: userData.location,
       address: userData.address,
-      aadhaar_id: userData.aadhaar_id, // Updated from aadhaarId to AadhaarID to match Go struct
+      aadhaarID: userData.aadhaar_id, // Note: using aadhaarID to match Go struct
       age: userData.age,
       profilePic: "", // Default empty
-      imrNumber: "", // Default empty
-      specialization: "", // Default empty
-      qualification: "", // Default empty
-      slotDuration: 30 // Default value
+      imrNumber: userData.imr_number,
+      specialization: userData.specialization,
+      qualification: userData.qualification,
+      slotDuration: userData.slot_duration,
+      yearsOfExperience: userData.years_of_experience,
+      bio: userData.bio,
+      languagesSpoken: userData.languages_spoken
     };
     
     // Get API base URL from environment variable
     const NEXT_PUBLIC_API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
     
     // For debugging - log the actual payload being sent
-    console.log("Sending doctor registration data:", JSON.stringify(doctorData));
+    console.log("Sending doctor registration data:", JSON.stringify(doctorData, null, 2));
     
     // Make request to backend
     const response = await fetch(`${NEXT_PUBLIC_API_BASE_URL}/api/auth/doctor/register`, {
@@ -94,12 +105,31 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       console.error("Backend error:", data);
       
-      // Check specifically for Aadhaar validation errors
-      if (data.error && data.error.includes("valid_aadhaar")) {
-        return NextResponse.json(
-          { error: "Aadhaar ID must be exactly 12 digits with no spaces or special characters" },
-          { status: response.status }
-        );
+      // Check for specific error types
+      if (data.error) {
+        // Handle Aadhaar validation errors
+        if (data.error.includes("Aadhaar ID")) {
+          return NextResponse.json(
+            { error: "Aadhaar ID must be exactly 12 digits with no spaces or special characters" },
+            { status: response.status }
+          );
+        }
+        
+        // Handle duplicate registration errors
+        if (data.error.includes("already registered") || data.error.includes("already taken")) {
+          return NextResponse.json(
+            { error: data.error },
+            { status: response.status }
+          );
+        }
+        
+        // Handle password validation errors
+        if (data.error.includes("password")) {
+          return NextResponse.json(
+            { error: data.error, message: data.message },
+            { status: response.status }
+          );
+        }
       }
       
       return NextResponse.json(
@@ -119,6 +149,14 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     console.error("Registration API error:", error);
+    
+    // Handle different types of errors
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      return NextResponse.json(
+        { error: "Unable to connect to the server. Please try again." },
+        { status: 503 }
+      );
+    }
     
     // Return appropriate error message
     const errorMessage = error.message || "An unexpected error occurred";
