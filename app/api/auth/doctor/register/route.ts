@@ -15,23 +15,14 @@ const registerSchema = z.object({
   age: z.number().min(18, "Age must be at least 18").max(120, "Age must be less than 120"),
   blood_group: z.string().min(1, "Blood group is required"),
   address: z.string().min(1, "Address is required"),
-  
-  // Doctor-specific fields
-  imr_number: z.string().min(1, "IMR number is required"),
-  specialization: z.string().min(1, "Specialization is required"),
-  qualification: z.string().min(1, "Qualification is required"),
-  slot_duration: z.number().min(15, "Slot duration must be at least 15 minutes").max(120, "Slot duration cannot exceed 120 minutes").default(30),
-  profile_pic: z.string().url("Invalid profile picture URL").optional().or(z.literal("")),
-  
-  // Optional additional fields you might want to add
-  years_of_experience: z.number().min(0, "Years of experience cannot be negative").optional(),
-  consultation_fee: z.number().min(0, "Consultation fee cannot be negative").optional(),
-  medical_license_number: z.string().optional(),
-  hospital_affiliation: z.string().optional(),
-  bio: z.string().max(1000, "Bio cannot exceed 1000 characters").optional(),
-  languages_spoken: z.array(z.string()).optional(),
-  available_days: z.array(z.string()).optional(), // e.g., ["Monday", "Tuesday", "Wednesday"]
-  consultation_type: z.enum(["online", "offline", "both"]).default("both"),
+  // Add optional fields for doctor-specific data
+  imr_number: z.string().optional().default(""),
+  specialization: z.string().optional().default(""),
+  qualification: z.string().optional().default(""),
+  slot_duration: z.number().min(15).max(120).optional().default(30),
+  years_of_experience: z.number().min(0).max(50).optional().default(0),
+  bio: z.string().optional().default(""),
+  languages_spoken: z.array(z.string()).optional().default([])
 });
 
 // Registration handler
@@ -70,25 +61,16 @@ export async function POST(request: NextRequest) {
       bloodGroup: userData.blood_group,
       location: userData.location,
       address: userData.address,
-      aadhaarID: userData.aadhaar_id, // Note: Match Go struct field name
+      aadhaarID: userData.aadhaar_id, // Note: using aadhaarID to match Go struct
       age: userData.age,
-      profilePic: userData.profile_pic || "",
-      
-      // Doctor-specific fields
+      profilePic: "", // Default empty
       imrNumber: userData.imr_number,
       specialization: userData.specialization,
       qualification: userData.qualification,
       slotDuration: userData.slot_duration,
-      
-      // Additional fields (if you want to include them)
-      yearsOfExperience: userData.years_of_experience || 0,
-      consultationFee: userData.consultation_fee || 0,
-      medicalLicenseNumber: userData.medical_license_number || "",
-      hospitalAffiliation: userData.hospital_affiliation || "",
-      bio: userData.bio || "",
-      languagesSpoken: userData.languages_spoken || [],
-      availableDays: userData.available_days || [],
-      consultationType: userData.consultation_type || "both",
+      yearsOfExperience: userData.years_of_experience,
+      bio: userData.bio,
+      languagesSpoken: userData.languages_spoken
     };
     
     // Get API base URL from environment variable
@@ -125,12 +107,31 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       console.error("Backend error:", data);
       
-      // Check specifically for Aadhaar validation errors
-      if (data.error && data.error.includes("Aadhaar")) {
-        return NextResponse.json(
-          { error: "Aadhaar ID must be exactly 12 digits with no spaces or special characters" },
-          { status: response.status }
-        );
+      // Check for specific error types
+      if (data.error) {
+        // Handle Aadhaar validation errors
+        if (data.error.includes("Aadhaar ID")) {
+          return NextResponse.json(
+            { error: "Aadhaar ID must be exactly 12 digits with no spaces or special characters" },
+            { status: response.status }
+          );
+        }
+        
+        // Handle duplicate registration errors
+        if (data.error.includes("already registered") || data.error.includes("already taken")) {
+          return NextResponse.json(
+            { error: data.error },
+            { status: response.status }
+          );
+        }
+        
+        // Handle password validation errors
+        if (data.error.includes("password")) {
+          return NextResponse.json(
+            { error: data.error, message: data.message },
+            { status: response.status }
+          );
+        }
       }
       
       // Check for IMR number errors
@@ -158,6 +159,14 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     console.error("Registration API error:", error);
+    
+    // Handle different types of errors
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      return NextResponse.json(
+        { error: "Unable to connect to the server. Please try again." },
+        { status: 503 }
+      );
+    }
     
     // Return appropriate error message
     const errorMessage = error.message || "An unexpected error occurred";

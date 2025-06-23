@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@radix-ui/react-label";
 import { toast } from "react-hot-toast";
-import { Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle, Check, X, Upload } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle, Check, X, Plus, Minus, ChevronDown } from "lucide-react";
 
 const RegistrationComponent = () => {
   const router = useRouter();
@@ -13,6 +13,77 @@ const RegistrationComponent = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 5; // Updated to 5 steps
+
+  // Language suggestions and dropdown data
+  const languageSuggestions = [
+    "English", "Hindi", "Bengali", "Telugu", "Marathi", "Tamil", "Gujarati", "Urdu", 
+    "Kannada", "Odia", "Punjabi", "Malayalam", "Assamese", "Maithili", "Sanskrit",
+    "French", "German", "Spanish", "Arabic", "Chinese", "Japanese", "Korean"
+  ];
+
+  const specializationOptions = [
+    "Anesthesiology", "Cardiology", "Cardiovascular Surgery", "Dermatology", 
+    "Emergency Medicine", "Endocrinology", "Family Medicine", "Gastroenterology",
+    "General Surgery", "Geriatrics", "Gynecology", "Hematology", "Infectious Disease",
+    "Internal Medicine", "Nephrology", "Neurology", "Neurosurgery", "Obstetrics",
+    "Oncology", "Ophthalmology", "Orthopedics", "Otolaryngology (ENT)", "Pathology",
+    "Pediatrics", "Plastic Surgery", "Psychiatry", "Pulmonology", "Radiology",
+    "Rheumatology", "Urology", "Other"
+  ];
+
+const qualificationOptions = [
+  // Medical - Core Specialties
+  "MBBS, MD (General Medicine)",
+  "MBBS, MS (General Surgery)",
+  "MBBS, DNB (General Medicine)",
+  "MBBS, DNB (General Surgery)",
+
+  // Medical - Super Specialties
+  "MBBS, MD (General Medicine), DM (Cardiology)",
+  "MBBS, MD (General Medicine), DM (Neurology)",
+  "MBBS, MD (General Medicine), DM (Gastroenterology)",
+  "MBBS, MD (Pediatrics), DM (Neonatology)",
+  "MBBS, MS (General Surgery), MCh (Urology)",
+  "MBBS, MS (General Surgery), MCh (Cardiothoracic & Vascular Surgery)",
+  "MBBS, MS (General Surgery), MCh (Neuro Surgery)",
+  "MBBS, MD (Radiodiagnosis), DM (Interventional Radiology)",
+  "MBBS, MD (Dermatology, Venereology & Leprosy), DM (Clinical Immunology)", // Example for a less common path
+
+  // Medical - Diplomas & Fellowships (common add-ons)
+  "MBBS, DCH (Pediatrics)",
+  "MBBS, DA (Anesthesia)",
+  "MBBS, DGO (Obstetrics & Gynaecology)",
+  "MBBS, DDVL (Dermatology, Venereology & Leprosy)",
+  "MBBS, FCPS (Medicine)",
+  "MBBS, FRCS (General Surgery)", // Or specific branches like FRCS (Ortho)
+  "MBBS, MRCP (UK)", // Or specific branches like MRCPCH
+
+  // Dental
+  "BDS, MDS (Orthodontics)",
+  "BDS, MDS (Prosthodontics)",
+  "BDS, MDS (Oral & Maxillofacial Surgery)",
+
+  // Alternative Medicine
+  "BAMS, MD (Ayurveda)",
+  "BHMS, MD (Homoeopathy)",
+  "BUMS, MD (Unani)",
+  "BNYS, MD (Naturopathy)",
+
+  // Allied Health
+  "BPT, MPT (Orthopedics)",
+  "B.Sc Nursing, M.Sc Nursing (Community Health)",
+  "Pharm.D, MSc (Clinical Pharmacy)", // Pharm.D is a professional doctorate
+
+  // Research/Academic Paths
+  "MBBS, MD (Pharmacology), PhD",
+  "MBBS, MPH (Public Health)",
+
+  // Less Common but Possible Niche Combinations
+  "MBBS, MD (Psychiatry), PhD (Neuroscience)",
+  "MBBS, MD (Pathology), DNB (Forensic Medicine)", // Example of dual board certification/diploma
+
+  "Other - Specify" // For unique or not-yet-listed combinations
+];
 
   const [formData, setFormData] = useState({
     // Basic user fields
@@ -28,22 +99,20 @@ const RegistrationComponent = () => {
     age: "",
     bloodGroup: "",
     address: "",
-    
-    // Doctor-specific fields
+    // New doctor-specific fields
     imrNumber: "",
     specialization: "",
     qualification: "",
     slotDuration: "30",
-    profilePic: "",
     yearsOfExperience: "",
-    consultationFee: "",
-    medicalLicenseNumber: "",
-    hospitalAffiliation: "",
     bio: "",
-    languagesSpoken: [],
-    availableDays: [],
-    consultationType: "both"
+    languagesSpoken: ["English"] // Default with English
   });
+
+  // Move languageInputs state after formData to avoid reference error
+  const [languageInputs, setLanguageInputs] = useState(
+    [{ showSuggestions: false, filteredSuggestions: [] }]
+  );
 
   const [errors, setErrors] = useState({
     email: "",
@@ -62,9 +131,9 @@ const RegistrationComponent = () => {
     specialization: "",
     qualification: "",
     slotDuration: "",
-    profilePic: "",
     yearsOfExperience: "",
-    consultationFee: "",
+    bio: "",
+    languagesSpoken: "",
     general: ""
   });
 
@@ -149,41 +218,17 @@ const RegistrationComponent = () => {
     return "";
   };
 
-  const validateIMRNumber = (imrNumber) => {
-    if (!imrNumber) return "IMR number is required";
-    if (imrNumber.length < 3) return "IMR number must be at least 3 characters";
+  const validateYearsOfExperience = (years) => {
+    if (!years) return "Years of experience is required";
+    const yearsNum = parseInt(years);
+    if (isNaN(yearsNum) || yearsNum < 0 || yearsNum > 50) return "Years of experience must be between 0 and 50";
     return "";
   };
 
   const validateSlotDuration = (duration) => {
-    if (!duration) return "Slot duration is required";
     const durationNum = parseInt(duration);
     if (isNaN(durationNum) || durationNum < 15 || durationNum > 120) return "Slot duration must be between 15 and 120 minutes";
     return "";
-  };
-
-  const validateYearsOfExperience = (years) => {
-    if (years === "") return ""; // Optional field
-    const yearsNum = parseInt(years);
-    if (isNaN(yearsNum) || yearsNum < 0) return "Years of experience cannot be negative";
-    return "";
-  };
-
-  const validateConsultationFee = (fee) => {
-    if (fee === "") return ""; // Optional field
-    const feeNum = parseFloat(fee);
-    if (isNaN(feeNum) || feeNum < 0) return "Consultation fee cannot be negative";
-    return "";
-  };
-
-  const validateProfilePic = (url) => {
-    if (!url) return ""; // Optional field
-    try {
-      new URL(url);
-      return "";
-    } catch {
-      return "Invalid profile picture URL";
-    }
   };
 
   const validateField = (name, value) => {
@@ -195,18 +240,16 @@ const RegistrationComponent = () => {
       case "mobileNo": return validateMobileNo(value);
       case "aadhaarId": return validateAadhaarId(value);
       case "age": return validateAge(value);
+      case "yearsOfExperience": return validateYearsOfExperience(value);
+      case "slotDuration": return validateSlotDuration(value);
       case "firstName": return value ? "" : "First name is required";
       case "lastName": return value ? "" : "Last name is required";
       case "location": return value ? "" : "Location is required";
       case "bloodGroup": return value ? "" : "Blood group is required";
       case "address": return value ? "" : "Address is required";
-      case "imrNumber": return validateIMRNumber(value);
       case "specialization": return value ? "" : "Specialization is required";
       case "qualification": return value ? "" : "Qualification is required";
-      case "slotDuration": return validateSlotDuration(value);
-      case "profilePic": return validateProfilePic(value);
-      case "yearsOfExperience": return validateYearsOfExperience(value);
-      case "consultationFee": return validateConsultationFee(value);
+      case "bio": return value.length > 500 ? "Bio must be less than 500 characters" : "";
       default: return "";
     }
   };
@@ -242,13 +285,68 @@ const RegistrationComponent = () => {
     }));
   };
 
-  const handleCheckboxChange = (name, value, checked) => {
+  // Handle languages spoken with smart suggestions
+  const addLanguage = () => {
+    if (formData.languagesSpoken.length < 10) {
+      setFormData(prev => ({
+        ...prev,
+        languagesSpoken: [...prev.languagesSpoken, ""]
+      }));
+      setLanguageInputs(prev => [
+        ...prev,
+        { showSuggestions: false, filteredSuggestions: [] }
+      ]);
+    }
+  };
+
+  const removeLanguage = (index) => {
+    if (formData.languagesSpoken.length > 1) {
+      setFormData(prev => ({
+        ...prev,
+        languagesSpoken: prev.languagesSpoken.filter((_, i) => i !== index)
+      }));
+      setLanguageInputs(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateLanguage = (index, value) => {
     setFormData(prev => ({
       ...prev,
-      [name]: checked 
-        ? [...prev[name], value]
-        : prev[name].filter(item => item !== value)
+      languagesSpoken: prev.languagesSpoken.map((lang, i) => i === index ? value : lang)
     }));
+
+    // Filter suggestions based on input
+    const filtered = languageSuggestions.filter(lang => 
+      lang.toLowerCase().includes(value.toLowerCase()) && 
+      !formData.languagesSpoken.includes(lang)
+    );
+
+    setLanguageInputs(prev => prev.map((input, i) => 
+      i === index ? { 
+        ...input, 
+        filteredSuggestions: filtered,
+        showSuggestions: value.length > 0 && filtered.length > 0
+      } : input
+    ));
+  };
+
+  const selectLanguageSuggestion = (index, suggestion) => {
+    setFormData(prev => ({
+      ...prev,
+      languagesSpoken: prev.languagesSpoken.map((lang, i) => i === index ? suggestion : lang)
+    }));
+    
+    setLanguageInputs(prev => prev.map((input, i) => 
+      i === index ? { ...input, showSuggestions: false, filteredSuggestions: [] } : input
+    ));
+  };
+
+  const hideLanguageSuggestions = (index) => {
+    setTimeout(() => {
+      setLanguageInputs(prev => prev.map((input, i) => 
+        i === index ? { ...input, showSuggestions: false } : input
+      ));
+    }, 200);
   };
 
   // Password strength indicator component
@@ -296,9 +394,9 @@ const RegistrationComponent = () => {
     const fieldsToValidate = {
       1: ["firstName", "lastName", "age", "bloodGroup", "mobileNo"],
       2: ["email", "password", "confirmPassword", "username"],
-      3: ["location", "address", "aadhaarId"],
-      4: ["imrNumber", "specialization", "qualification", "slotDuration"],
-      5: [] // Optional fields step
+      3: ["location", "address"],
+      4: ["aadhaarId"],
+      5: ["specialization", "qualification", "yearsOfExperience", "slotDuration"]
     };
 
     const stepErrors = {};
@@ -311,6 +409,15 @@ const RegistrationComponent = () => {
         isValid = false;
       }
     });
+
+    // Special validation for languages in step 5
+    if (step === 5) {
+      const nonEmptyLanguages = formData.languagesSpoken.filter(lang => lang.trim() !== "");
+      if (nonEmptyLanguages.length === 0) {
+        stepErrors.languagesSpoken = "At least one language is required";
+        isValid = false;
+      }
+    }
 
     setErrors(prev => ({ ...prev, ...stepErrors }));
     return isValid;
@@ -340,23 +447,22 @@ const RegistrationComponent = () => {
     ];
 
     const newErrors = {};
-    requiredFields.forEach(field => {
-      const errorMessage = validateField(field, formData[field]);
+    Object.keys(formData).forEach(key => {
+      if (key === "general" || key === "confirmPassword" || key === "languagesSpoken") return;
+      
+      const errorMessage = validateField(key, formData[key]);
       if (errorMessage) {
-        newErrors[field] = errorMessage;
+        newErrors[key] = errorMessage;
       }
     });
 
-    // Validate optional fields that have values
-    ["yearsOfExperience", "consultationFee", "profilePic"].forEach(field => {
-      if (formData[field]) {
-        const errorMessage = validateField(field, formData[field]);
-        if (errorMessage) {
-          newErrors[field] = errorMessage;
-        }
-      }
-    });
+    // Validate languages
+    const nonEmptyLanguages = formData.languagesSpoken.filter(lang => lang.trim() !== "");
+    if (nonEmptyLanguages.length === 0) {
+      newErrors.languagesSpoken = "At least one language is required";
+    }
 
+    // If there are any errors, update state and prevent submission
     if (Object.keys(newErrors).length > 0) {
       setErrors(prev => ({ ...prev, ...newErrors }));
       toast.error("Please fix the errors in the form");
@@ -383,19 +489,14 @@ const RegistrationComponent = () => {
           age: parseInt(formData.age),
           blood_group: formData.bloodGroup,
           address: formData.address,
+          // New doctor-specific fields
           imr_number: formData.imrNumber,
           specialization: formData.specialization,
           qualification: formData.qualification,
           slot_duration: parseInt(formData.slotDuration),
-          profile_pic: formData.profilePic || "",
-          years_of_experience: formData.yearsOfExperience ? parseInt(formData.yearsOfExperience) : undefined,
-          consultation_fee: formData.consultationFee ? parseFloat(formData.consultationFee) : undefined,
-          medical_license_number: formData.medicalLicenseNumber || "",
-          hospital_affiliation: formData.hospitalAffiliation || "",
-          bio: formData.bio || "",
-          languages_spoken: formData.languagesSpoken,
-          available_days: formData.availableDays,
-          consultation_type: formData.consultationType
+          years_of_experience: parseInt(formData.yearsOfExperience),
+          bio: formData.bio,
+          languages_spoken: formData.languagesSpoken.filter(lang => lang.trim() !== "")
         }),
       });
 
@@ -453,7 +554,12 @@ const RegistrationComponent = () => {
               >
                 {currentStep > step ? <CheckCircle size={16} /> : step}
               </div>
-              <span className="text-xs mt-1">{stepNames[step - 1]}</span>
+              <span className="text-xs mt-1">
+                {step === 1 ? "Personal" : 
+                 step === 2 ? "Account" : 
+                 step === 3 ? "Location" : 
+                 step === 4 ? "ID" : "Professional"}
+              </span>
             </div>
           ))}
         </div>
@@ -678,129 +784,70 @@ const RegistrationComponent = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="address">Full Address*</Label>
-                    <input
-                      type="text"
+                    <textarea
                       id="address"
-                      maxLength={128}
                       name="address"
                       value={formData.address}
                       onChange={handleChange}
-                      className={`w-full p-2 border-2 rounded-2xl ${
-                        errors.address ? "border-red-500 bg-red-50" : "border-black"
+                      rows={3}
+                      className={`w-full p-2 border-2 rounded-2xl resize-none ${
+                        errors.address 
+                          ? "border-red-500 bg-red-50" 
+                          : "border-black"
                       }`}
                     />
                     {errors.address && <p className="text-red-500 text-sm">{errors.address}</p>}
                   </div>
                 </div>
 
+            {/* Step 4: Identity Verification */}
+            {currentStep === 4 && (
+              <div className="space-y-4 animate-fadeIn">
+                <h2 className="text-xl font-semibold">Identity Verification</h2>
                 <div className="space-y-2">
                   <Label htmlFor="aadhaarId">Aadhaar ID*</Label>
                   <input
-                    type="number"
+                    type="text"
                     id="aadhaarId"
                     name="aadhaarId"
                     value={formData.aadhaarId}
                     onChange={handleChange}
-                    placeholder="12-digit Aadhaar number (digits only)"
                     maxLength={12}
+                    placeholder="12-digit Aadhaar number"
                     className={`w-full p-2 border-2 rounded-2xl ${
                       errors.aadhaarId ? "border-red-500 bg-red-50" : "border-black"
                     }`}
                   />
-                  {errors.aadhaarId && <p className="text-red-500 text-sm">{errors.aadhaarId}</p>}
+                  {errors.aadhaarId && (
+                    <p className="text-red-500 text-sm">{errors.aadhaarId}</p>
+                  )}
+                  <p className="text-sm text-gray-600">
+                    Enter your 12-digit Aadhaar number without spaces or hyphens
+                  </p>
                 </div>
               </div>
             )}
 
-            {/* Step 4: Medical Information */}
-            {currentStep === 4 && (
+            {/* Step 5: Professional Information */}
+            {currentStep === 5 && (
               <div className="space-y-4 animate-fadeIn">
-                <h2 className="text-xl font-semibold">Medical Information</h2>
+                <h2 className="text-xl font-semibold">Professional Information</h2>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="imrNumber">IMR Number*</Label>
+                    <Label htmlFor="imrNumber">IMR Number (Optional)</Label>
                     <input
                       type="text"
                       id="imrNumber"
                       name="imrNumber"
                       value={formData.imrNumber}
                       onChange={handleChange}
+                      className="w-full p-2 border-2 rounded-2xl border-black"
                       placeholder="Indian Medical Register Number"
-                      className={`w-full p-2 border-2 rounded-2xl ${
-                        errors.imrNumber ? "border-red-500 bg-red-50" : "border-black"
-                      }`}
                     />
-                    {errors.imrNumber && <p className="text-red-500 text-sm">{errors.imrNumber}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="specialization">Specialization*</Label>
-                    <select
-                      id="specialization"
-                      name="specialization"
-                      value={formData.specialization}
-                      onChange={handleChange}
-                      className={`w-full p-2 border-2 rounded-2xl ${
-                        errors.specialization ? "border-red-500 bg-red-50" : "border-black"
-                      }`}
-                    >
-                      <option value="">Select Specialization</option>
-                      {specializations.map(spec => (
-                        <option key={spec} value={spec}>{spec}</option>
-                      ))}
-                    </select>
-                    {errors.specialization && <p className="text-red-500 text-sm">{errors.specialization}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="qualification">Qualification*</Label>
-                    <input
-                      type="text"
-                      id="qualification"
-                      name="qualification"
-                      value={formData.qualification}
-                      onChange={handleChange}
-                      placeholder="e.g., MBBS, MD, MS"
-                      className={`w-full p-2 border-2 rounded-2xl ${
-                        errors.qualification ? "border-red-500 bg-red-50" : "border-black"
-                      }`}
-                    />
-                    {errors.qualification && <p className="text-red-500 text-sm">{errors.qualification}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="slotDuration">Slot Duration (minutes)*</Label>
-                    <select
-                      id="slotDuration"
-                      name="slotDuration"
-                      value={formData.slotDuration}
-                      onChange={handleChange}
-                      className={`w-full p-2 border-2 rounded-2xl ${
-                        errors.slotDuration ? "border-red-500 bg-red-50" : "border-black"
-                      }`}
-                    >
-                      <option value="15">15 minutes</option>
-                      <option value="30">30 minutes</option>
-                      <option value="45">45 minutes</option>
-                      <option value="60">60 minutes</option>
-                      <option value="90">90 minutes</option>
-                      <option value="120">120 minutes</option>
-                    </select>
-                    {errors.slotDuration && <p className="text-red-500 text-sm">{errors.slotDuration}</p>}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 5: Optional Information */}
-            {currentStep === 5 && (
-              <div className="space-y-4 animate-fadeIn">
-                <h2 className="text-xl font-semibold">Optional Information</h2>
-                <p className="text-gray-600 text-sm">These fields are optional but help patients find and connect with you better.</p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="yearsOfExperience">Years of Experience</Label>
+                    <Label htmlFor="yearsOfExperience">Years of Experience*</Label>
                     <input
                       type="number"
                       id="yearsOfExperience"
@@ -808,157 +855,201 @@ const RegistrationComponent = () => {
                       value={formData.yearsOfExperience}
                       onChange={handleChange}
                       min="0"
+                      max="50"
                       className={`w-full p-2 border-2 rounded-2xl ${
-                        errors.yearsOfExperience ? "border-red-500 bg-red-50" : "border-black"
+                        errors.yearsOfExperience 
+                          ? "border-red-500 bg-red-50" 
+                          : "border-black"
                       }`}
                     />
-                    {errors.yearsOfExperience && <p className="text-red-500 text-sm">{errors.yearsOfExperience}</p>}
+                    {errors.yearsOfExperience && (
+                      <p className="text-red-500 text-sm">{errors.yearsOfExperience}</p>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="consultationFee">Consultation Fee (₹)</Label>
-                    <input
-                      type="number"
-                      id="consultationFee"
-                      name="consultationFee"
-                      value={formData.consultationFee}
-                      onChange={handleChange}
-                      min="0"
-                      step="0.01"
-                      className={`w-full p-2 border-2 rounded-2xl ${
-                        errors.consultationFee ? "border-red-500 bg-red-50" : "border-black"
-                      }`}
-                    />
-                    {errors.consultationFee && <p className="text-red-500 text-sm">{errors.consultationFee}</p>}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="profilePic">Profile Picture URL</Label>
-                  <input
-                    type="url"
-                    id="profilePic"
-                    name="profilePic"
-                    value={formData.profilePic}
-                    onChange={handleChange}
-                    placeholder="https://example.com/profile-picture.jpg"
-                    className={`w-full p-2 border-2 rounded-2xl ${
-                      errors.profilePic ? "border-red-500 bg-red-50" : "border-black"
-                    }`}
-                  />
-                  {errors.profilePic && <p className="text-red-500 text-sm">{errors.profilePic}</p>}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="medicalLicenseNumber">Medical License Number</Label>
-                    <input
-                      type="text"
-                      id="medicalLicenseNumber"
-                      name="medicalLicenseNumber"
-                      value={formData.medicalLicenseNumber}
-                      onChange={handleChange}
-                      className="w-full p-2 border-2 rounded-2xl border-black"
-                    />
+                    <Label htmlFor="specialization">Specialization*</Label>
+                    <div className="relative">
+                      <select
+                        id="specialization"
+                        name="specialization"
+                        value={formData.specialization}
+                        onChange={handleChange}
+                        className={`w-full p-2 border-2 rounded-2xl appearance-none ${
+                          errors.specialization 
+                            ? "border-red-500 bg-red-50" 
+                            : "border-black"
+                        }`}
+                      >
+                        <option value="">Select Specialization</option>
+                        {specializationOptions.map((spec) => (
+                          <option key={spec} value={spec}>{spec}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" size={18} />
+                    </div>
+                    {errors.specialization && (
+                      <p className="text-red-500 text-sm">{errors.specialization}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="hospitalAffiliation">Hospital Affiliation</Label>
-                    <input
-                      type="text"
-                      id="hospitalAffiliation"
-                      name="hospitalAffiliation"
-                      value={formData.hospitalAffiliation}
-                      onChange={handleChange}
-                      className="w-full p-2 border-2 rounded-2xl border-black"
-                    />
+                    <Label htmlFor="qualification">Qualification*</Label>
+                    <div className="relative">
+                      <select
+                        id="qualification"
+                        name="qualification"
+                        value={formData.qualification}
+                        onChange={handleChange}
+                        className={`w-full p-2 border-2 rounded-2xl appearance-none ${
+                          errors.qualification 
+                            ? "border-red-500 bg-red-50" 
+                            : "border-black"
+                        }`}
+                      >
+                        <option value="">Select Qualification</option>
+                        {qualificationOptions.map((qual) => (
+                          <option key={qual} value={qual}>{qual}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" size={18} />
+                    </div>
+                    {errors.qualification && (
+                      <p className="text-red-500 text-sm">{errors.qualification}</p>
+                    )}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="bio">Bio/About</Label>
+                  <Label htmlFor="slotDuration">Appointment Slot Duration (minutes)*</Label>
+                  <select
+                    id="slotDuration"
+                    name="slotDuration"
+                    value={formData.slotDuration}
+                    onChange={handleChange}
+                    className={`w-full p-2 border-2 rounded-2xl ${
+                      errors.slotDuration 
+                        ? "border-red-500 bg-red-50" 
+                        : "border-black"
+                    }`}
+                  >
+                    <option value="15">15 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="45">45 minutes</option>
+                    <option value="60">60 minutes</option>
+                    <option value="90">90 minutes</option>
+                    <option value="120">120 minutes</option>
+                  </select>
+                  {errors.slotDuration && (
+                    <p className="text-red-500 text-sm">{errors.slotDuration}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="languagesSpoken">Languages Spoken*</Label>
+                  {formData.languagesSpoken.map((language, index) => (
+                    <div key={index} className="flex items-center space-x-2 relative">
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          value={language}
+                          onChange={(e) => updateLanguage(index, e.target.value)}
+                          onFocus={() => updateLanguage(index, language)}
+                          onBlur={() => hideLanguageSuggestions(index)}
+                          className="w-full p-2 border-2 rounded-2xl border-black"
+                          placeholder="Enter language"
+                        />
+                        {languageInputs[index]?.showSuggestions && (
+                          <div className="absolute z-10 w-full bg-white border-2 border-gray-300 rounded-lg mt-1 max-h-40 overflow-y-auto">
+                            {languageInputs[index].filteredSuggestions.map((suggestion) => (
+                              <div
+                                key={suggestion}
+                                className="p-2 hover:bg-gray-100 cursor-pointer"
+                                onMouseDown={() => selectLanguageSuggestion(index, suggestion)}
+                              >
+                                {suggestion}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {formData.languagesSpoken.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeLanguage(index)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-full"
+                        >
+                          <Minus size={16} />
+                        </button>
+                      )}
+                      {index === formData.languagesSpoken.length - 1 && formData.languagesSpoken.length < 10 && (
+                        <button
+                          type="button"
+                          onClick={addLanguage}
+                          className="p-2 text-green-500 hover:bg-green-50 rounded-full"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {errors.languagesSpoken && (
+                    <p className="text-red-500 text-sm">{errors.languagesSpoken}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bio">Bio (Optional)</Label>
                   <textarea
                     id="bio"
                     name="bio"
                     value={formData.bio}
                     onChange={handleChange}
-                    rows="3"
-                    placeholder="Tell patients about yourself, your approach to healthcare, etc."
-                    className="w-full p-2 border-2 rounded-2xl border-black resize-none"
+                    rows={4}
+                    maxLength={500}
+                    placeholder="Tell patients about yourself, your experience, and approach to healthcare..."
+                    className={`w-full p-2 border-2 rounded-2xl resize-none ${
+                      errors.bio 
+                        ? "border-red-500 bg-red-50" 
+                        : "border-black"
+                    }`}
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Languages Spoken</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {languages.map(language => (
-                      <label key={language} className="flex items-center space-x-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.languagesSpoken.includes(language)}
-                          onChange={(e) => handleCheckboxChange('languagesSpoken', language, e.target.checked)}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-sm">{language}</span>
-                      </label>
-                    ))}
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">
+                      {formData.bio.length}/500 characters
+                    </span>
+                    {errors.bio && (
+                      <p className="text-red-500 text-sm">{errors.bio}</p>
+                    )}
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Available Days</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {daysOfWeek.map(day => (
-                      <label key={day} className="flex items-center space-x-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.availableDays.includes(day)}
-                          onChange={(e) => handleCheckboxChange('availableDays', day, e.target.checked)}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-sm">{day}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="consultationType">Consultation Type</Label>
-                  <select
-                    id="consultationType"
-                    name="consultationType"
-                    value={formData.consultationType}
-                    onChange={handleChange}
-                    className="w-full p-2 border-2 rounded-2xl border-black"
-                  >
-                    <option value="online">Online Only</option>
-                    <option value="offline">In-Person Only</option>
-                    <option value="both">Both Online & In-Person</option>
-                  </select>
                 </div>
               </div>
             )}
 
-            {/* Error Message */}
+            {/* General error message */}
             {errors.general && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-600 text-sm">{errors.general}</p>
               </div>
             )}
 
-            {/* Navigation Buttons */}
-            <div className="flex justify-between pt-6">
-              {currentStep > 1 && (
-                <button
-                  type="button"
-                  onClick={handlePrevious}
-                  className="flex items-center space-x-2 px-6 py-2 border-2 border-gray-300 rounded-2xl hover:bg-gray-50 transition-colors"
-                >
-                  <ArrowLeft size={18} />
-                  <span>Previous</span>
-                </button>
-              )}
-              
-              <div className="flex-1" />
-              
+            {/* Navigation buttons */}
+            <div className="flex justify-between items-center pt-6">
+              <button
+                type="button"
+                onClick={handlePrevious}
+                disabled={currentStep === 1}
+                className={`flex items-center space-x-2 px-6 py-2 rounded-2xl transition-all ${
+                  currentStep === 1 
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed" 
+                    : "bg-gray-500 text-white hover:bg-gray-600"
+                }`}
+              >
+                <ArrowLeft size={18} />
+                <span>Previous</span>
+              </button>
+
               {currentStep < totalSteps ? (
                 <button
                   type="button"
@@ -972,17 +1063,21 @@ const RegistrationComponent = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex items-center space-x-2 px-8 py-2 bg-green-500 text-white rounded-2xl hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className={`flex items-center space-x-2 px-6 py-2 rounded-2xl transition-all ${
+                    isSubmitting 
+                      ? "bg-gray-400 cursor-not-allowed" 
+                      : "bg-green-500 hover:bg-green-600"
+                  } text-white`}
                 >
                   {isSubmitting ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Registering...</span>
+                      <span>Creating Account...</span>
                     </>
                   ) : (
                     <>
+                      <span>Create Account</span>
                       <CheckCircle size={18} />
-                      <span>Complete Registration</span>
                     </>
                   )}
                 </button>
