@@ -143,47 +143,80 @@ const getSpecializationConfig = (specialization) => {
   
   return null;
 };
+
 // Enhanced function to extract specialization from doctor data
 const getSpecializationFromDoctor = (doctorData) => {
-  if (!doctorData) return null;
+  if (!doctorData) {
+    console.log('❌ No doctor data provided');
+    return null;
+  }
   
   console.log('🔍 Extracting specialization from doctor data:', doctorData);
   
-  // Try multiple possible field names and structures
-  const possiblePaths = [
-    // Direct string fields
-    'specialization',
-    'Specialization', 
-    'specialty',
-    'Specialty',
-    'department',
-    'Department',
-    'field',
-    'Field',
+  // Handle the JSONB specialization object from your backend
+  if (doctorData.specialization) {
+    console.log('📋 Found specialization field:', doctorData.specialization);
     
-    // Nested object fields
-    'specialization.primary',
-    'specialization.name',
-    'specialization.type',
-    'Specialization.primary',
-    'Specialization.name',
-    'Specialization.type',
-    'specialty.primary',
-    'specialty.name',
-    'specialty.type',
+    // If it's already a parsed object with primary field
+    if (typeof doctorData.specialization === 'object' && doctorData.specialization.primary) {
+      console.log('✅ Found specialization.primary:', doctorData.specialization.primary);
+      return doctorData.specialization.primary.toLowerCase().trim();
+    }
+    
+    // If it's a string representation of the specialization
+    if (typeof doctorData.specialization === 'string') {
+      try {
+        const parsed = JSON.parse(doctorData.specialization);
+        if (parsed.primary) {
+          console.log('✅ Parsed specialization.primary:', parsed.primary);
+          return parsed.primary.toLowerCase().trim();
+        }
+      } catch (e) {
+        // If it's just a plain string, use it directly
+        console.log('✅ Using specialization as plain string:', doctorData.specialization);
+        return doctorData.specialization.toLowerCase().trim();
+      }
+    }
+    
+    // If specialization is an object but doesn't have primary, try other common fields
+    if (typeof doctorData.specialization === 'object') {
+      const possibleFields = ['name', 'type', 'specialty', 'field', 'department'];
+      for (const field of possibleFields) {
+        if (doctorData.specialization[field]) {
+          console.log(`✅ Found specialization.${field}:`, doctorData.specialization[field]);
+          return doctorData.specialization[field].toLowerCase().trim();
+        }
+      }
+    }
+  }
+  
+  // Try other possible field names at the root level
+  const possibleFields = [
+    'specialty', 'Specialty', 'department', 'Department', 
+    'field', 'Field', 'medical_specialty', 'doctor_specialty'
   ];
   
-  for (const path of possiblePaths) {
-    const value = getNestedValue(doctorData, path);
-    if (value && typeof value === 'string' && value.trim()) {
-      console.log(`✅ Found specialization at path '${path}':`, value);
-      return value.trim();
+  for (const field of possibleFields) {
+    if (doctorData[field]) {
+      console.log(`✅ Found root level ${field}:`, doctorData[field]);
+      
+      // Handle if it's an object
+      if (typeof doctorData[field] === 'object' && doctorData[field].primary) {
+        return doctorData[field].primary.toLowerCase().trim();
+      }
+      
+      // Handle if it's a string
+      if (typeof doctorData[field] === 'string') {
+        return doctorData[field].toLowerCase().trim();
+      }
     }
   }
   
   console.log('❌ No specialization found in doctor data');
+  console.log('🔍 Available fields:', Object.keys(doctorData));
   return null;
 };
+
 
 // Helper function to get nested object values
 const getNestedValue = (obj, path) => {
@@ -204,7 +237,7 @@ const getNestedValue = (obj, path) => {
 };
 
 
-// Enhanced SpecializationWrapper component
+// Updated SpecializationWrapper component with better debugging
 const SpecializationWrapper = ({ doctorData, specializationData, onSpecializationChange }) => {
   const specialization = getSpecializationFromDoctor(doctorData);
   const config = getSpecializationConfig(specialization);
@@ -217,7 +250,7 @@ const SpecializationWrapper = ({ doctorData, specializationData, onSpecializatio
     availableConfigs: Object.keys(SPECIALIZATION_CONFIG)
   });
 
-  // If no specialization found in doctor data, show debug info
+  // Enhanced debug section for better troubleshooting
   if (!specialization) {
     return (
       <div className="text-center py-12">
@@ -225,11 +258,31 @@ const SpecializationWrapper = ({ doctorData, specializationData, onSpecializatio
           <Star className="h-8 w-8 text-gray-400" />
         </div>
         <p className="text-gray-600 font-medium mb-2">No specialization information found</p>
-        <details className="text-xs text-gray-500 mt-4">
-          <summary className="cursor-pointer">Debug Info</summary>
-          <div className="mt-2 p-2 bg-gray-50 rounded text-left">
-            <p><strong>Doctor Data Keys:</strong> {Object.keys(doctorData || {}).join(', ')}</p>
-            <p><strong>Available Specializations:</strong> {Object.keys(SPECIALIZATION_CONFIG).join(', ')}</p>
+        
+        {/* Enhanced Debug Information */}
+        <details className="text-xs text-gray-500 mt-4 text-left">
+          <summary className="cursor-pointer mb-2">🔍 Debug Information (Click to expand)</summary>
+          <div className="mt-2 p-4 bg-gray-50 rounded text-left space-y-2">
+            <div>
+              <strong>Doctor Data Structure:</strong>
+              <pre className="mt-1 bg-white p-2 rounded text-xs overflow-auto max-h-32">
+                {JSON.stringify(doctorData, null, 2)}
+              </pre>
+            </div>
+            <div>
+              <strong>Available Doctor Fields:</strong> 
+              <span className="ml-2">{Object.keys(doctorData || {}).join(', ')}</span>
+            </div>
+            <div>
+              <strong>Specialization Field Value:</strong>
+              <pre className="mt-1 bg-white p-2 rounded text-xs">
+                {JSON.stringify(doctorData?.specialization, null, 2)}
+              </pre>
+            </div>
+            <div>
+              <strong>Available Specialization Configs:</strong> 
+              <span className="ml-2">{Object.keys(SPECIALIZATION_CONFIG).join(', ')}</span>
+            </div>
           </div>
         </details>
       </div>
@@ -252,19 +305,21 @@ const SpecializationWrapper = ({ doctorData, specializationData, onSpecializatio
         <p className="text-sm text-purple-600 font-medium">
           Currently using general assessment
         </p>
+        
+        {/* Debug info for unmatched specializations */}
         <details className="text-xs text-gray-500 mt-4">
           <summary className="cursor-pointer">Debug Info</summary>
           <div className="mt-2 p-2 bg-gray-50 rounded text-left">
             <p><strong>Found Specialization:</strong> "{specialization}"</p>
             <p><strong>Available Configs:</strong> {Object.keys(SPECIALIZATION_CONFIG).join(', ')}</p>
+            <p><strong>Suggestion:</strong> Add "{specialization}" to SPECIALIZATION_CONFIG</p>
           </div>
         </details>
       </div>
     );
   }
 
-
-  // Render the specialization component
+    // Render the specialization component
   const SpecializationComponent = config.component;
 
   return (

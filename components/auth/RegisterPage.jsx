@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@radix-ui/react-label";
 import { toast } from "react-hot-toast";
-import { Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle, Check, X } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle, Check, X, Upload } from "lucide-react";
 
 const RegistrationComponent = () => {
   const router = useRouter();
@@ -12,9 +12,10 @@ const RegistrationComponent = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 4;
+  const totalSteps = 5; // Updated to 5 steps
 
   const [formData, setFormData] = useState({
+    // Basic user fields
     email: "",
     password: "",
     confirmPassword: "",
@@ -26,7 +27,22 @@ const RegistrationComponent = () => {
     aadhaarId: "",
     age: "",
     bloodGroup: "",
-    address: ""
+    address: "",
+    
+    // Doctor-specific fields
+    imrNumber: "",
+    specialization: "",
+    qualification: "",
+    slotDuration: "30",
+    profilePic: "",
+    yearsOfExperience: "",
+    consultationFee: "",
+    medicalLicenseNumber: "",
+    hospitalAffiliation: "",
+    bio: "",
+    languagesSpoken: [],
+    availableDays: [],
+    consultationType: "both"
   });
 
   const [errors, setErrors] = useState({
@@ -42,8 +58,31 @@ const RegistrationComponent = () => {
     age: "",
     bloodGroup: "",
     address: "",
+    imrNumber: "",
+    specialization: "",
+    qualification: "",
+    slotDuration: "",
+    profilePic: "",
+    yearsOfExperience: "",
+    consultationFee: "",
     general: ""
   });
+
+  // Available options
+  const specializations = [
+    "Cardiology", "Dermatology", "Endocrinology", "Gastroenterology", "Hematology",
+    "Neurology", "Oncology", "Orthopedics", "Pediatrics", "Psychiatry", "Radiology",
+    "Surgery", "Urology", "Gynecology", "Ophthalmology", "ENT", "General Medicine"
+  ];
+
+  const languages = [
+    "English", "Hindi", "Telugu", "Tamil", "Kannada", "Malayalam", "Bengali", 
+    "Marathi", "Gujarati", "Punjabi", "Urdu", "Assamese", "Odia"
+  ];
+
+  const daysOfWeek = [
+    "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
+  ];
 
   // Password validation functions
   const getPasswordValidation = (password) => {
@@ -73,7 +112,6 @@ const RegistrationComponent = () => {
 
   const validatePassword = (password) => {
     if (!password) return "Password is required";
-    
     const validation = getPasswordValidation(password);
     return validation.message;
   };
@@ -111,6 +149,43 @@ const RegistrationComponent = () => {
     return "";
   };
 
+  const validateIMRNumber = (imrNumber) => {
+    if (!imrNumber) return "IMR number is required";
+    if (imrNumber.length < 3) return "IMR number must be at least 3 characters";
+    return "";
+  };
+
+  const validateSlotDuration = (duration) => {
+    if (!duration) return "Slot duration is required";
+    const durationNum = parseInt(duration);
+    if (isNaN(durationNum) || durationNum < 15 || durationNum > 120) return "Slot duration must be between 15 and 120 minutes";
+    return "";
+  };
+
+  const validateYearsOfExperience = (years) => {
+    if (years === "") return ""; // Optional field
+    const yearsNum = parseInt(years);
+    if (isNaN(yearsNum) || yearsNum < 0) return "Years of experience cannot be negative";
+    return "";
+  };
+
+  const validateConsultationFee = (fee) => {
+    if (fee === "") return ""; // Optional field
+    const feeNum = parseFloat(fee);
+    if (isNaN(feeNum) || feeNum < 0) return "Consultation fee cannot be negative";
+    return "";
+  };
+
+  const validateProfilePic = (url) => {
+    if (!url) return ""; // Optional field
+    try {
+      new URL(url);
+      return "";
+    } catch {
+      return "Invalid profile picture URL";
+    }
+  };
+
   const validateField = (name, value) => {
     switch (name) {
       case "email": return validateEmail(value);
@@ -125,6 +200,13 @@ const RegistrationComponent = () => {
       case "location": return value ? "" : "Location is required";
       case "bloodGroup": return value ? "" : "Blood group is required";
       case "address": return value ? "" : "Address is required";
+      case "imrNumber": return validateIMRNumber(value);
+      case "specialization": return value ? "" : "Specialization is required";
+      case "qualification": return value ? "" : "Qualification is required";
+      case "slotDuration": return validateSlotDuration(value);
+      case "profilePic": return validateProfilePic(value);
+      case "yearsOfExperience": return validateYearsOfExperience(value);
+      case "consultationFee": return validateConsultationFee(value);
       default: return "";
     }
   };
@@ -140,7 +222,6 @@ const RegistrationComponent = () => {
         [name]: digitsOnly
       }));
       
-      // Validate with cleaned input
       const errorMessage = validateField(name, digitsOnly);
       setErrors(prev => ({
         ...prev,
@@ -149,17 +230,24 @@ const RegistrationComponent = () => {
       return;
     }
     
-    // Normal handling for other fields
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
 
-    // Validate the field
     const errorMessage = validateField(name, value);
     setErrors(prev => ({
       ...prev,
       [name]: errorMessage
+    }));
+  };
+
+  const handleCheckboxChange = (name, value, checked) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: checked 
+        ? [...prev[name], value]
+        : prev[name].filter(item => item !== value)
     }));
   };
 
@@ -208,8 +296,9 @@ const RegistrationComponent = () => {
     const fieldsToValidate = {
       1: ["firstName", "lastName", "age", "bloodGroup", "mobileNo"],
       2: ["email", "password", "confirmPassword", "username"],
-      3: ["location", "address"],
-      4: ["aadhaarId"]
+      3: ["location", "address", "aadhaarId"],
+      4: ["imrNumber", "specialization", "qualification", "slotDuration"],
+      5: [] // Optional fields step
     };
 
     const stepErrors = {};
@@ -243,18 +332,31 @@ const RegistrationComponent = () => {
     e.preventDefault();
     setErrors(prev => ({ ...prev, general: "" }));
 
-    // Validate all fields
+    // Validate required fields
+    const requiredFields = [
+      "firstName", "lastName", "age", "bloodGroup", "mobileNo", "email", 
+      "password", "confirmPassword", "username", "location", "address", 
+      "aadhaarId", "imrNumber", "specialization", "qualification", "slotDuration"
+    ];
+
     const newErrors = {};
-    Object.keys(formData).forEach(key => {
-      if (key === "general") return; // Skip general error field
-      
-      const errorMessage = validateField(key, formData[key]);
+    requiredFields.forEach(field => {
+      const errorMessage = validateField(field, formData[field]);
       if (errorMessage) {
-        newErrors[key] = errorMessage;
+        newErrors[field] = errorMessage;
       }
     });
 
-    // If there are any errors, update state and prevent submission
+    // Validate optional fields that have values
+    ["yearsOfExperience", "consultationFee", "profilePic"].forEach(field => {
+      if (formData[field]) {
+        const errorMessage = validateField(field, formData[field]);
+        if (errorMessage) {
+          newErrors[field] = errorMessage;
+        }
+      }
+    });
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(prev => ({ ...prev, ...newErrors }));
       toast.error("Please fix the errors in the form");
@@ -264,7 +366,6 @@ const RegistrationComponent = () => {
     setIsSubmitting(true);
 
     try {
-      // Call the API route
       const response = await fetch("/api/auth/doctor/register", {
         method: "POST",
         headers: {
@@ -281,7 +382,20 @@ const RegistrationComponent = () => {
           aadhaar_id: formData.aadhaarId,
           age: parseInt(formData.age),
           blood_group: formData.bloodGroup,
-          address: formData.address
+          address: formData.address,
+          imr_number: formData.imrNumber,
+          specialization: formData.specialization,
+          qualification: formData.qualification,
+          slot_duration: parseInt(formData.slotDuration),
+          profile_pic: formData.profilePic || "",
+          years_of_experience: formData.yearsOfExperience ? parseInt(formData.yearsOfExperience) : undefined,
+          consultation_fee: formData.consultationFee ? parseFloat(formData.consultationFee) : undefined,
+          medical_license_number: formData.medicalLicenseNumber || "",
+          hospital_affiliation: formData.hospitalAffiliation || "",
+          bio: formData.bio || "",
+          languages_spoken: formData.languagesSpoken,
+          available_days: formData.availableDays,
+          consultation_type: formData.consultationType
         }),
       });
 
@@ -302,6 +416,8 @@ const RegistrationComponent = () => {
           setErrors(prev => ({ ...prev, username: errorMessage }));
         } else if (errorMessage.includes("Aadhaar")) {
           setErrors(prev => ({ ...prev, aadhaarId: errorMessage }));
+        } else if (errorMessage.includes("IMR")) {
+          setErrors(prev => ({ ...prev, imrNumber: errorMessage }));
         } else if (errorMessage.includes("password")) {
           setErrors(prev => ({ ...prev, password: errorMessage }));
         } else {
@@ -322,10 +438,12 @@ const RegistrationComponent = () => {
 
   // Progress bar
   const StepProgress = () => {
+    const stepNames = ["Personal", "Account", "Location", "Medical", "Optional"];
+    
     return (
       <div className="mb-8">
         <div className="flex justify-between mb-2">
-          {[1, 2, 3, 4].map((step) => (
+          {[1, 2, 3, 4, 5].map((step) => (
             <div key={step} className="flex flex-col items-center">
               <div 
                 className={`w-8 h-8 flex items-center justify-center rounded-full border-2 
@@ -335,11 +453,7 @@ const RegistrationComponent = () => {
               >
                 {currentStep > step ? <CheckCircle size={16} /> : step}
               </div>
-              <span className="text-xs mt-1">
-                {step === 1 ? "Personal" : 
-                 step === 2 ? "Account" : 
-                 step === 3 ? "Location" : "ID"}
-              </span>
+              <span className="text-xs mt-1">{stepNames[step - 1]}</span>
             </div>
           ))}
         </div>
@@ -357,7 +471,7 @@ const RegistrationComponent = () => {
     <div className="min-h-screen w-full flex items-center justify-center bg-[#4CC9FE] p-4">
       <Card className="w-full max-w-4xl border-2 border-black rounded-3xl p-4">
         <CardContent className="flex flex-col gap-4 p-6">
-          <h1 className="text-3xl font-bold text-center">Create Your Doctors Account</h1>
+          <h1 className="text-3xl font-bold text-center">Create Your Doctor Account</h1>
           
           <StepProgress />
           
@@ -376,14 +490,10 @@ const RegistrationComponent = () => {
                       value={formData.firstName}
                       onChange={handleChange}
                       className={`w-full p-2 border-2 rounded-2xl ${
-                        errors.firstName 
-                          ? "border-red-500 bg-red-50" 
-                          : "border-black"
+                        errors.firstName ? "border-red-500 bg-red-50" : "border-black"
                       }`}
                     />
-                    {errors.firstName && (
-                      <p className="text-red-500 text-sm">{errors.firstName}</p>
-                    )}
+                    {errors.firstName && <p className="text-red-500 text-sm">{errors.firstName}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last Name*</Label>
@@ -394,14 +504,10 @@ const RegistrationComponent = () => {
                       value={formData.lastName}
                       onChange={handleChange}
                       className={`w-full p-2 border-2 rounded-2xl ${
-                        errors.lastName 
-                          ? "border-red-500 bg-red-50" 
-                          : "border-black"
+                        errors.lastName ? "border-red-500 bg-red-50" : "border-black"
                       }`}
                     />
-                    {errors.lastName && (
-                      <p className="text-red-500 text-sm">{errors.lastName}</p>
-                    )}
+                    {errors.lastName && <p className="text-red-500 text-sm">{errors.lastName}</p>}
                   </div>
                 </div>
 
@@ -416,14 +522,10 @@ const RegistrationComponent = () => {
                       value={formData.age}
                       onChange={handleChange}
                       className={`w-full p-2 border-2 rounded-2xl ${
-                        errors.age 
-                          ? "border-red-500 bg-red-50" 
-                          : "border-black"
+                        errors.age ? "border-red-500 bg-red-50" : "border-black"
                       }`}
                     />
-                    {errors.age && (
-                      <p className="text-red-500 text-sm">{errors.age}</p>
-                    )}
+                    {errors.age && <p className="text-red-500 text-sm">{errors.age}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="bloodGroup">Blood Group*</Label>
@@ -433,9 +535,7 @@ const RegistrationComponent = () => {
                       value={formData.bloodGroup}
                       onChange={handleChange}
                       className={`w-full p-2 border-2 rounded-2xl ${
-                        errors.bloodGroup 
-                          ? "border-red-500 bg-red-50" 
-                          : "border-black"
+                        errors.bloodGroup ? "border-red-500 bg-red-50" : "border-black"
                       }`}
                     >
                       <option value="">Select Blood Group</option>
@@ -448,9 +548,7 @@ const RegistrationComponent = () => {
                       <option value="O+">O+</option>
                       <option value="O-">O-</option>
                     </select>
-                    {errors.bloodGroup && (
-                      <p className="text-red-500 text-sm">{errors.bloodGroup}</p>
-                    )}
+                    {errors.bloodGroup && <p className="text-red-500 text-sm">{errors.bloodGroup}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="mobileNo">Mobile Number*</Label>
@@ -463,14 +561,10 @@ const RegistrationComponent = () => {
                       onChange={handleChange}
                       placeholder="10-digit number"
                       className={`w-full p-2 border-2 rounded-2xl ${
-                        errors.mobileNo 
-                          ? "border-red-500 bg-red-50" 
-                          : "border-black"
+                        errors.mobileNo ? "border-red-500 bg-red-50" : "border-black"
                       }`}
                     />
-                    {errors.mobileNo && (
-                      <p className="text-red-500 text-sm">{errors.mobileNo}</p>
-                    )}
+                    {errors.mobileNo && <p className="text-red-500 text-sm">{errors.mobileNo}</p>}
                   </div>
                 </div>
               </div>
@@ -489,14 +583,10 @@ const RegistrationComponent = () => {
                     value={formData.email}
                     onChange={handleChange}
                     className={`w-full p-2 border-2 rounded-2xl ${
-                      errors.email 
-                        ? "border-red-500 bg-red-50" 
-                        : "border-black"
+                      errors.email ? "border-red-500 bg-red-50" : "border-black"
                     }`}
                   />
-                  {errors.email && (
-                    <p className="text-red-500 text-sm">{errors.email}</p>
-                  )}
+                  {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -510,9 +600,7 @@ const RegistrationComponent = () => {
                         value={formData.password}
                         onChange={handleChange}
                         className={`w-full p-2 border-2 rounded-2xl ${
-                          errors.password 
-                            ? "border-red-500 bg-red-50" 
-                            : "border-black"
+                          errors.password ? "border-red-500 bg-red-50" : "border-black"
                         }`}
                       />
                       <button 
@@ -523,9 +611,7 @@ const RegistrationComponent = () => {
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
-                    {errors.password && (
-                      <p className="text-red-500 text-sm">{errors.password}</p>
-                    )}
+                    {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
                     <PasswordStrengthIndicator password={formData.password} />
                   </div>
                   <div className="space-y-2 relative">
@@ -538,9 +624,7 @@ const RegistrationComponent = () => {
                         value={formData.confirmPassword}
                         onChange={handleChange}
                         className={`w-full p-2 border-2 rounded-2xl ${
-                          errors.confirmPassword 
-                            ? "border-red-500 bg-red-50" 
-                            : "border-black"
+                          errors.confirmPassword ? "border-red-500 bg-red-50" : "border-black"
                         }`}
                       />
                       <button 
@@ -551,9 +635,7 @@ const RegistrationComponent = () => {
                         {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
-                    {errors.confirmPassword && (
-                      <p className="text-red-500 text-sm">{errors.confirmPassword}</p>
-                    )}
+                    {errors.confirmPassword && <p className="text-red-500 text-sm">{errors.confirmPassword}</p>}
                   </div>
                 </div>
 
@@ -566,22 +648,18 @@ const RegistrationComponent = () => {
                     value={formData.username}
                     onChange={handleChange}
                     className={`w-full p-2 border-2 rounded-2xl ${
-                      errors.username 
-                        ? "border-red-500 bg-red-50" 
-                        : "border-black"
+                      errors.username ? "border-red-500 bg-red-50" : "border-black"
                     }`}
                   />
-                  {errors.username && (
-                    <p className="text-red-500 text-sm">{errors.username}</p>
-                  )}
+                  {errors.username && <p className="text-red-500 text-sm">{errors.username}</p>}
                 </div>
               </div>
             )}
 
-            {/* Step 3: Location Information */}
+            {/* Step 3: Location & ID Information */}
             {currentStep === 3 && (
               <div className="space-y-4 animate-fadeIn">
-                <h2 className="text-xl font-semibold">Location Information</h2>
+                <h2 className="text-xl font-semibold">Location & ID Information</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="location">City/Town*</Label>
@@ -593,14 +671,10 @@ const RegistrationComponent = () => {
                       value={formData.location}
                       onChange={handleChange}
                       className={`w-full p-2 border-2 rounded-2xl ${
-                        errors.location 
-                          ? "border-red-500 bg-red-50" 
-                          : "border-black"
+                        errors.location ? "border-red-500 bg-red-50" : "border-black"
                       }`}
                     />
-                    {errors.location && (
-                      <p className="text-red-500 text-sm">{errors.location}</p>
-                    )}
+                    {errors.location && <p className="text-red-500 text-sm">{errors.location}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="address">Full Address*</Label>
@@ -612,23 +686,13 @@ const RegistrationComponent = () => {
                       value={formData.address}
                       onChange={handleChange}
                       className={`w-full p-2 border-2 rounded-2xl ${
-                        errors.address 
-                          ? "border-red-500 bg-red-50" 
-                          : "border-black"
+                        errors.address ? "border-red-500 bg-red-50" : "border-black"
                       }`}
                     />
-                    {errors.address && (
-                      <p className="text-red-500 text-sm">{errors.address}</p>
-                    )}
+                    {errors.address && <p className="text-red-500 text-sm">{errors.address}</p>}
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* Step 4: Government ID */}
-            {currentStep === 4 && (
-              <div className="space-y-4 animate-fadeIn">
-                <h2 className="text-xl font-semibold">Government ID</h2>
                 <div className="space-y-2">
                   <Label htmlFor="aadhaarId">Aadhaar ID*</Label>
                   <input
@@ -640,74 +704,289 @@ const RegistrationComponent = () => {
                     placeholder="12-digit Aadhaar number (digits only)"
                     maxLength={12}
                     className={`w-full p-2 border-2 rounded-2xl ${
-                      errors.aadhaarId 
-                        ? "border-red-500 bg-red-50" 
-                        : "border-black"
+                      errors.aadhaarId ? "border-red-500 bg-red-50" : "border-black"
                     }`}
                   />
-                  {errors.aadhaarId && (
-                    <p className="text-red-500 text-sm">{errors.aadhaarId}</p>
-                  )}
-                </div>
-
-                {errors.general && (
-                  <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-                    <p className="text-sm">{errors.general}</p>
-                  </div>
-                )}
-
-                <div className="flex items-center space-x-2 mt-4">
-                  <input type="checkbox" id="terms" name="terms" className="rounded border-black" required />
-                  <Label htmlFor="terms" className="text-sm">
-                    I agree to the <a href="/terms" className="text-blue-600 hover:underline">Terms and Conditions</a> and <a href="/privacy" className="text-blue-600 hover:underline">Privacy Policy</a>
-                  </Label>
+                  {errors.aadhaarId && <p className="text-red-500 text-sm">{errors.aadhaarId}</p>}
                 </div>
               </div>
             )}
 
-            {/* Navigation buttons */}
-            <div className="flex justify-between mt-8">
+            {/* Step 4: Medical Information */}
+            {currentStep === 4 && (
+              <div className="space-y-4 animate-fadeIn">
+                <h2 className="text-xl font-semibold">Medical Information</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="imrNumber">IMR Number*</Label>
+                    <input
+                      type="text"
+                      id="imrNumber"
+                      name="imrNumber"
+                      value={formData.imrNumber}
+                      onChange={handleChange}
+                      placeholder="Indian Medical Register Number"
+                      className={`w-full p-2 border-2 rounded-2xl ${
+                        errors.imrNumber ? "border-red-500 bg-red-50" : "border-black"
+                      }`}
+                    />
+                    {errors.imrNumber && <p className="text-red-500 text-sm">{errors.imrNumber}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="specialization">Specialization*</Label>
+                    <select
+                      id="specialization"
+                      name="specialization"
+                      value={formData.specialization}
+                      onChange={handleChange}
+                      className={`w-full p-2 border-2 rounded-2xl ${
+                        errors.specialization ? "border-red-500 bg-red-50" : "border-black"
+                      }`}
+                    >
+                      <option value="">Select Specialization</option>
+                      {specializations.map(spec => (
+                        <option key={spec} value={spec}>{spec}</option>
+                      ))}
+                    </select>
+                    {errors.specialization && <p className="text-red-500 text-sm">{errors.specialization}</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="qualification">Qualification*</Label>
+                    <input
+                      type="text"
+                      id="qualification"
+                      name="qualification"
+                      value={formData.qualification}
+                      onChange={handleChange}
+                      placeholder="e.g., MBBS, MD, MS"
+                      className={`w-full p-2 border-2 rounded-2xl ${
+                        errors.qualification ? "border-red-500 bg-red-50" : "border-black"
+                      }`}
+                    />
+                    {errors.qualification && <p className="text-red-500 text-sm">{errors.qualification}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="slotDuration">Slot Duration (minutes)*</Label>
+                    <select
+                      id="slotDuration"
+                      name="slotDuration"
+                      value={formData.slotDuration}
+                      onChange={handleChange}
+                      className={`w-full p-2 border-2 rounded-2xl ${
+                        errors.slotDuration ? "border-red-500 bg-red-50" : "border-black"
+                      }`}
+                    >
+                      <option value="15">15 minutes</option>
+                      <option value="30">30 minutes</option>
+                      <option value="45">45 minutes</option>
+                      <option value="60">60 minutes</option>
+                      <option value="90">90 minutes</option>
+                      <option value="120">120 minutes</option>
+                    </select>
+                    {errors.slotDuration && <p className="text-red-500 text-sm">{errors.slotDuration}</p>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 5: Optional Information */}
+            {currentStep === 5 && (
+              <div className="space-y-4 animate-fadeIn">
+                <h2 className="text-xl font-semibold">Optional Information</h2>
+                <p className="text-gray-600 text-sm">These fields are optional but help patients find and connect with you better.</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="yearsOfExperience">Years of Experience</Label>
+                    <input
+                      type="number"
+                      id="yearsOfExperience"
+                      name="yearsOfExperience"
+                      value={formData.yearsOfExperience}
+                      onChange={handleChange}
+                      min="0"
+                      className={`w-full p-2 border-2 rounded-2xl ${
+                        errors.yearsOfExperience ? "border-red-500 bg-red-50" : "border-black"
+                      }`}
+                    />
+                    {errors.yearsOfExperience && <p className="text-red-500 text-sm">{errors.yearsOfExperience}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="consultationFee">Consultation Fee (₹)</Label>
+                    <input
+                      type="number"
+                      id="consultationFee"
+                      name="consultationFee"
+                      value={formData.consultationFee}
+                      onChange={handleChange}
+                      min="0"
+                      step="0.01"
+                      className={`w-full p-2 border-2 rounded-2xl ${
+                        errors.consultationFee ? "border-red-500 bg-red-50" : "border-black"
+                      }`}
+                    />
+                    {errors.consultationFee && <p className="text-red-500 text-sm">{errors.consultationFee}</p>}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="profilePic">Profile Picture URL</Label>
+                  <input
+                    type="url"
+                    id="profilePic"
+                    name="profilePic"
+                    value={formData.profilePic}
+                    onChange={handleChange}
+                    placeholder="https://example.com/profile-picture.jpg"
+                    className={`w-full p-2 border-2 rounded-2xl ${
+                      errors.profilePic ? "border-red-500 bg-red-50" : "border-black"
+                    }`}
+                  />
+                  {errors.profilePic && <p className="text-red-500 text-sm">{errors.profilePic}</p>}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="medicalLicenseNumber">Medical License Number</Label>
+                    <input
+                      type="text"
+                      id="medicalLicenseNumber"
+                      name="medicalLicenseNumber"
+                      value={formData.medicalLicenseNumber}
+                      onChange={handleChange}
+                      className="w-full p-2 border-2 rounded-2xl border-black"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="hospitalAffiliation">Hospital Affiliation</Label>
+                    <input
+                      type="text"
+                      id="hospitalAffiliation"
+                      name="hospitalAffiliation"
+                      value={formData.hospitalAffiliation}
+                      onChange={handleChange}
+                      className="w-full p-2 border-2 rounded-2xl border-black"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bio">Bio/About</Label>
+                  <textarea
+                    id="bio"
+                    name="bio"
+                    value={formData.bio}
+                    onChange={handleChange}
+                    rows="3"
+                    placeholder="Tell patients about yourself, your approach to healthcare, etc."
+                    className="w-full p-2 border-2 rounded-2xl border-black resize-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Languages Spoken</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {languages.map(language => (
+                      <label key={language} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.languagesSpoken.includes(language)}
+                          onChange={(e) => handleCheckboxChange('languagesSpoken', language, e.target.checked)}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm">{language}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Available Days</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {daysOfWeek.map(day => (
+                      <label key={day} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.availableDays.includes(day)}
+                          onChange={(e) => handleCheckboxChange('availableDays', day, e.target.checked)}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm">{day}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="consultationType">Consultation Type</Label>
+                  <select
+                    id="consultationType"
+                    name="consultationType"
+                    value={formData.consultationType}
+                    onChange={handleChange}
+                    className="w-full p-2 border-2 rounded-2xl border-black"
+                  >
+                    <option value="online">Online Only</option>
+                    <option value="offline">In-Person Only</option>
+                    <option value="both">Both Online & In-Person</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {errors.general && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{errors.general}</p>
+              </div>
+            )}
+
+            {/* Navigation Buttons */}
+            <div className="flex justify-between pt-6">
               {currentStep > 1 && (
                 <button
                   type="button"
                   onClick={handlePrevious}
-                  className="flex items-center bg-white text-black px-6 py-2 rounded-full
-                  border-2 border-black transition-all duration-300
-                  hover:-translate-y-1 hover:shadow-[2px_5px_0_0_#000]
-                  active:translate-y-0.5 active:shadow-none"
+                  className="flex items-center space-x-2 px-6 py-2 border-2 border-gray-300 rounded-2xl hover:bg-gray-50 transition-colors"
                 >
-                  <ArrowLeft size={16} className="mr-2" /> Previous
+                  <ArrowLeft size={18} />
+                  <span>Previous</span>
                 </button>
               )}
+              
+              <div className="flex-1" />
               
               {currentStep < totalSteps ? (
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="flex items-center ml-auto bg-white text-black px-6 py-2 rounded-full
-                  border-2 border-black transition-all duration-300
-                  hover:-translate-y-1 hover:shadow-[2px_5px_0_0_#000]
-                  active:translate-y-0.5 active:shadow-none hover:bg-blue-100"
+                  className="flex items-center space-x-2 px-6 py-2 bg-blue-500 text-white rounded-2xl hover:bg-blue-600 transition-colors"
                 >
-                  Next <ArrowRight size={16} className="ml-2" />
+                  <span>Next</span>
+                  <ArrowRight size={18} />
                 </button>
               ) : (
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className={`flex items-center ml-auto bg-white text-black px-8 py-3 rounded-full
-                  border-2 border-black transition-all duration-300
-                  hover:-translate-y-1 hover:shadow-[2px_5px_0_0_#000]
-                  active:translate-y-0.5 active:shadow-none hover:bg-yellow-200
-                  ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  className="flex items-center space-x-2 px-8 py-2 bg-green-500 text-white rounded-2xl hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  {isSubmitting ? 'Registering...' : 'Register'}
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Registering...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={18} />
+                      <span>Complete Registration</span>
+                    </>
+                  )}
                 </button>
               )}
-            </div>
-
-            <div className="text-center mt-4">
-              <p>Already have an account? <a href="/login" className="text-blue-600 hover:underline">Login</a></p>
             </div>
           </form>
         </CardContent>
