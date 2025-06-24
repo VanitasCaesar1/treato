@@ -799,6 +799,8 @@ const qualificationOptions = [
                     {errors.address && <p className="text-red-500 text-sm">{errors.address}</p>}
                   </div>
                 </div>
+              </div>
+            )}
 
             {/* Step 4: Identity Verification */}
             {currentStep === 4 && (
@@ -1083,7 +1085,7 @@ const qualificationOptions = [
                 </button>
               )}
             </div>
-          </form>
+        </form>
         </CardContent>
       </Card>
     </div>
