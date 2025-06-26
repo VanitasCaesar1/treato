@@ -145,6 +145,7 @@ const getSpecializationConfig = (specialization) => {
 };
 
 // Enhanced function to extract specialization from doctor data
+// Enhanced function to extract specialization from doctor data
 const getSpecializationFromDoctor = (doctorData) => {
   if (!doctorData) {
     console.log('❌ No doctor data provided');
@@ -158,16 +159,27 @@ const getSpecializationFromDoctor = (doctorData) => {
     console.log('📋 Found specialization field:', doctorData.specialization);
     
     // If it's already a parsed object with primary field
-    if (typeof doctorData.specialization === 'object' && doctorData.specialization.primary) {
-      console.log('✅ Found specialization.primary:', doctorData.specialization.primary);
-      return doctorData.specialization.primary.toLowerCase().trim();
+    if (typeof doctorData.specialization === 'object' && doctorData.specialization !== null) {
+      if (doctorData.specialization.primary) {
+        console.log('✅ Found specialization.primary:', doctorData.specialization.primary);
+        return doctorData.specialization.primary.toLowerCase().trim();
+      }
+      
+      // Check for other possible field names in the specialization object
+      const possibleFields = ['name', 'type', 'specialty', 'field', 'department', 'main', 'title'];
+      for (const field of possibleFields) {
+        if (doctorData.specialization[field]) {
+          console.log(`✅ Found specialization.${field}:`, doctorData.specialization[field]);
+          return doctorData.specialization[field].toLowerCase().trim();
+        }
+      }
     }
     
     // If it's a string representation of the specialization
     if (typeof doctorData.specialization === 'string') {
       try {
         const parsed = JSON.parse(doctorData.specialization);
-        if (parsed.primary) {
+        if (parsed && typeof parsed === 'object' && parsed.primary) {
           console.log('✅ Parsed specialization.primary:', parsed.primary);
           return parsed.primary.toLowerCase().trim();
         }
@@ -177,32 +189,29 @@ const getSpecializationFromDoctor = (doctorData) => {
         return doctorData.specialization.toLowerCase().trim();
       }
     }
-    
-    // If specialization is an object but doesn't have primary, try other common fields
-    if (typeof doctorData.specialization === 'object') {
-      const possibleFields = ['name', 'type', 'specialty', 'field', 'department'];
-      for (const field of possibleFields) {
-        if (doctorData.specialization[field]) {
-          console.log(`✅ Found specialization.${field}:`, doctorData.specialization[field]);
-          return doctorData.specialization[field].toLowerCase().trim();
-        }
-      }
-    }
   }
   
   // Try other possible field names at the root level
-  const possibleFields = [
+  const possibleRootFields = [
     'specialty', 'Specialty', 'department', 'Department', 
-    'field', 'Field', 'medical_specialty', 'doctor_specialty'
+    'field', 'Field', 'medical_specialty', 'doctor_specialty',
+    'primary_specialty', 'main_specialty'
   ];
   
-  for (const field of possibleFields) {
+  for (const field of possibleRootFields) {
     if (doctorData[field]) {
       console.log(`✅ Found root level ${field}:`, doctorData[field]);
       
       // Handle if it's an object
-      if (typeof doctorData[field] === 'object' && doctorData[field].primary) {
-        return doctorData[field].primary.toLowerCase().trim();
+      if (typeof doctorData[field] === 'object' && doctorData[field] !== null) {
+        if (doctorData[field].primary) {
+          return doctorData[field].primary.toLowerCase().trim();
+        }
+        // Try to get the first value if it's an object
+        const firstValue = Object.values(doctorData[field])[0];
+        if (typeof firstValue === 'string') {
+          return firstValue.toLowerCase().trim();
+        }
       }
       
       // Handle if it's a string
@@ -237,6 +246,7 @@ const getNestedValue = (obj, path) => {
 };
 
 
+// Updated SpecializationWrapper component with better debugging
 // Updated SpecializationWrapper component with better debugging
 const SpecializationWrapper = ({ doctorData, specializationData, onSpecializationChange }) => {
   const specialization = getSpecializationFromDoctor(doctorData);
@@ -280,6 +290,10 @@ const SpecializationWrapper = ({ doctorData, specializationData, onSpecializatio
               </pre>
             </div>
             <div>
+              <strong>Specialization Type:</strong>
+              <span className="ml-2">{typeof doctorData?.specialization}</span>
+            </div>
+            <div>
               <strong>Available Specialization Configs:</strong> 
               <span className="ml-2">{Object.keys(SPECIALIZATION_CONFIG).join(', ')}</span>
             </div>
@@ -297,7 +311,7 @@ const SpecializationWrapper = ({ doctorData, specializationData, onSpecializatio
           <Star className="h-8 w-8 text-purple-400" />
         </div>
         <h4 className="font-semibold text-lg mb-2 text-gray-800">
-          {specialization.charAt(0).toUpperCase() + specialization.slice(1)}
+          {specialization.charAt(0).toUpperCase() + specialization.slice(1)} Assessment
         </h4>
         <p className="text-gray-600 mb-2">
           Specialized assessment tools for this field are coming soon.
@@ -318,9 +332,8 @@ const SpecializationWrapper = ({ doctorData, specializationData, onSpecializatio
       </div>
     );
   }
-
     // Render the specialization component
-  const SpecializationComponent = config.component;
+   const SpecializationComponent = config.component;
 
   return (
     <div>
@@ -523,6 +536,7 @@ const transformDiagnosisToForm = (diagnosis: any): DiagnosisFormData => {
 
 // ===== COMPONENTS =====
 // Enhanced CollapsibleSection for specialization
+// Enhanced CollapsibleSection for specialization with better title handling
 const CollapsibleSection = ({ sectionKey, section, isOpen, onToggle, children, doctorData }) => {
   // Special handling for specialization section
   if (sectionKey === 'specialization') {
@@ -536,16 +550,24 @@ const CollapsibleSection = ({ sectionKey, section, isOpen, onToggle, children, d
         title: config.title,
         description: config.description
       };
+    } else if (specialization) {
+      section = {
+        ...section,
+        icon: "🔬",
+        title: `${specialization.charAt(0).toUpperCase() + specialization.slice(1)} Assessment`,
+        description: `Specialized assessment tools for ${specialization}`
+      };
     } else {
       section = {
         ...section,
         icon: "🔬",
-        title: specialization ? `${specialization.charAt(0).toUpperCase() + specialization.slice(1)} Assessment` : "Specialization Assessment",
-        description: specialization ? `Assessment tools for ${specialization}` : "Specialized medical assessment"
+        title: "Specialization Assessment",
+        description: "Specialized medical assessment"
       };
     }
   }
-return (
+
+  return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <button 
         onClick={onToggle} 

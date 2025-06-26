@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,44 +17,56 @@ import {
 
 // Constants
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-const SPECIALIZATIONS = {
-  "cardiology": "Cardiology",
-  "dermatology": "Dermatology", 
-  "neurology": "Neurology",
-  "orthopedics": "Orthopedics",
-  "pediatrics": "Pediatrics",
-  "psychiatry": "Psychiatry"
-};
 
-// Types
-interface BaseProfile {
-  user_id: string;
-  username: string;
-  name: string;
-  mobile: string;
-  email: string;
-  blood_group?: string;
-  location?: string;
-  address?: string;
-  profile_pic?: string;
-  aadhaar_id?: string;
-  role?: string;
-}
+const QUALIFICATIONS = [
+  { value: "MBBS", label: "MBBS - Bachelor of Medicine and Bachelor of Surgery" },
+  { value: "MD", label: "MD - Doctor of Medicine" },
+  { value: "MS", label: "MS - Master of Surgery" },
+  { value: "DM", label: "DM - Doctorate of Medicine" },
+  { value: "MCh", label: "MCh - Master of Chirurgiae" },
+  { value: "DNB", label: "DNB - Diplomate of National Board" },
+  { value: "BAMS", label: "BAMS - Bachelor of Ayurvedic Medicine and Surgery" },
+  { value: "BHMS", label: "BHMS - Bachelor of Homoeopathic Medicine and Surgery" },
+  { value: "BDS", label: "BDS - Bachelor of Dental Surgery" },
+  { value: "MDS", label: "MDS - Master of Dental Surgery" },
+  { value: "BUMS", label: "BUMS - Bachelor of Unani Medicine and Surgery" },
+  { value: "BSMS", label: "BSMS - Bachelor of Siddha Medicine and Surgery" },
+  { value: "BNYS", label: "BNYS - Bachelor of Naturopathy and Yogic Sciences" },
+  { value: "BPT", label: "BPT - Bachelor of Physiotherapy" },
+  { value: "MPT", label: "MPT - Master of Physiotherapy" },
+  { value: "Other", label: "Other" }
+];
 
-interface PractitionerProfile extends BaseProfile {
-  age: number;
-  specialization: Record<string, boolean> | string;
-  qualification: string;
-  years_of_experience: number;
-  slot_duration: number;
-  bio?: string;
-  languages_spoken: string[] | string;
-  imr_number?: string;
-  is_active: boolean;
-}
-
-type ProfileFormData = Partial<PractitionerProfile> & Partial<BaseProfile>;
-type ProfileErrors = Partial<Record<keyof ProfileFormData, string>>;
+const SPECIALIZATIONS = [
+  { value: "general_medicine", label: "General Medicine" },
+  { value: "cardiology", label: "Cardiology" },
+  { value: "dermatology", label: "Dermatology" },
+  { value: "neurology", label: "Neurology" },
+  { value: "orthopedics", label: "Orthopedics" },
+  { value: "pediatrics", label: "Pediatrics" },
+  { value: "psychiatry", label: "Psychiatry" },
+  { value: "gynecology", label: "Gynecology & Obstetrics" },
+  { value: "ent", label: "ENT (Ear, Nose, Throat)" },
+  { value: "ophthalmology", label: "Ophthalmology" },
+  { value: "oncology", label: "Oncology" },
+  { value: "urology", label: "Urology" },
+  { value: "gastroenterology", label: "Gastroenterology" },
+  { value: "pulmonology", label: "Pulmonology" },
+  { value: "endocrinology", label: "Endocrinology" },
+  { value: "nephrology", label: "Nephrology" },
+  { value: "rheumatology", label: "Rheumatology" },
+  { value: "anesthesiology", label: "Anesthesiology" },
+  { value: "radiology", label: "Radiology" },
+  { value: "pathology", label: "Pathology" },
+  { value: "emergency_medicine", label: "Emergency Medicine" },
+  { value: "family_medicine", label: "Family Medicine" },
+  { value: "internal_medicine", label: "Internal Medicine" },
+  { value: "surgery", label: "General Surgery" },
+  { value: "plastic_surgery", label: "Plastic Surgery" },
+  { value: "dental", label: "Dental" },
+  { value: "physiotherapy", label: "Physiotherapy" },
+  { value: "other", label: "Other" }
+];
 
 // iOS-style Section Component
 const Section = ({ title, children, className = "" }) => (
@@ -93,7 +105,7 @@ const Field = ({
           <div className="flex items-center justify-between">
             <Label className="text-sm font-medium text-gray-900 mb-1 block">
               {label}
-              {required && !value && <span className="text-red-500 ml-1">*</span>}
+              {required && <span className="text-red-500 ml-1">*</span>}
             </Label>
             {!isEditing && !options && (
               <ChevronRight className="h-4 w-4 text-gray-300 flex-shrink-0 ml-2" />
@@ -136,7 +148,11 @@ const Field = ({
             </div>
           ) : (
             <p className="text-gray-600 text-sm">
-              {value || (
+              {value ? (
+                options ? 
+                  options.find(opt => opt.value === value)?.label || value
+                  : value
+              ) : (
                 <span className="text-gray-400">
                   {placeholder || "Not set"}
                 </span>
@@ -188,50 +204,148 @@ const StatusBadge = ({ isActive, isEditing, onChange }) => (
 const ProfilePage = () => {
   const router = useRouter();
   const [profile, setProfile] = useState(null);
-  const [formData, setFormData] = useState<ProfileFormData>({});
+  const [formData, setFormData] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [errors, setErrors] = useState<ProfileErrors>({});
+  const [errors, setErrors] = useState({});
   const [userRole, setUserRole] = useState(null);
-  const [sessionData, setSessionData] = useState(null);
 
-  // Fetch session data
-  useEffect(() => {
-    const fetchSession = async () => {
+  // Helper function to safely parse specialization
+  const parseSpecialization = (spec) => {
+    if (!spec) return "";
+    if (typeof spec === 'string') {
       try {
-        const res = await fetch('/api/auth/session', {
+        const parsed = JSON.parse(spec);
+        if (typeof parsed === 'object' && parsed !== null) {
+          // Get the first true key
+          const trueKeys = Object.keys(parsed).filter(key => parsed[key]);
+          return trueKeys.length > 0 ? trueKeys[0] : "";
+        }
+        return spec;
+      } catch {
+        return spec;
+      }
+    }
+    if (typeof spec === 'object' && spec !== null) {
+      const trueKeys = Object.keys(spec).filter(key => spec[key]);
+      return trueKeys.length > 0 ? trueKeys[0] : "";
+    }
+    return "";
+  };
+
+  // Check if user is practitioner
+  const isPractitioner = (profileData, role) => {
+    return (
+      role === "practitioner" || 
+      role === "doctor" || 
+      role === "admin" || 
+      profileData?.role === "practitioner" ||
+      profileData?.role === "doctor" ||
+      profileData?.role === "admin" ||
+      // Check if profile has practitioner-specific fields
+      !!(profileData?.age || profileData?.specialization || profileData?.qualification)
+    );
+  };
+
+  // Initialize form data from profile
+  const initializeFormData = useCallback((profileData, role) => {
+    if (!profileData) return {};
+
+    const baseData = {
+      username: profileData.username || '',
+      name: profileData.name || '',
+      email: profileData.email || '',
+      mobile: profileData.mobile?.toString() || '',
+      blood_group: profileData.blood_group || '',
+      location: profileData.location || '',
+      address: profileData.address || '',
+      aadhaar_id: profileData.aadhaar_id || '',
+    };
+
+    // Add practitioner fields if applicable
+    if (isPractitioner(profileData, role)) {
+      const languagesSpoken = Array.isArray(profileData.languages_spoken) 
+        ? profileData.languages_spoken.join(', ')
+        : profileData.languages_spoken || '';
+
+      Object.assign(baseData, {
+        age: profileData.age || '',
+        qualification: profileData.qualification || '',
+        years_of_experience: profileData.years_of_experience || 0,
+        slot_duration: profileData.slot_duration || 30,
+        specialization: parseSpecialization(profileData.specialization),
+        bio: profileData.bio || '',
+        languages_spoken: languagesSpoken,
+        imr_number: profileData.imr_number || '',
+        is_active: profileData.is_active !== undefined ? profileData.is_active : true
+      });
+    }
+
+    return baseData;
+  }, []);
+
+  // Fetch profile data
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setIsLoading(true);
+        
+        // First get session info
+        const sessionRes = await fetch('/api/auth/session', {
           credentials: 'include'
         });
         
-        if (res.ok) {
-          const data = await res.json();
-          setSessionData(data);
-          setUserRole(data.role || null);
-        } else if (res.status === 401) {
-          router.push("/login");
-          return;
+        if (!sessionRes.ok) {
+          if (sessionRes.status === 401) {
+            router.push("/login");
+            return;
+          }
+          throw new Error("Failed to fetch session");
         }
-      } catch (e) {
-        console.error("Error fetching session:", e);
+        
+        const sessionData = await sessionRes.json();
+        const currentUserRole = sessionData.role || null;
+        setUserRole(currentUserRole);
+        
+        // Then fetch profile
+        const profileRes = await fetch("/api/user/profile", {
+          credentials: "include"
+        });
+        
+        if (!profileRes.ok) {
+          if (profileRes.status === 401) {
+            router.push("/login");
+            return;
+          }
+          throw new Error("Failed to fetch profile");
+        }
+
+        const profileData = await profileRes.json();
+        setProfile(profileData);
+        
+        // Initialize form data immediately with both profile and role data
+        const initialFormData = initializeFormData(profileData, currentUserRole);
+        setFormData(initialFormData);
+        
+      } catch (error) {
+        console.error("Profile fetch error:", error);
+        toast.error("Failed to load profile");
+      } finally {
+        setIsLoading(false);
       }
     };
-    fetchSession();
-  }, [router]);
 
-  // Determine if user is practitioner
-  const isPractitioner = useMemo(() => {
-    const roleBasedCheck = (
-      userRole === "practitioner" || 
-      userRole === "doctor" || 
-      userRole === "admin" || 
-      profile?.role === "practitioner" ||
-      profile?.role === "doctor" ||
-      profile?.role === "admin"
-    );
-    const fieldBasedCheck = !!(profile?.age || profile?.specialization || profile?.qualification);
-    return roleBasedCheck || fieldBasedCheck;
-  }, [userRole, profile]);
+    fetchProfile();
+  }, [router, initializeFormData]);
+
+  // Reset form data when profile changes
+  useEffect(() => {
+    if (profile && userRole !== null && !isEditing) {
+      const initialFormData = initializeFormData(profile, userRole);
+      setFormData(initialFormData);
+    }
+  }, [profile, userRole, isEditing, initializeFormData]);
 
   // Get display role
   const getDisplayRole = () => {
@@ -241,132 +355,72 @@ const ProfilePage = () => {
     return "User";
   };
 
-  // Helper function to parse specialization
-  const parseSpecialization = (spec) => {
-    if (!spec) return {};
-    if (typeof spec === 'object') return spec;
-    if (typeof spec === 'string') {
-      try {
-        return JSON.parse(spec);
-      } catch {
-        // If it's just a string, convert to object format
-        return { [spec]: true };
-      }
-    }
-    return {};
-  };
-
-  // Helper function to get specialization display value
-  const getSpecializationDisplay = (spec) => {
-    const parsed = parseSpecialization(spec);
-    const keys = Object.keys(parsed);
-    if (keys.length === 0) return '';
-    return SPECIALIZATIONS[keys[0]] || keys[0];
-  };
-
-  // Fetch profile data
-  useEffect(() => {
-    if (!userRole && !sessionData) return;
-
-    const fetchProfile = async () => {
-      try {
-        const response = await fetch("/api/user/profile", {
-          credentials: "include"
-        });
-        
-        if (!response.ok) {
-          if (response.status === 401) {
-            router.push("/login");
-            return;
-          }
-          throw new Error("Failed to fetch profile");
-        }
-
-        const data = await response.json();
-        setProfile(data);
-        
-        // Initialize form data properly
-        const initialFormData = {
-          username: data.username || '',
-          name: data.name || '',
-          email: data.email || '',
-          mobile: data.mobile?.toString() || '',
-          blood_group: data.blood_group || '',
-          location: data.location || '',
-          address: data.address || '',
-          aadhaar_id: data.aadhaar_id || '',
-        };
-
-        // Add practitioner fields if applicable
-        if (isPractitioner || data.age || data.specialization || data.qualification) {
-          Object.assign(initialFormData, {
-            age: data.age || '',
-            qualification: data.qualification || '',
-            years_of_experience: data.years_of_experience || 0,
-            slot_duration: data.slot_duration || 30,
-            specialization: parseSpecialization(data.specialization),
-            bio: data.bio || '',
-            languages_spoken: Array.isArray(data.languages_spoken) 
-              ? data.languages_spoken.join(', ')
-              : data.languages_spoken || '',
-            imr_number: data.imr_number || '',
-            is_active: data.is_active !== undefined ? data.is_active : true
-          });
-        }
-        
-        setFormData(initialFormData);
-        
-        if (!userRole && data.role) {
-          setUserRole(data.role);
-        }
-      } catch (error) {
-        toast.error("Failed to load profile");
-        console.error("Profile fetch error:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, [router, userRole, sessionData, isPractitioner]);
-
-  // Handle form changes
+  // Handle form field changes
   const handleChange = useCallback((name, value) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Clear error for this field
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: null }));
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
     }
   }, [errors]);
 
-  // Validate form
+  // Validate form data
   const validateForm = () => {
-    const newErrors: ProfileErrors = {};
-    const data = formData as ProfileFormData;
+    const newErrors = {};
+    
+    // Required fields validation
+    if (!formData.name?.toString().trim()) {
+      newErrors.name = "Name is required";
+    }
+    if (!formData.email?.toString().trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Invalid email format";
+    }
+    if (!formData.mobile?.toString().trim()) {
+      newErrors.mobile = "Mobile is required";
+    }
 
-    if (!data.name?.toString().trim()) newErrors.name = "Name is required";
-    if (!data.email?.toString().trim()) newErrors.email = "Email is required";
-    if (!data.mobile?.toString().trim()) newErrors.mobile = "Mobile is required";
-
-    if (isPractitioner) {
-      if (!data.age || Number(data.age) < 1) newErrors.age = "Valid age is required";
-      if (!data.qualification?.toString().trim()) newErrors.qualification = "Qualification is required";
+    // Practitioner-specific validation
+    if (isPractitioner(profile, userRole)) {
+      if (!formData.age || Number(formData.age) < 1 || Number(formData.age) > 120) {
+        newErrors.age = "Valid age is required (1-120)";
+      }
+      if (!formData.qualification?.toString().trim()) {
+        newErrors.qualification = "Qualification is required";
+      }
+      if (formData.years_of_experience < 0) {
+        newErrors.years_of_experience = "Experience cannot be negative";
+      }
+      if (formData.slot_duration < 15 || formData.slot_duration > 180) {
+        newErrors.slot_duration = "Slot duration must be between 15-180 minutes";
+      }
     }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle save
+  // Save profile changes
   const handleSave = async () => {
     if (!validateForm()) {
-      toast.error("Please fix the errors");
+      toast.error("Please fix validation errors");
       return;
     }
 
     setIsSaving(true);
     try {
+      // Prepare data for API
       const saveData = {
-        username: formData.username || profile?.username,
+        username: formData.username,
         name: formData.name?.trim(),
         email: formData.email?.trim(),
         mobile: formData.mobile?.trim(),
@@ -377,69 +431,91 @@ const ProfilePage = () => {
       };
 
       // Add practitioner fields if applicable
-      if (isPractitioner) {
+      if (isPractitioner(profile, userRole)) {
+        // Handle languages - convert string back to array
+        let languagesArray = [];
+        if (formData.languages_spoken) {
+          languagesArray = formData.languages_spoken
+            .split(',')
+            .map(lang => lang.trim())
+            .filter(lang => lang.length > 0);
+        }
+
+        // Handle specialization - convert to object format expected by backend
+        let specializationObj = {};
+        if (formData.specialization) {
+          specializationObj = { [formData.specialization]: true };
+        }
+
         Object.assign(saveData, {
-          age: formData.age ? parseInt(String(formData.age)) : null,
+          age: parseInt(formData.age) || null,
           qualification: formData.qualification?.trim() || null,
-          years_of_experience: formData.years_of_experience ? parseInt(String(formData.years_of_experience)) : 0,
-          slot_duration: formData.slot_duration ? parseInt(String(formData.slot_duration)) : 30,
-          specialization: formData.specialization || {},
+          years_of_experience: parseInt(formData.years_of_experience) || 0,
+          slot_duration: parseInt(formData.slot_duration) || 30,
+          specialization: specializationObj,
           bio: formData.bio?.trim() || null,
-          languages_spoken: typeof formData.languages_spoken === 'string'
-            ? formData.languages_spoken.split(',').map(lang => lang.trim()).filter(Boolean)
-            : Array.isArray(formData.languages_spoken) 
-              ? formData.languages_spoken.filter(lang => lang?.trim())
-              : [],
+          languages_spoken: languagesArray,
           imr_number: formData.imr_number?.trim() || null,
           is_active: formData.is_active !== undefined ? formData.is_active : true
         });
       }
 
-      // Remove undefined values
-      Object.keys(saveData).forEach(key => {
-        if (saveData[key] === undefined) {
-          delete saveData[key];
-        }
-      });
+      console.log("Saving profile data:", saveData);
       
       const response = await fetch("/api/user/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json" 
+        },
         credentials: "include",
         body: JSON.stringify(saveData)
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to save");
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: "Failed to save profile" };
+        }
+        throw new Error(errorData.error || "Failed to save profile");
       }
 
-      const updated = await response.json();
-      setProfile(updated);
+      const result = await response.json();
       
-      // Update form data with saved values
-      const updatedFormData = {
-        ...formData,
-        ...updated,
-        mobile: updated.mobile?.toString() || '',
-        languages_spoken: Array.isArray(updated.languages_spoken) 
-          ? updated.languages_spoken.join(', ')
-          : updated.languages_spoken || '',
-        specialization: parseSpecialization(updated.specialization)
-      };
-      setFormData(updatedFormData);
+      // Fetch updated profile to ensure we have the latest data
+      const profileRes = await fetch("/api/user/profile", {
+        credentials: "include"
+      });
+      
+      if (profileRes.ok) {
+        const updatedProfile = await profileRes.json();
+        setProfile(updatedProfile);
+      }
       
       setIsEditing(false);
       toast.success("Profile updated successfully");
+      
     } catch (error) {
-      toast.error("Failed to save profile");
       console.error("Save error:", error);
+      toast.error(error.message || "Failed to save profile");
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Handle picture upload
+  // Cancel editing
+  const handleCancel = () => {
+    setIsEditing(false);
+    if (profile) {
+      const resetData = initializeFormData(profile, userRole);
+      setFormData(resetData);
+    }
+    setErrors({});
+  };
+
+  // Handle profile picture upload
   const handlePictureUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -449,27 +525,32 @@ const ProfilePage = () => {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("profilePic", file);
+    const uploadFormData = new FormData();
+    uploadFormData.append("profilePic", file);
 
-    const toastId = toast.loading("Uploading...");
+    const toastId = toast.loading("Uploading picture...");
     try {
       const response = await fetch("/api/user/profile/picture", {
         method: "POST",
-        body: formData,
+        body: uploadFormData,
         credentials: "include"
       });
 
-      if (!response.ok) throw new Error("Upload failed");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Upload failed");
+      }
       
       const data = await response.json();
       setProfile(prev => ({ ...prev, profile_pic: data.url }));
-      toast.success("Picture updated", { id: toastId });
+      toast.success("Picture updated successfully", { id: toastId });
     } catch (error) {
-      toast.error("Upload failed", { id: toastId });
+      console.error("Upload error:", error);
+      toast.error(error.message || "Upload failed", { id: toastId });
     }
   };
 
+  // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -481,7 +562,22 @@ const ProfilePage = () => {
     );
   }
 
+  // Error state
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-500 mb-4">Failed to load profile</p>
+          <Button onClick={() => window.location.reload()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const getInitials = (name) => name?.trim().substring(0, 2).toUpperCase() || "U";
+  const showPractitionerFields = isPractitioner(profile, userRole);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -551,14 +647,13 @@ const ProfilePage = () => {
         {/* Content */}
         <div className="p-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column */}
+            {/* Left Column - Personal Information */}
             <div>
-              {/* Personal Information */}
               <Section title="Personal Information">
                 <Field
                   icon={<User className="h-5 w-5" />}
                   label="Full Name"
-                  value={formData.name || ''}
+                  value={formData.name}
                   name="name"
                   isEditing={isEditing}
                   onChange={handleChange}
@@ -569,7 +664,7 @@ const ProfilePage = () => {
                 <Field
                   icon={<Mail className="h-5 w-5" />}
                   label="Email"
-                  value={formData.email || ''}
+                  value={formData.email}
                   name="email"
                   type="email"
                   isEditing={isEditing}
@@ -581,7 +676,7 @@ const ProfilePage = () => {
                 <Field
                   icon={<Phone className="h-5 w-5" />}
                   label="Mobile"
-                  value={formData.mobile || ''}
+                  value={formData.mobile}
                   name="mobile"
                   type="tel"
                   isEditing={isEditing}
@@ -593,7 +688,7 @@ const ProfilePage = () => {
                 <Field
                   icon={<Heart className="h-5 w-5" />}
                   label="Blood Group"
-                  value={formData.blood_group || ''}
+                  value={formData.blood_group}
                   name="blood_group"
                   isEditing={isEditing}
                   onChange={handleChange}
@@ -604,12 +699,11 @@ const ProfilePage = () => {
                 />
               </Section>
 
-              {/* Location Information */}
               <Section title="Location">
                 <Field
                   icon={<MapPin className="h-5 w-5" />}
                   label="Location"
-                  value={formData.location || ''}
+                  value={formData.location}
                   name="location"
                   isEditing={isEditing}
                   onChange={handleChange}
@@ -619,7 +713,7 @@ const ProfilePage = () => {
                 <Field
                   icon={<MapPin className="h-5 w-5" />}
                   label="Address"
-                  value={formData.address || ''}
+                  value={formData.address}
                   name="address"
                   type="textarea"
                   isEditing={isEditing}
@@ -630,12 +724,11 @@ const ProfilePage = () => {
                 />
               </Section>
 
-              {/* Security */}
               <Section title="Security">
                 <Field
                   icon={<Shield className="h-5 w-5" />}
                   label="Aadhaar ID"
-                  value={formData.aadhaar_id || ''}
+                  value={formData.aadhaar_id}
                   name="aadhaar_id"
                   isEditing={isEditing}
                   onChange={handleChange}
@@ -646,14 +739,14 @@ const ProfilePage = () => {
               </Section>
             </div>
 
-            {/* Right Column - Practitioner Info */}
-            {isPractitioner && (
+            {/* Right Column - Practitioner Information */}
+            {showPractitionerFields && (
               <div>
                 <Section title="Medical Practice">
                   <Field
                     icon={<User className="h-5 w-5" />}
                     label="Age"
-                    value={formData.age ?? ''}
+                    value={formData.age}
                     name="age"
                     type="number"
                     isEditing={isEditing}
@@ -665,29 +758,30 @@ const ProfilePage = () => {
                   <Field
                     icon={<GraduationCap className="h-5 w-5" />}
                     label="Qualification"
-                    value={formData.qualification || ''}
+                    value={formData.qualification}
                     name="qualification"
                     isEditing={isEditing}
                     onChange={handleChange}
+                    options={QUALIFICATIONS}
                     error={errors.qualification}
                     required
-                    placeholder="MBBS, MD, etc."
+                    placeholder="Select qualification"
                   />
                   <Field
                     icon={<Stethoscope className="h-5 w-5" />}
                     label="Specialization"
-                    value={getSpecializationDisplay(formData.specialization)}
+                    value={formData.specialization}
                     name="specialization"
                     isEditing={isEditing}
-                    onChange={(name, value) => handleChange(name, { [value]: true })}
-                    options={Object.entries(SPECIALIZATIONS).map(([key, label]) => ({ value: key, label }))}
+                    onChange={handleChange}
+                    options={SPECIALIZATIONS}
                     error={errors.specialization}
                     placeholder="Select specialization"
                   />
                   <Field
                     icon={<Clock className="h-5 w-5" />}
                     label="Experience (Years)"
-                    value={formData.years_of_experience ?? ''}
+                    value={formData.years_of_experience}
                     name="years_of_experience"
                     type="number"
                     isEditing={isEditing}
@@ -698,7 +792,7 @@ const ProfilePage = () => {
                   <Field
                     icon={<Clock className="h-5 w-5" />}
                     label="Slot Duration (minutes)"
-                    value={formData.slot_duration ?? ''}
+                    value={formData.slot_duration}
                     name="slot_duration"
                     type="number"
                     isEditing={isEditing}
@@ -709,17 +803,21 @@ const ProfilePage = () => {
                   <Field
                     icon={<FileText className="h-5 w-5" />}
                     label="IMR Number"
-                    value={formData.imr_number || ''}
+                    value={formData.imr_number}
                     name="imr_number"
                     isEditing={isEditing}
                     onChange={handleChange}
                     error={errors.imr_number}
                     placeholder="Medical registration number"
+                    isLast
                   />
+                </Section>
+
+                <Section title="Additional Information">
                   <Field
                     icon={<Languages className="h-5 w-5" />}
-                    label="Languages"
-                    value={formData.languages_spoken || ''}
+                    label="Languages Spoken"
+                    value={formData.languages_spoken}
                     name="languages_spoken"
                     isEditing={isEditing}
                     onChange={handleChange}
@@ -729,7 +827,7 @@ const ProfilePage = () => {
                   <Field
                     icon={<FileText className="h-5 w-5" />}
                     label="Bio"
-                    value={formData.bio || ''}
+                    value={formData.bio}
                     name="bio"
                     type="textarea"
                     isEditing={isEditing}
@@ -737,7 +835,7 @@ const ProfilePage = () => {
                     error={errors.bio}
                     placeholder="Brief description about yourself"
                   />
-                  <StatusBadge 
+                  <StatusBadge
                     isActive={formData.is_active}
                     isEditing={isEditing}
                     onChange={handleChange}
@@ -747,48 +845,29 @@ const ProfilePage = () => {
             )}
           </div>
 
-          {/* Cancel button when editing */}
+          {/* Action Buttons */}
           {isEditing && (
-            <div className="flex justify-center mt-8">
+            <div className="mt-8 flex justify-end space-x-4">
               <Button
                 variant="outline"
-                onClick={() => {
-                  setIsEditing(false);
-                  // Reset form data to profile data
-                  const resetData = {
-                    username: profile?.username || '',
-                    name: profile?.name || '',
-                    email: profile?.email || '',
-                    mobile: profile?.mobile?.toString() || '',
-                    blood_group: profile?.blood_group || '',
-                    location: profile?.location || '',
-                    address: profile?.address || '',
-                    aadhaar_id: profile?.aadhaar_id || '',
-                  };
-
-                  if (isPractitioner || profile?.age || profile?.specialization || profile?.qualification) {
-                    Object.assign(resetData, {
-                      age: profile?.age || '',
-                      qualification: profile?.qualification || '',
-                      years_of_experience: profile?.years_of_experience || 0,
-                      slot_duration: profile?.slot_duration || 30,
-                      specialization: parseSpecialization(profile?.specialization),
-                      bio: profile?.bio || '',
-                      languages_spoken: Array.isArray(profile?.languages_spoken) 
-                        ? profile.languages_spoken.join(', ')
-                        : profile?.languages_spoken || '',
-                      imr_number: profile?.imr_number || '',
-                      is_active: profile?.is_active !== undefined ? profile.is_active : true
-                    });
-                  }
-
-                  setFormData(resetData);
-                  setErrors({});
-                }}
-                className="rounded-lg px-6"
+                onClick={handleCancel}
+                disabled={isSaving}
+                className="px-6"
               >
                 <X className="h-4 w-4 mr-2" />
                 Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Check className="h-4 w-4 mr-2" />
+                )}
+                {isSaving ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           )}
