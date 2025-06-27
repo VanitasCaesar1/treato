@@ -85,9 +85,30 @@ export async function GET(
 
     if (response.diagnosis) {
       // Backend returns single diagnosis object in .diagnosis property
+      const diag = transformDiagnosisFromAPI(response.diagnosis);
+      // --- Ensure specializations is always an object ---
+      let specializations = diag.specializations;
+      if (!specializations || typeof specializations !== 'object') {
+        specializations = {};
+        if (diag.specialty && diag.specialty_data) {
+          try {
+            specializations[diag.specialty] = typeof diag.specialty_data === 'string' ? JSON.parse(diag.specialty_data) : diag.specialty_data;
+          } catch {
+            specializations[diag.specialty] = {};
+          }
+        }
+      }
+      // --- Always set specialty/specialty_data for compatibility ---
+      let specialty = diag.specialty || Object.keys(specializations)[0] || 'general';
+      let specialty_data = specializations[specialty] || {};
       transformedData = {
         message: response.message,
-        diagnosis: transformDiagnosisFromAPI(response.diagnosis),
+        diagnosis: {
+          ...diag,
+          specializations,
+          specialty,
+          specialty_data
+        },
         count: response.count
       };
     } else if (response.diagnoses) {
@@ -264,7 +285,8 @@ function transformDiagnosisFromAPI(diagnosis: any) {
     // Specialization
     specialty: diagnosis.specialty,
     specialty_data: diagnosis.specialty_data,
-    
+    // Multi-specialization support
+    specializations: diagnosis.specializations || null,
     // Meta
     status: diagnosis.status,
     created_at: diagnosis.created_at,

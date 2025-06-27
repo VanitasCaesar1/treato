@@ -1,4 +1,5 @@
-import React from "react";
+"use client"
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -27,66 +28,9 @@ import {
   Activity,
   MessageSquare,
   Lock,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
-
-const medicalRecords = [
-  {
-    date: "2024-02-01",
-    patientName: "Sarah Johnson",
-    id: "MR-2024-001",
-    category: "Consultation",
-    doctor: "Dr. Emily Chen",
-    status: "verified",
-    recordType: "confidential",
-    description: "Annual check-up report with blood work results",
-  },
-  {
-    date: "2024-02-01",
-    patientName: "Robert Smith",
-    id: "MR-2024-002",
-    category: "Surgery",
-    doctor: "Dr. James Wilson",
-    status: "pending",
-    recordType: "restricted",
-    description: "Pre-surgery assessment notes",
-  },
-];
-
-const transactionRecords = [
-  {
-    date: "2024-02-01",
-    patientName: "Michael Brown",
-    id: "TR-2024-045",
-    amount: "$250.00",
-    paymentMethod: "Credit Card",
-    status: "completed",
-    recordType: "financial",
-    description: "Consultation fee payment",
-  },
-  {
-    date: "2024-02-01",
-    patientName: "Lisa Anderson",
-    id: "TR-2024-046",
-    amount: "$500.00",
-    paymentMethod: "Insurance",
-    status: "pending",
-    recordType: "financial",
-    description: "Laboratory tests payment",
-  },
-];
-
-const labRecords = [
-  {
-    date: "2024-02-01",
-    patientName: "David Wilson",
-    id: "LR-2024-023",
-    category: "Blood Test",
-    doctor: "Dr. James Wilson",
-    status: "pending",
-    recordType: "restricted",
-    description: "Comprehensive metabolic panel",
-  },
-];
 
 const statusStyles = {
   verified: "bg-green-50 text-green-600 hover:bg-green-100",
@@ -110,7 +54,7 @@ const RecordStats = ({ icon, label, value }) => (
   </div>
 );
 
-const RecordsTable = ({ records, showExport = true }) => (
+const RecordsTable = ({ records, showExport = true, search, setSearch, dateRange, setDateRange, showDownload = false }) => (
   <div className="bg-white/80 backdrop-blur rounded-2xl shadow-sm overflow-hidden mb-8">
     <div className="p-6 border-b border-gray-100">
       <div className="flex items-center gap-4">
@@ -119,13 +63,16 @@ const RecordsTable = ({ records, showExport = true }) => (
           <Input
             placeholder="Search records..."
             className="pl-10 h-10 bg-gray-50 border-0 rounded-lg focus:ring-1 focus:ring-gray-900"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <Select>
+        <Select value={dateRange} onValueChange={setDateRange}>
           <SelectTrigger className="w-[140px] bg-gray-50 border-0 rounded-lg focus:ring-1 focus:ring-gray-900">
             <SelectValue placeholder="Date Range" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">All Time</SelectItem>
             <SelectItem value="today">Today</SelectItem>
             <SelectItem value="week">This Week</SelectItem>
             <SelectItem value="month">This Month</SelectItem>
@@ -167,7 +114,7 @@ const RecordsTable = ({ records, showExport = true }) => (
           <div className="text-sm text-gray-900">{record.date}</div>
           <div>
             <Link
-              href={`/records/${record.id}`}
+              href={`/dashboard/records/${record.id}`}
               className="text-sm font-medium text-gray-900 hover:text-gray-700 flex items-center gap-1 group"
             >
               {record.patientName}
@@ -201,7 +148,7 @@ const RecordsTable = ({ records, showExport = true }) => (
             >
               <Eye className="h-4 w-4" />
             </Button>
-            {record.recordType !== "confidential" && (
+            {showDownload && record.recordType !== "confidential" && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -217,7 +164,108 @@ const RecordsTable = ({ records, showExport = true }) => (
   </div>
 );
 
-export default async function RecordsPage() {
+export default function RecordsPage() {
+  const [medicalRecords, setMedicalRecords] = useState([]);
+  const [transactionRecords, setTransactionRecords] = useState([]);
+  const [labRecords, setLabRecords] = useState(labRecordsStatic);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  // Add search and filter state
+  const [search, setSearch] = useState("");
+  const [dateRange, setDateRange] = useState("all");
+
+  // Fetch diagnosis and appointments on mount
+  useEffect(() => {
+    async function fetchRecords() {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch diagnosis records
+        const diagnosisRes = await fetch("/api/diagnosis/list?limit=100");
+        const diagnosisData = await diagnosisRes.json();
+        const diagnosisRecords = (diagnosisData.diagnoses || diagnosisData.diagnosis || []).map((diag) => ({
+          date: diag.created_at?.split("T")[0] || "-",
+          patientName: diag.patient_name || diag.patient_id || "Unknown",
+          id: diag.id || diag.diagnosis_id || diag.appointment_id || "-",
+          category: "Diagnosis",
+          doctor: diag.doctor_name || diag.doctor_id || "-",
+          status: diag.status || "verified",
+          recordType: "confidential",
+          description: diag.primary_diagnosis || diag.chief_complaint || "Diagnosis record",
+        }));
+
+        // Fetch appointments records
+        const appointmentsRes = await fetch("/api/appointments/org?limit=100");
+        const appointmentsData = await appointmentsRes.json();
+        const appointmentsRecords = (appointmentsData.appointments || []).map((appt) => ({
+          date: appt.appointment_date?.split("T")[0] || "-",
+          patientName: appt.patient_name || appt.patient_id || "Unknown",
+          id: appt.appointment_id || appt.id || "-",
+          category: "Appointment",
+          doctor: appt.doctor_name || appt.doctor_id || "-",
+          status: appt.status || appt.appointment_status || "completed",
+          recordType: "restricted",
+          description: appt.chief_complaint || appt.reason || "Appointment record",
+        }));
+
+        // Optionally, fetch transactions from appointments with payment info
+        const transactionRecordsFetched = (appointmentsData.appointments || []).filter(a => a.payment_status || a.amount).map((appt) => ({
+          date: appt.appointment_date?.split("T")[0] || "-",
+          patientName: appt.patient_name || appt.patient_id || "Unknown",
+          id: appt.appointment_id || appt.id || "-",
+          amount: appt.amount ? `$${appt.amount}` : "-",
+          paymentMethod: appt.payment_method || "-",
+          status: appt.payment_status || "completed",
+          recordType: "financial",
+          description: appt.payment_description || "Consultation payment",
+        }));
+
+        // Merge with static records
+        setMedicalRecords([...diagnosisRecords, ...appointmentsRecords, ...medicalRecordsStatic]);
+        setTransactionRecords([...transactionRecordsFetched, ...transactionRecordsStatic]);
+        setLabRecords(labRecordsStatic); // Static for now
+      } catch (err) {
+        setError("Failed to load records");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchRecords();
+  }, []);
+
+  // Filtering logic
+  function filterRecords(records) {
+    let filtered = records;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      filtered = filtered.filter(r =>
+        (r.patientName && r.patientName.toLowerCase().includes(q)) ||
+        (r.id && r.id.toLowerCase().includes(q)) ||
+        (r.description && r.description.toLowerCase().includes(q)) ||
+        (r.doctor && r.doctor.toLowerCase().includes(q)) ||
+        (r.category && r.category.toLowerCase().includes(q))
+      );
+    }
+    if (dateRange !== "all") {
+      const now = new Date();
+      filtered = filtered.filter(r => {
+        if (!r.date) return false;
+        const recDate = new Date(r.date);
+        if (dateRange === "today") {
+          return recDate.toDateString() === now.toDateString();
+        } else if (dateRange === "week") {
+          const weekAgo = new Date(now);
+          weekAgo.setDate(now.getDate() - 7);
+          return recDate >= weekAgo && recDate <= now;
+        } else if (dateRange === "month") {
+          return recDate.getMonth() === now.getMonth() && recDate.getFullYear() === now.getFullYear();
+        }
+        return true;
+      });
+    }
+    return filtered;
+  }
+
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
       <div className="max-w-[1400px] mx-auto p-8">
@@ -230,31 +278,29 @@ export default async function RecordsPage() {
               View and manage all patient records
             </p>
           </div>
-          <Button className="bg-[#FFB347] text-black hover:bg-gray-800 rounded-full px-6">
-            New Record
-          </Button>
+         
         </div>
 
         <div className="grid grid-cols-4 gap-6 mb-8">
           <RecordStats
             icon={<Activity className="h-4 w-4" />}
             label="Medical Records"
-            value="156"
+            value={medicalRecords.length}
           />
           <RecordStats
             icon={<DollarSign className="h-4 w-4" />}
             label="Transaction Records"
-            value="89"
+            value={transactionRecords.length}
           />
           <RecordStats
             icon={<ClipboardList className="h-4 w-4" />}
             label="Lab Results"
-            value="45"
+            value={labRecords.length}
           />
           <RecordStats
             icon={<Lock className="h-4 w-4" />}
             label="Restricted Records"
-            value="34"
+            value={medicalRecords.filter(r => r.recordType === 'confidential' || r.recordType === 'restricted').length}
           />
         </div>
 
@@ -266,18 +312,122 @@ export default async function RecordsPage() {
           </TabsList>
 
           <TabsContent value="medical">
-            <RecordsTable records={medicalRecords} showExport={false} />
+            {loading ? (
+              <div className="flex items-center justify-center py-12 text-gray-500">
+                <Loader2 className="animate-spin mr-2" /> Loading medical records...
+              </div>
+            ) : error ? (
+              <div className="flex items-center justify-center py-12 text-red-500">
+                <AlertTriangle className="mr-2" /> {error}
+              </div>
+            ) : (
+              <RecordsTable
+                records={filterRecords(medicalRecords)}
+                showExport={false}
+                search={search}
+                setSearch={setSearch}
+                dateRange={dateRange}
+                setDateRange={setDateRange}
+                showDownload={true}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="transactions">
-            <RecordsTable records={transactionRecords} showExport={true} />
+            {loading ? (
+              <div className="flex items-center justify-center py-12 text-gray-500">
+                <Loader2 className="animate-spin mr-2" /> Loading transactions...
+              </div>
+            ) : error ? (
+              <div className="flex items-center justify-center py-12 text-red-500">
+                <AlertTriangle className="mr-2" /> {error}
+              </div>
+            ) : (
+              <RecordsTable
+                records={filterRecords(transactionRecords)}
+                showExport={true}
+                search={search}
+                setSearch={setSearch}
+                dateRange={dateRange}
+                setDateRange={setDateRange}
+                showDownload={false}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="lab">
-            <RecordsTable records={labRecords} showExport={true} />
+            <RecordsTable
+              records={filterRecords(labRecords)}
+              showExport={true}
+              search={search}
+              setSearch={setSearch}
+              dateRange={dateRange}
+              setDateRange={setDateRange}
+              showDownload={false}
+            />
           </TabsContent>
         </Tabs>
       </div>
     </div>
   );
 }
+
+// Static fallback data for initial render/merge
+const medicalRecordsStatic = [
+  {
+    date: "2024-02-01",
+    patientName: "Sarah Johnson",
+    id: "MR-2024-001",
+    category: "Consultation",
+    doctor: "Dr. Emily Chen",
+    status: "verified",
+    recordType: "confidential",
+    description: "Annual check-up report with blood work results",
+  },
+  {
+    date: "2024-02-01",
+    patientName: "Robert Smith",
+    id: "MR-2024-002",
+    category: "Surgery",
+    doctor: "Dr. James Wilson",
+    status: "pending",
+    recordType: "restricted",
+    description: "Pre-surgery assessment notes",
+  },
+];
+
+const transactionRecordsStatic = [
+  {
+    date: "2024-02-01",
+    patientName: "Michael Brown",
+    id: "TR-2024-045",
+    amount: "$250.00",
+    paymentMethod: "Credit Card",
+    status: "completed",
+    recordType: "financial",
+    description: "Consultation fee payment",
+  },
+  {
+    date: "2024-02-01",
+    patientName: "Lisa Anderson",
+    id: "TR-2024-046",
+    amount: "$500.00",
+    paymentMethod: "Insurance",
+    status: "pending",
+    recordType: "financial",
+    description: "Laboratory tests payment",
+  },
+];
+
+const labRecordsStatic = [
+  {
+    date: "2024-02-01",
+    patientName: "David Wilson",
+    id: "LR-2024-023",
+    category: "Blood Test",
+    doctor: "Dr. James Wilson",
+    status: "pending",
+    recordType: "restricted",
+    description: "Comprehensive metabolic panel",
+  },
+];

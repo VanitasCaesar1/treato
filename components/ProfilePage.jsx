@@ -2,85 +2,175 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Label } from "./ui/label";
-import { Input } from "./ui/input";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "./ui/textarea";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   User, Camera, Loader2, MapPin, Phone, Mail, Heart, 
   Stethoscope, GraduationCap, Clock, Languages, FileText, 
-  Shield, AtSign, Edit3, Check, X, ChevronRight
+  Shield, Edit, Check, X, ChevronRight, UserCircle, Plus
 } from "lucide-react";
 
 // Constants
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
 const QUALIFICATIONS = [
-  { value: "MBBS", label: "MBBS - Bachelor of Medicine and Bachelor of Surgery" },
-  { value: "MD", label: "MD - Doctor of Medicine" },
-  { value: "MS", label: "MS - Master of Surgery" },
-  { value: "DM", label: "DM - Doctorate of Medicine" },
-  { value: "MCh", label: "MCh - Master of Chirurgiae" },
-  { value: "DNB", label: "DNB - Diplomate of National Board" },
-  { value: "BAMS", label: "BAMS - Bachelor of Ayurvedic Medicine and Surgery" },
-  { value: "BHMS", label: "BHMS - Bachelor of Homoeopathic Medicine and Surgery" },
-  { value: "BDS", label: "BDS - Bachelor of Dental Surgery" },
-  { value: "MDS", label: "MDS - Master of Dental Surgery" },
-  { value: "BUMS", label: "BUMS - Bachelor of Unani Medicine and Surgery" },
-  { value: "BSMS", label: "BSMS - Bachelor of Siddha Medicine and Surgery" },
-  { value: "BNYS", label: "BNYS - Bachelor of Naturopathy and Yogic Sciences" },
-  { value: "BPT", label: "BPT - Bachelor of Physiotherapy" },
-  { value: "MPT", label: "MPT - Master of Physiotherapy" },
-  { value: "Other", label: "Other" }
+  "MBBS", "BDS", "BAMS", "BHMS", "BUMS", "B.VSc", "BNYS",
+  "MD", "MS", "MDS", "DNB", "DM", "MCh", "FCPS", "FRCS", "MRCP",
+  "MD (Ayurveda)", "MS (Ayurveda)", "MD (Homeopathy)", "MS (Homeopathy)",
+  "MD (Unani)", "MS (Unani)", "Bachelor of Physiotherapy", "Master of Physiotherapy",
+  "B.Sc Nursing", "M.Sc Nursing", "GNM", "ANM",
+  "Diploma in Medical Laboratory Technology", "B.Sc MLT", "M.Sc MLT",
+  "BPT", "MPT", "BPharm", "MPharm", "PharmD", "BSc", "MSc", "PhD",
+  "MBChB", "MB BCh", "MB BChir", "MBBS (UK)", "MD (USA)", "DO (USA)",
+  "MRCS", "MRCOG", "FRCOG", "FRCP", "FRCA", "FRCR", "FRCPCH", "FRCPsych",
+  "Diplomate of National Board (DNB)", "Diploma in Child Health (DCH)",
+  "Diploma in Obstetrics & Gynaecology (DGO)", "Diploma in Orthopaedics (D.Ortho)",
+  "Diploma in Anaesthesia (DA)", "Diploma in Medical Radiology (DMRD)",
+  "Diploma in Clinical Pathology (DCP)", "Diploma in Ophthalmology (DO)",
+  "Diploma in Laryngology & Otology (DLO)", "Diploma in Public Health (DPH)",
+  "Diploma in Industrial Health (DIH)", "Diploma in Tuberculosis & Chest Diseases (DTCD)",
+  "Diploma in Dermatology, Venereology & Leprosy (DDVL)", "Diploma in Psychiatry (DPM)",
+  "Diploma in Paediatrics (DCH)", "Diploma in Geriatric Medicine (DGM)",
+  "Diploma in Sports Medicine (DSM)", "Diploma in Family Medicine (DFM)",
+  "Other"
 ];
 
 const SPECIALIZATIONS = [
-  { value: "general_medicine", label: "General Medicine" },
-  { value: "cardiology", label: "Cardiology" },
-  { value: "dermatology", label: "Dermatology" },
-  { value: "neurology", label: "Neurology" },
-  { value: "orthopedics", label: "Orthopedics" },
-  { value: "pediatrics", label: "Pediatrics" },
-  { value: "psychiatry", label: "Psychiatry" },
-  { value: "gynecology", label: "Gynecology & Obstetrics" },
-  { value: "ent", label: "ENT (Ear, Nose, Throat)" },
-  { value: "ophthalmology", label: "Ophthalmology" },
-  { value: "oncology", label: "Oncology" },
-  { value: "urology", label: "Urology" },
-  { value: "gastroenterology", label: "Gastroenterology" },
-  { value: "pulmonology", label: "Pulmonology" },
-  { value: "endocrinology", label: "Endocrinology" },
-  { value: "nephrology", label: "Nephrology" },
-  { value: "rheumatology", label: "Rheumatology" },
-  { value: "anesthesiology", label: "Anesthesiology" },
-  { value: "radiology", label: "Radiology" },
-  { value: "pathology", label: "Pathology" },
-  { value: "emergency_medicine", label: "Emergency Medicine" },
-  { value: "family_medicine", label: "Family Medicine" },
-  { value: "internal_medicine", label: "Internal Medicine" },
-  { value: "surgery", label: "General Surgery" },
-  { value: "plastic_surgery", label: "Plastic Surgery" },
-  { value: "dental", label: "Dental" },
-  { value: "physiotherapy", label: "Physiotherapy" },
-  { value: "other", label: "Other" }
+  "General Medicine", "General Surgery", "Pediatrics", "Obstetrics & Gynecology",
+  "Orthopedics", "Ophthalmology", "ENT (Otorhinolaryngology)", "Dermatology",
+  "Psychiatry", "Cardiology", "Neurology", "Gastroenterology", "Pulmonology",
+  "Nephrology", "Endocrinology", "Rheumatology", "Oncology", "Hematology",
+  "Infectious Diseases", "Emergency Medicine", "Anesthesiology", "Radiology",
+  "Pathology", "Microbiology", "Biochemistry", "Pharmacology", "Physiology",
+  "Anatomy", "Forensic Medicine", "Community Medicine", "Dental Surgery",
+  "Oral & Maxillofacial Surgery", "Orthodontics", "Periodontics", "Prosthodontics",
+  "Pedodontics", "Oral Medicine", "Ayurveda", "Homeopathy", "Unani",
+  "Physiotherapy", "Nursing", "Medical Laboratory Technology", "Sports Medicine",
+  "Geriatrics", "Family Medicine", "Critical Care Medicine", "Pain Medicine",
+  "Plastic Surgery", "Vascular Surgery", "Neurosurgery", "Urology", "Neonatology",
+  "Pediatric Surgery", "Thoracic Surgery", "Transfusion Medicine", "Nuclear Medicine",
+  "Genetics", "Immunology", "Sleep Medicine", "Reproductive Medicine",
+  "Allergy & Immunology", "Clinical Pharmacology", "Occupational Medicine",
+  "Public Health", "Epidemiology", "Tropical Medicine", "Palliative Medicine",
+  "Rehabilitation Medicine", "Sexual Medicine", "Travel Medicine", "Aerospace Medicine",
+  "Other"
 ];
 
-// iOS-style Section Component
-const Section = ({ title, children, className = "" }) => (
-  <div className={`mb-8 ${className}`}>
-    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 px-4">
-      {title}
-    </h2>
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-      {children}
-    </div>
-  </div>
-);
+// Utility functions
+const parseSpecialization = (spec) => {
+  if (!spec || typeof spec === 'string') return spec || "";
+  if (typeof spec === 'object') return spec.primary || Object.keys(spec).find(key => spec[key]) || "";
+  return "";
+};
 
-// iOS-style Field Component
+const parseLanguages = (languages) => {
+  if (!languages) return [];
+  if (Array.isArray(languages)) return languages;
+  if (typeof languages === 'string') {
+    return languages.split(',').map(lang => lang.trim()).filter(Boolean);
+  }
+  return [];
+};
+
+const isPractitioner = (role, profile) => {
+  // Check role first
+  if (["practitioner", "doctor", "admin"].includes(role?.toLowerCase())) return true;
+  
+  // Check if user has a corresponding doctor record
+  if (profile && profile.doctor_profile) return true;
+  
+  return false;
+};
+
+const getInitials = (name) => name?.trim().substring(0, 2).toUpperCase() || "U";
+
+// Multi-select Language Component
+const LanguageSelector = ({ selectedLanguages, onChange, isEditing, name }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  const handleLanguageToggle = (language) => {
+    const current = selectedLanguages || [];
+    const updated = current.includes(language)
+      ? current.filter(lang => lang !== language)
+      : [...current, language];
+    onChange(name, updated);
+  };
+
+  const displayText = selectedLanguages?.length > 0 
+    ? selectedLanguages.join(', ') 
+    : "Not set";
+
+  if (!isEditing) {
+    return (
+      <div className="text-sm text-gray-600">
+        {displayText}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="border rounded-xl bg-gray-50 p-3 min-h-[44px] flex flex-wrap gap-1">
+        {selectedLanguages?.map(lang => (
+          <Badge 
+            key={lang} 
+            variant="secondary" 
+            className="bg-blue-100 text-blue-700 text-xs"
+          >
+            {lang}
+            <X 
+              className="h-3 w-3 ml-1 cursor-pointer" 
+              onClick={() => handleLanguageToggle(lang)}
+            />
+          </Badge>
+        ))}
+        {(!selectedLanguages || selectedLanguages.length === 0) && (
+          <span className="text-gray-400 text-sm">Select languages...</span>
+        )}
+      </div>
+      
+      <div className="relative">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setIsOpen(!isOpen)}
+          className="w-full justify-between rounded-xl"
+        >
+          Add Languages
+          <Plus className="h-4 w-4" />
+        </Button>
+        
+        {isOpen && (
+          <div className="absolute z-10 w-full mt-1 bg-white border rounded-xl shadow-lg max-h-48 overflow-y-auto">
+            {INDIAN_LANGUAGES.map(language => (
+              <div
+                key={language}
+                className={`px-3 py-2 cursor-pointer hover:bg-gray-50 flex items-center justify-between ${
+                  selectedLanguages?.includes(language) ? 'bg-blue-50 text-blue-700' : ''
+                }`}
+                onClick={() => handleLanguageToggle(language)}
+              >
+                <span className="text-sm">{language}</span>
+                {selectedLanguages?.includes(language) && (
+                  <Check className="h-4 w-4 text-blue-600" />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Field Component
 const Field = ({ 
   icon, 
   label, 
@@ -88,434 +178,443 @@ const Field = ({
   isEditing, 
   name, 
   type = "text", 
-  options = undefined, 
+  options, 
   onChange, 
   error, 
-  required = false,
-  placeholder,
-  isLast = false 
-}) => (
-  <div className={`${!isLast ? 'border-b border-gray-100' : ''}`}>
-    <div className="flex items-center px-4 py-3">
-      <div className="flex items-center min-w-0 flex-1">
-        <div className="text-gray-400 mr-3 flex-shrink-0">
-          {icon}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium text-gray-900 mb-1 block">
-              {label}
-              {required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            {!isEditing && !options && (
-              <ChevronRight className="h-4 w-4 text-gray-300 flex-shrink-0 ml-2" />
-            )}
-          </div>
-          
-          {isEditing ? (
-            <div className="mt-1">
-              {options ? (
-                <Select value={value || ""} onValueChange={(val) => onChange(name, val)}>
-                  <SelectTrigger className="border-gray-200 rounded-lg h-10">
-                    <SelectValue placeholder={placeholder || "Select..."} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {options.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : type === "textarea" ? (
-                <Textarea
-                  name={name}
-                  value={value || ""}
-                  onChange={(e) => onChange(name, e.target.value)}
-                  className="border-gray-200 rounded-lg resize-none"
-                  placeholder={placeholder || `Enter ${label.toLowerCase()}...`}
-                  rows={3}
+  required, 
+  placeholder, 
+  isLast,
+  isLanguageField = false 
+}) => {
+  const displayValue = value || <span className="text-gray-400 text-sm">{placeholder || "Not set"}</span>;
+  const optionLabel = options?.find(opt => opt === value) || value;
+
+  if (!isEditing) {
+    return (
+      <div className={`bg-white ${!isLast ? 'border-b border-gray-100' : ''} px-4 py-3 flex items-center justify-between`}>
+        <div className="flex items-center space-x-3 flex-1">
+          <div className="text-blue-500 flex-shrink-0">{icon}</div>
+          <div className="flex-1">
+            <Label className="text-sm font-medium text-gray-900">{label}</Label>
+            <div className="text-sm mt-0.5 text-gray-600">
+              {isLanguageField ? (
+                <LanguageSelector 
+                  selectedLanguages={value} 
+                  onChange={onChange} 
+                  isEditing={false} 
+                  name={name} 
                 />
               ) : (
-                <Input
-                  name={name}
-                  type={type}
-                  value={value || ""}
-                  onChange={(e) => onChange(name, e.target.value)}
-                  className="border-gray-200 rounded-lg h-10"
-                  placeholder={placeholder || `Enter ${label.toLowerCase()}...`}
-                />
+                options ? optionLabel : displayValue
               )}
-              {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
             </div>
-          ) : (
-            <p className="text-gray-600 text-sm">
-              {value ? (
-                options ? 
-                  options.find(opt => opt.value === value)?.label || value
-                  : value
-              ) : (
-                <span className="text-gray-400">
-                  {placeholder || "Not set"}
-                </span>
-              )}
-            </p>
-          )}
+          </div>
         </div>
+        <ChevronRight className="h-4 w-4 text-gray-400" />
       </div>
-    </div>
-  </div>
-);
+    );
+  }
 
-// Status Badge Component
-const StatusBadge = ({ isActive, isEditing, onChange }) => (
-  <div className="flex items-center px-4 py-3">
-    <div className="flex items-center min-w-0 flex-1">
-      <div className="text-gray-400 mr-3 flex-shrink-0">
-        <Shield className="h-5 w-5" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <Label className="text-sm font-medium text-gray-900 mb-1 block">
-          Status
-        </Label>
-        <div className="flex items-center justify-between">
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            isActive 
-              ? 'bg-green-100 text-green-800' 
-              : 'bg-red-100 text-red-800'
-          }`}>
-            {isActive ? 'Active' : 'Inactive'}
-          </span>
-          {isEditing && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onChange('is_active', !isActive)}
-              className="ml-2"
-            >
-              {isActive ? 'Deactivate' : 'Activate'}
-            </Button>
-          )}
-        </div>
-      </div>
+  return (
+    <div className={`bg-white ${!isLast ? 'border-b border-gray-100' : ''} px-4 py-3 space-y-2`}>
+      <Label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+        <span className="text-blue-500">{icon}</span>
+        {label}
+        {required && <span className="text-red-500 text-xs">*</span>}
+      </Label>
+      {isLanguageField ? (
+        <LanguageSelector 
+          selectedLanguages={value} 
+          onChange={onChange} 
+          isEditing={true} 
+          name={name} 
+        />
+      ) : options ? (
+        <Select value={value || ""} onValueChange={(val) => onChange(name, val)}>
+          <SelectTrigger className="border-0 bg-gray-50 rounded-xl h-11 min-w-[220px] max-w-full text-base focus:ring-2 focus:ring-blue-500">
+            <SelectValue placeholder={placeholder || `Select ${label.toLowerCase()}`} className="truncate" />
+          </SelectTrigger>
+          <SelectContent className="max-h-60 min-w-[220px] w-auto rounded-xl shadow-lg text-base">
+            {options.map(opt => (
+              <SelectItem key={opt} value={opt} className="text-base px-4 py-2 truncate hover:bg-blue-50">
+                {opt}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : type === "textarea" ? (
+        <Textarea
+          value={value || ""}
+          onChange={(e) => onChange(name, e.target.value)}
+          placeholder={placeholder}
+          rows={4}
+          className="border-0 bg-gray-50 rounded-xl resize-none text-base"
+        />
+      ) : (
+        <Input
+          type={type}
+          value={value || ""}
+          onChange={(e) => onChange(name, e.target.value)}
+          placeholder={placeholder}
+          className="border-0 bg-gray-50 rounded-xl h-11 text-base"
+        />
+      )}
+      {error && <p className="text-red-500 text-xs mt-1 font-medium">{error}</p>}
     </div>
-  </div>
-);
+  );
+};
 
-// Main Component
 const ProfilePage = () => {
   const router = useRouter();
   const [profile, setProfile] = useState(null);
-  const [formData, setFormData] = useState({});
+  const [userFormData, setUserFormData] = useState({});
+  const [doctorFormData, setDoctorFormData] = useState({});
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditingUser, setIsEditingUser] = useState(false);
+  const [isEditingDoctor, setIsEditingDoctor] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState({});
   const [userRole, setUserRole] = useState(null);
+  const [sessionData, setSessionData] = useState(null);
+  const [profilePicUrl, setProfilePicUrl] = useState(null);
+  const [profilePicLoading, setProfilePicLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("personal");
 
-  // Helper function to safely parse specialization
-  const parseSpecialization = (spec) => {
-    if (!spec) return "";
-    if (typeof spec === 'string') {
-      try {
-        const parsed = JSON.parse(spec);
-        if (typeof parsed === 'object' && parsed !== null) {
-          // Get the first true key
-          const trueKeys = Object.keys(parsed).filter(key => parsed[key]);
-          return trueKeys.length > 0 ? trueKeys[0] : "";
-        }
-        return spec;
-      } catch {
-        return spec;
-      }
-    }
-    if (typeof spec === 'object' && spec !== null) {
-      const trueKeys = Object.keys(spec).filter(key => spec[key]);
-      return trueKeys.length > 0 ? trueKeys[0] : "";
-    }
-    return "";
-  };
+  const showPractitionerFields = isPractitioner(userRole, profile);
+  const displayRole = userRole === "admin" ? "Administrator" : 
+                     ["practitioner", "doctor"].includes(userRole?.toLowerCase()) ? "Doctor" : "User";
 
-  // Check if user is practitioner
-  const isPractitioner = (profileData, role) => {
-    return (
-      role === "practitioner" || 
-      role === "doctor" || 
-      role === "admin" || 
-      profileData?.role === "practitioner" ||
-      profileData?.role === "doctor" ||
-      profileData?.role === "admin" ||
-      // Check if profile has practitioner-specific fields
-      !!(profileData?.age || profileData?.specialization || profileData?.qualification)
-    );
-  };
+  console.log('Current state:', {
+    userRole,
+    showPractitionerFields,
+    profileFields: profile ? Object.keys(profile) : 'no profile',
+    hasDoctorProfile: !!profile?.doctor_profile,
+    userId: profile?.user_id,
+    doctorFormData
+  });
 
-  // Initialize form data from profile
-  const initializeFormData = useCallback((profileData, role) => {
-    if (!profileData) return {};
+  // Field configurations
+  const userFields = [
+    { icon: <User className="h-4 w-4" />, label: "Full Name", name: "name", required: true },
+    { icon: <Mail className="h-4 w-4" />, label: "Email", name: "email", type: "email", required: true },
+    { icon: <Phone className="h-4 w-4" />, label: "Mobile", name: "mobile", type: "tel", required: true },
+    { icon: <Heart className="h-4 w-4" />, label: "Blood Group", name: "bloodGroup", options: BLOOD_GROUPS },
+    { icon: <MapPin className="h-4 w-4" />, label: "Location", name: "location", placeholder: "City, State" },
+    { icon: <MapPin className="h-4 w-4" />, label: "Address", name: "address", type: "textarea", placeholder: "Full address" }
+  ];
 
-    const baseData = {
-      username: profileData.username || '',
+  const doctorFields = [
+    { icon: <User className="h-4 w-4" />, label: "Age", name: "age", type: "number", required: true },
+    { icon: <GraduationCap className="h-4 w-4" />, label: "Qualification", name: "qualification", options: QUALIFICATIONS, required: true },
+    { icon: <Stethoscope className="h-4 w-4" />, label: "Specialization", name: "specialization", options: SPECIALIZATIONS },
+    { icon: <Clock className="h-4 w-4" />, label: "Experience (Years)", name: "yearsOfExperience", type: "number" },
+    { icon: <Clock className="h-4 w-4" />, label: "Slot Duration (minutes)", name: "slotDuration", type: "number" },
+    { icon: <FileText className="h-4 w-4" />, label: "IMR Number", name: "imrNumber", placeholder: "Medical registration number" },
+    { icon: <Languages className="h-4 w-4" />, label: "Languages", name: "languagesSpoken", isLanguageField: true },
+    { icon: <FileText className="h-4 w-4" />, label: "Bio", name: "bio", type: "textarea", placeholder: "Brief description" }
+  ];
+
+  const initializeFormData = useCallback((profileData) => {
+    if (!profileData) return { user: {}, doctor: {} };
+
+    const user = {
       name: profileData.name || '',
       email: profileData.email || '',
       mobile: profileData.mobile?.toString() || '',
-      blood_group: profileData.blood_group || '',
+      bloodGroup: profileData.blood_group || '',
       location: profileData.location || '',
       address: profileData.address || '',
-      aadhaar_id: profileData.aadhaar_id || '',
     };
 
-    // Add practitioner fields if applicable
-    if (isPractitioner(profileData, role)) {
-      const languagesSpoken = Array.isArray(profileData.languages_spoken) 
-        ? profileData.languages_spoken.join(', ')
-        : profileData.languages_spoken || '';
+    // Get doctor data from doctor_profile if it exists
+    const doctorProfile = profileData.doctor_profile || {};
+    const doctor = {
+      age: doctorProfile.age?.toString() || profileData.age?.toString() || '',
+      qualification: doctorProfile.qualification || '',
+      yearsOfExperience: doctorProfile.years_of_experience?.toString() || '0',
+      slotDuration: doctorProfile.slot_duration?.toString() || '30',
+      specialization: parseSpecialization(doctorProfile.specialization),
+      bio: doctorProfile.bio || '',
+      languagesSpoken: parseLanguages(doctorProfile.languages_spoken),
+      imrNumber: doctorProfile.imr_number || '',
+    };
 
-      Object.assign(baseData, {
-        age: profileData.age || '',
-        qualification: profileData.qualification || '',
-        years_of_experience: profileData.years_of_experience || 0,
-        slot_duration: profileData.slot_duration || 30,
-        specialization: parseSpecialization(profileData.specialization),
-        bio: profileData.bio || '',
-        languages_spoken: languagesSpoken,
-        imr_number: profileData.imr_number || '',
-        is_active: profileData.is_active !== undefined ? profileData.is_active : true
-      });
-    }
-
-    return baseData;
+    console.log('Initialized doctor form data:', doctor);
+    return { user, doctor };
   }, []);
 
-  // Fetch profile data
+  const fetchData = useCallback(async (url, options = {}) => {
+    try {
+      console.log(`Making ${options.method || 'GET'} request to:`, url);
+      
+      const response = await fetch(url, { 
+        credentials: 'include', 
+        ...options,
+        headers: { 'Content-Type': 'application/json', ...options.headers }
+      });
+      
+      console.log(`Response status for ${url}:`, response.status);
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.log('Unauthorized, redirecting to login');
+          router.push("/login");
+          return null;
+        }
+        const errorText = await response.text();
+        console.error(`HTTP ${response.status} for ${url}:`, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log(`Success response for ${url}:`, data);
+      return data;
+    } catch (error) {
+      console.error(`Fetch error for ${url}:`, error);
+      throw error;
+    }
+  }, [router]);
+
+  const fetchProfilePicture = useCallback(async () => {
+    try {
+      setProfilePicLoading(true);
+      const response = await fetch('/api/user/profile/picture/current', { credentials: 'include' });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        setProfilePicUrl(URL.createObjectURL(blob));
+      }
+    } catch (error) {
+      console.error("Error fetching profile picture:", error);
+    } finally {
+      setProfilePicLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         setIsLoading(true);
         
-        // First get session info
-        const sessionRes = await fetch('/api/auth/session', {
-          credentials: 'include'
-        });
+        // First fetch session to get role and auth_id
+        console.log('Fetching session data...');
+        const sessionResponse = await fetchData('/api/auth/session');
         
-        if (!sessionRes.ok) {
-          if (sessionRes.status === 401) {
-            router.push("/login");
-            return;
-          }
-          throw new Error("Failed to fetch session");
+        if (!sessionResponse) {
+          console.log('No session data, redirecting to login');
+          router.push('/login');
+          return;
         }
         
-        const sessionData = await sessionRes.json();
-        const currentUserRole = sessionData.role || null;
-        setUserRole(currentUserRole);
+        console.log('Session data received:', sessionResponse);
+        setSessionData(sessionResponse);
+        setUserRole(sessionResponse.role);
         
-        // Then fetch profile
-        const profileRes = await fetch("/api/user/profile", {
-          credentials: "include"
-        });
+        // Then fetch user profile using auth_id from session
+        console.log('Fetching user profile...');
+        const userProfileResponse = await fetchData('/api/user/profile');
         
-        if (!profileRes.ok) {
-          if (profileRes.status === 401) {
-            router.push("/login");
-            return;
+        if (!userProfileResponse) {
+          console.log('No user profile data');
+          return;
+        }
+        
+        console.log('User profile received:', userProfileResponse);
+        
+        // Check if this is a practitioner and fetch doctor profile if needed
+        const roleIsPractitioner = isPractitioner(sessionResponse.role, userProfileResponse);
+        console.log('Is practitioner?', roleIsPractitioner);
+        
+        let mergedProfile = { ...userProfileResponse };
+        
+        if (roleIsPractitioner) {
+          console.log('Fetching doctor profile for user_id:', userProfileResponse.user_id);
+          try {
+            // Use the user_id as doctor_id since they're the same in your schema
+            const doctorProfileResponse = await fetchData(`/api/doctors/${userProfileResponse.user_id}/profile`);
+            if (doctorProfileResponse) {
+              console.log('Doctor profile received:', doctorProfileResponse);
+              // Store doctor profile as nested object
+              mergedProfile.doctor_profile = doctorProfileResponse;
+            }
+          } catch (doctorError) {
+            console.error('Error fetching doctor profile:', doctorError);
+            // Don't fail completely if doctor profile fetch fails
           }
-          throw new Error("Failed to fetch profile");
         }
 
-        const profileData = await profileRes.json();
-        setProfile(profileData);
+        setProfile(mergedProfile);
         
-        // Initialize form data immediately with both profile and role data
-        const initialFormData = initializeFormData(profileData, currentUserRole);
-        setFormData(initialFormData);
+        // Initialize form data with merged profile
+        const { user, doctor } = initializeFormData(mergedProfile);
+        setUserFormData(user);
+        setDoctorFormData(doctor);
+
+        // Fetch profile picture
+        await fetchProfilePicture();
         
       } catch (error) {
         console.error("Profile fetch error:", error);
-        toast.error("Failed to load profile");
+        toast.error(`Failed to load profile: ${error.message}`);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchProfile();
-  }, [router, initializeFormData]);
+  }, [fetchData, initializeFormData, fetchProfilePicture, router]);
 
-  // Reset form data when profile changes
-  useEffect(() => {
-    if (profile && userRole !== null && !isEditing) {
-      const initialFormData = initializeFormData(profile, userRole);
-      setFormData(initialFormData);
+  const handleChange = useCallback((name, value, isDoctor = false) => {
+    console.log(`Updating ${isDoctor ? 'doctor' : 'user'} field ${name}:`, value);
+    
+    if (isDoctor) {
+      setDoctorFormData(prev => {
+        const updated = { ...prev, [name]: value };
+        console.log('Updated doctor form data:', updated);
+        return updated;
+      });
+    } else {
+      setUserFormData(prev => ({ ...prev, [name]: value }));
     }
-  }, [profile, userRole, isEditing, initializeFormData]);
-
-  // Get display role
-  const getDisplayRole = () => {
-    const currentRole = userRole || profile?.role;
-    if (currentRole === "admin") return "Administrator";
-    if (currentRole === "practitioner" || currentRole === "doctor") return "Doctor";
-    return "User";
-  };
-
-  // Handle form field changes
-  const handleChange = useCallback((name, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
     
     // Clear error for this field
-    if (errors[name]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
-  }, [errors]);
+    setErrors(prev => ({ ...prev, [name]: undefined }));
+  }, []);
 
-  // Validate form data
-  const validateForm = () => {
+  const validateForm = (data, isDoctor = false) => {
     const newErrors = {};
     
-    // Required fields validation
-    if (!formData.name?.toString().trim()) {
-      newErrors.name = "Name is required";
-    }
-    if (!formData.email?.toString().trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Invalid email format";
-    }
-    if (!formData.mobile?.toString().trim()) {
-      newErrors.mobile = "Mobile is required";
-    }
-
-    // Practitioner-specific validation
-    if (isPractitioner(profile, userRole)) {
-      if (!formData.age || Number(formData.age) < 1 || Number(formData.age) > 120) {
-        newErrors.age = "Valid age is required (1-120)";
-      }
-      if (!formData.qualification?.toString().trim()) {
-        newErrors.qualification = "Qualification is required";
-      }
-      if (formData.years_of_experience < 0) {
-        newErrors.years_of_experience = "Experience cannot be negative";
-      }
-      if (formData.slot_duration < 15 || formData.slot_duration > 180) {
-        newErrors.slot_duration = "Slot duration must be between 15-180 minutes";
-      }
+    if (!isDoctor) {
+      if (!data.name?.trim()) newErrors.name = "Name is required";
+      if (!data.email?.trim()) newErrors.email = "Email is required";
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) newErrors.email = "Invalid email format";
+      if (!data.mobile?.trim()) newErrors.mobile = "Mobile is required";
+    } else {
+      const age = Number(data.age);
+      if (!age || age < 1 || age > 120) newErrors.age = "Valid age is required";
+      if (!data.qualification?.trim()) newErrors.qualification = "Qualification is required";
     }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Save profile changes
-  const handleSave = async () => {
-    if (!validateForm()) {
+  const handleSave = async (isDoctor = false) => {
+    const data = isDoctor ? doctorFormData : userFormData;
+    
+    if (!validateForm(data, isDoctor)) {
       toast.error("Please fix validation errors");
       return;
     }
 
     setIsSaving(true);
+    
     try {
-      // Prepare data for API
-      const saveData = {
-        username: formData.username,
-        name: formData.name?.trim(),
-        email: formData.email?.trim(),
-        mobile: formData.mobile?.trim(),
-        blood_group: formData.blood_group || null,
-        location: formData.location?.trim() || null,
-        address: formData.address?.trim() || null,
-        aadhaar_id: formData.aadhaar_id?.trim() || null,
-      };
+      let endpoint = '/api/user/profile';
+      let saveData = data;
 
-      // Add practitioner fields if applicable
-      if (isPractitioner(profile, userRole)) {
-        // Handle languages - convert string back to array
-        let languagesArray = [];
-        if (formData.languages_spoken) {
-          languagesArray = formData.languages_spoken
-            .split(',')
-            .map(lang => lang.trim())
-            .filter(lang => lang.length > 0);
+      if (isDoctor) {
+        // Use user_id as doctor_id since they're the same
+        const doctorId = profile.user_id;
+        if (!doctorId) {
+          throw new Error('User ID not found');
         }
-
-        // Handle specialization - convert to object format expected by backend
-        let specializationObj = {};
-        if (formData.specialization) {
-          specializationObj = { [formData.specialization]: true };
-        }
-
-        Object.assign(saveData, {
-          age: parseInt(formData.age) || null,
-          qualification: formData.qualification?.trim() || null,
-          years_of_experience: parseInt(formData.years_of_experience) || 0,
-          slot_duration: parseInt(formData.slot_duration) || 30,
-          specialization: specializationObj,
-          bio: formData.bio?.trim() || null,
-          languages_spoken: languagesArray,
-          imr_number: formData.imr_number?.trim() || null,
-          is_active: formData.is_active !== undefined ? formData.is_active : true
-        });
+        
+        endpoint = `/api/doctors/${doctorId}/profile`;
+        saveData = {
+          age: parseInt(data.age) || null,
+          qualification: data.qualification?.trim() || null,
+          years_of_experience: parseInt(data.yearsOfExperience) || 0,
+          slot_duration: parseInt(data.slotDuration) || 30,
+          specialization: data.specialization ? { primary: data.specialization } : {},
+          bio: data.bio?.trim() || null,
+          languages_spoken: Array.isArray(data.languagesSpoken) ? data.languagesSpoken : [],
+          imr_number: data.imrNumber?.trim() || null,
+        };
+      } else {
+        saveData = {
+          name: data.name?.trim() || '',
+          email: data.email?.trim() || '',
+          mobile: data.mobile?.trim() || '',
+          blood_group: data.bloodGroup || null,
+          location: data.location?.trim() || null,
+          address: data.address?.trim() || null,
+        };
       }
 
-      console.log("Saving profile data:", saveData);
-      
-      const response = await fetch("/api/user/profile", {
-        method: "PUT",
-        headers: { 
-          "Content-Type": "application/json" 
-        },
-        credentials: "include",
+      console.log(`Saving ${isDoctor ? 'doctor' : 'user'} data to ${endpoint}:`, saveData);
+
+      await fetchData(endpoint, {
+        method: 'PUT',
         body: JSON.stringify(saveData)
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = { error: "Failed to save profile" };
+      // Refresh profile data
+      const updatedProfile = await fetchData('/api/user/profile');
+      if (updatedProfile) {
+        let mergedProfile = { ...updatedProfile };
+        
+        // Re-fetch doctor profile if needed
+        if (showPractitionerFields) {
+          try {
+            const doctorProfileResponse = await fetchData(`/api/doctors/${updatedProfile.user_id}/profile`);
+            if (doctorProfileResponse) {
+              mergedProfile.doctor_profile = doctorProfileResponse;
+            }
+          } catch (doctorError) {
+            console.error('Error re-fetching doctor profile:', doctorError);
+          }
         }
-        throw new Error(errorData.error || "Failed to save profile");
+        
+        setProfile(mergedProfile);
+        const { user, doctor } = initializeFormData(mergedProfile);
+        setUserFormData(user);
+        setDoctorFormData(doctor);
       }
 
-      const result = await response.json();
-      
-      // Fetch updated profile to ensure we have the latest data
-      const profileRes = await fetch("/api/user/profile", {
-        credentials: "include"
-      });
-      
-      if (profileRes.ok) {
-        const updatedProfile = await profileRes.json();
-        setProfile(updatedProfile);
+      if (isDoctor) {
+        setIsEditingDoctor(false);
+      } else {
+        setIsEditingUser(false);
       }
       
-      setIsEditing(false);
-      toast.success("Profile updated successfully");
+      toast.success(`${isDoctor ? 'Professional' : 'Personal'} information updated successfully`);
       
     } catch (error) {
       console.error("Save error:", error);
-      toast.error(error.message || "Failed to save profile");
+      toast.error(`Failed to save ${isDoctor ? 'professional' : 'personal'} information: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Cancel editing
-  const handleCancel = () => {
-    setIsEditing(false);
-    if (profile) {
-      const resetData = initializeFormData(profile, userRole);
-      setFormData(resetData);
+  const handleCancel = (isDoctor = false) => {
+    if (isDoctor) {
+      setIsEditingDoctor(false);
+      const { doctor } = initializeFormData(profile);
+      setDoctorFormData(doctor);
+    } else {
+      setIsEditingUser(false);
+      const { user } = initializeFormData(profile);
+      setUserFormData(user);
     }
     setErrors({});
   };
 
-  // Handle profile picture upload
+  const handleEdit = (isDoctor = false) => {
+    if (isDoctor) {
+      setIsEditingDoctor(true);
+      // Re-initialize form data to ensure it's fresh
+      const { doctor } = initializeFormData(profile);
+      setDoctorFormData(doctor);
+      console.log('Starting doctor edit with data:', doctor);
+    } else {
+      setIsEditingUser(true);
+      const { user } = initializeFormData(profile);
+      setUserFormData(user);
+    }
+  };
+
   const handlePictureUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -525,50 +624,51 @@ const ProfilePage = () => {
       return;
     }
 
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please select a valid image file");
+      return;
+    }
+
     const uploadFormData = new FormData();
     uploadFormData.append("profilePic", file);
 
     const toastId = toast.loading("Uploading picture...");
+    
     try {
-      const response = await fetch("/api/user/profile/picture", {
+      const response = await fetch('/api/user/profile/picture', {
         method: "POST",
         body: uploadFormData,
-        credentials: "include"
+        credentials: 'include'
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Upload failed");
-      }
-      
-      const data = await response.json();
-      setProfile(prev => ({ ...prev, profile_pic: data.url }));
+      if (!response.ok) throw new Error("Upload failed");
+
+      await fetchProfilePicture();
       toast.success("Picture updated successfully", { id: toastId });
     } catch (error) {
-      console.error("Upload error:", error);
-      toast.error(error.message || "Upload failed", { id: toastId });
+      toast.error("Upload failed", { id: toastId });
     }
   };
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-500" />
-          <p className="text-gray-500 mt-2">Loading profile...</p>
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          </div>
+          <p className="text-gray-600 font-medium">Loading profile...</p>
         </div>
       </div>
     );
   }
 
-  // Error state
   if (!profile) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-500 mb-4">Failed to load profile</p>
-          <Button onClick={() => window.location.reload()}>
+        <div className="text-center space-y-4">
+          <p className="text-gray-600">Failed to load profile</p>
+          <Button onClick={() => window.location.reload()} className="bg-blue-600 text-white rounded-full px-6 py-2">
             Retry
           </Button>
         </div>
@@ -576,302 +676,173 @@ const ProfilePage = () => {
     );
   }
 
-  const getInitials = (name) => name?.trim().substring(0, 2).toUpperCase() || "U";
-  const showPractitionerFields = isPractitioner(profile, userRole);
+  const FieldSection = ({ title, fields, isEditing, formData, onChange, onSave, onCancel, onEdit, isDoctor = false }) => (
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+        <h3 className="font-semibold text-gray-900">{title}</h3>
+        <Button
+          onClick={() => isEditing ? onSave() : onEdit()}
+          disabled={isSaving}
+          size="sm"
+          className={`rounded-full px-4 py-1 font-semibold ${
+            isEditing 
+              ? 'bg-blue-600 text-white hover:bg-blue-700' 
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          {isSaving ? (
+            <><Loader2 className="h-3 w-3 animate-spin mr-1" />Saving...</>
+          ) : isEditing ? (
+            <><Check className="h-3 w-3 mr-1" />Save</>
+          ) : (
+            <><Edit className="h-3 w-3 mr-1" />Edit</>
+          )}
+        </Button>
+      </div>
+      <div>
+        {fields.map((field, index) => {
+          let value = formData[field.name];
+          // Always use string for number fields and bio to avoid input blur issues
+          if ((field.name === 'age' || field.name === 'imrNumber' || field.name === 'bio') && (value === undefined || value === null)) {
+            value = '';
+          } else if ((field.name === 'age' || field.name === 'imrNumber' || field.name === 'bio') && typeof value !== 'string') {
+            value = String(value);
+          }
+          return (
+            <Field
+              key={field.name}
+              {...field}
+              value={value}
+              isEditing={isEditing}
+              onChange={(name, val) => onChange(name, val, isDoctor)}
+              error={errors[field.name]}
+              isLast={index === fields.length - 1}
+            />
+          );
+        })}
+      </div>
+      {isEditing && (
+        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex gap-2">
+          <Button
+            onClick={onCancel}
+            variant="outline"
+            size="sm"
+            className="flex-1 rounded-xl"
+          >
+            <X className="h-3 w-3 mr-1" />Cancel
+          </Button>
+          <Button
+            onClick={onSave}
+            disabled={isSaving}
+            size="sm"
+            className="flex-1 bg-blue-600 text-white hover:bg-blue-700 rounded-xl"
+          >
+            {isSaving ? (
+              <><Loader2 className="h-3 w-3 animate-spin mr-1" />Saving...</>
+            ) : (
+              <><Check className="h-3 w-3 mr-1" />Save</>
+            )}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
         {/* Header */}
-        <div className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-10">
-          <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <Avatar className="h-16 w-16 ring-3 ring-white shadow-lg">
-                    {profile?.profile_pic ? (
-                      <AvatarImage src={`/api/user/profile/picture/${profile.user_id}`} />
-                    ) : (
-                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-lg">
-                        {getInitials(profile?.name)}
-                      </AvatarFallback>
-                    )}
-                  </Avatar>
-                  <label className="absolute -bottom-1 -right-1 bg-blue-500 text-white p-1.5 rounded-full cursor-pointer shadow-lg hover:bg-blue-600 transition-colors">
-                    <Camera className="h-3 w-3" />
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="image/*"
-                      onChange={handlePictureUpload}
-                    />
-                  </label>
+        <div className="bg-white rounded-2xl shadow-sm p-6 text-center">
+          <div className="relative inline-block mb-4">
+            <Avatar className="w-24 h-24 mx-auto">
+              {profilePicLoading ? (
+                <div className="w-full h-full bg-gray-200 rounded-full flex items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                 </div>
-                
-                <div>
-                  <h1 className="text-xl font-semibold text-gray-900">
-                    {profile?.name || "User"}
-                  </h1>
-                  <div className="flex items-center text-gray-500 text-sm">
-                    <AtSign className="h-3 w-3 mr-1" />
-                    <span>{profile?.username || "username"}</span>
-                  </div>
-                  <div className="flex items-center text-blue-600 text-sm mt-1">
-                    {(userRole === "admin" || profile?.role === "admin") ? (
-                      <Shield className="h-3 w-3 mr-1" />
-                    ) : (
-                      <Stethoscope className="h-3 w-3 mr-1" />
-                    )}
-                    <span className="font-medium">{getDisplayRole()}</span>
-                  </div>
-                </div>
-              </div>
-
-              <Button
-                onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-                disabled={isSaving}
-                className="bg-blue-500 hover:bg-blue-600 text-white shadow-sm rounded-lg px-6"
-              >
-                {isSaving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : isEditing ? (
-                  <><Check className="h-4 w-4 mr-2" />Save</>
-                ) : (
-                  <><Edit3 className="h-4 w-4 mr-2" />Edit</>
-                )}
-              </Button>
-            </div>
+              ) : profilePicUrl ? (
+                <AvatarImage src={profilePicUrl} alt="Profile" className="object-cover" />
+              ) : (
+                <AvatarFallback className="bg-blue-100 text-blue-600 text-xl font-semibold">
+                  {getInitials(profile.name)}
+                </AvatarFallback>
+              )}
+            </Avatar>
+            <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors">
+              <Camera className="h-4 w-4" />
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePictureUpload}
+                className="hidden"
+              />
+            </label>
           </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column - Personal Information */}
-            <div>
-              <Section title="Personal Information">
-                <Field
-                  icon={<User className="h-5 w-5" />}
-                  label="Full Name"
-                  value={formData.name}
-                  name="name"
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                  error={errors.name}
-                  required
-                  placeholder="Enter full name"
-                />
-                <Field
-                  icon={<Mail className="h-5 w-5" />}
-                  label="Email"
-                  value={formData.email}
-                  name="email"
-                  type="email"
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                  error={errors.email}
-                  required
-                  placeholder="Enter email"
-                />
-                <Field
-                  icon={<Phone className="h-5 w-5" />}
-                  label="Mobile"
-                  value={formData.mobile}
-                  name="mobile"
-                  type="tel"
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                  error={errors.mobile}
-                  required
-                  placeholder="Enter mobile number"
-                />
-                <Field
-                  icon={<Heart className="h-5 w-5" />}
-                  label="Blood Group"
-                  value={formData.blood_group}
-                  name="blood_group"
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                  options={BLOOD_GROUPS.map(bg => ({ value: bg, label: bg }))}
-                  error={errors.blood_group}
-                  placeholder="Select blood group"
-                  isLast
-                />
-              </Section>
-
-              <Section title="Location">
-                <Field
-                  icon={<MapPin className="h-5 w-5" />}
-                  label="Location"
-                  value={formData.location}
-                  name="location"
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                  error={errors.location}
-                  placeholder="City, State"
-                />
-                <Field
-                  icon={<MapPin className="h-5 w-5" />}
-                  label="Address"
-                  value={formData.address}
-                  name="address"
-                  type="textarea"
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                  error={errors.address}
-                  placeholder="Full address"
-                  isLast
-                />
-              </Section>
-
-              <Section title="Security">
-                <Field
-                  icon={<Shield className="h-5 w-5" />}
-                  label="Aadhaar ID"
-                  value={formData.aadhaar_id}
-                  name="aadhaar_id"
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                  error={errors.aadhaar_id}
-                  placeholder="12-digit Aadhaar number"
-                  isLast
-                />
-              </Section>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{profile.name || "User"}</h1>
+          <div className="flex items-center justify-center space-x-4 text-sm text-gray-600">
+            <div className="flex items-center space-x-1">
+              <Shield className="h-4 w-4" />
+              <span>{displayRole}</span>
             </div>
-
-            {/* Right Column - Practitioner Information */}
-            {showPractitionerFields && (
-              <div>
-                <Section title="Medical Practice">
-                  <Field
-                    icon={<User className="h-5 w-5" />}
-                    label="Age"
-                    value={formData.age}
-                    name="age"
-                    type="number"
-                    isEditing={isEditing}
-                    onChange={handleChange}
-                    error={errors.age}
-                    required
-                    placeholder="Enter age"
-                  />
-                  <Field
-                    icon={<GraduationCap className="h-5 w-5" />}
-                    label="Qualification"
-                    value={formData.qualification}
-                    name="qualification"
-                    isEditing={isEditing}
-                    onChange={handleChange}
-                    options={QUALIFICATIONS}
-                    error={errors.qualification}
-                    required
-                    placeholder="Select qualification"
-                  />
-                  <Field
-                    icon={<Stethoscope className="h-5 w-5" />}
-                    label="Specialization"
-                    value={formData.specialization}
-                    name="specialization"
-                    isEditing={isEditing}
-                    onChange={handleChange}
-                    options={SPECIALIZATIONS}
-                    error={errors.specialization}
-                    placeholder="Select specialization"
-                  />
-                  <Field
-                    icon={<Clock className="h-5 w-5" />}
-                    label="Experience (Years)"
-                    value={formData.years_of_experience}
-                    name="years_of_experience"
-                    type="number"
-                    isEditing={isEditing}
-                    onChange={handleChange}
-                    error={errors.years_of_experience}
-                    placeholder="0"
-                  />
-                  <Field
-                    icon={<Clock className="h-5 w-5" />}
-                    label="Slot Duration (minutes)"
-                    value={formData.slot_duration}
-                    name="slot_duration"
-                    type="number"
-                    isEditing={isEditing}
-                    onChange={handleChange}
-                    error={errors.slot_duration}
-                    placeholder="30"
-                  />
-                  <Field
-                    icon={<FileText className="h-5 w-5" />}
-                    label="IMR Number"
-                    value={formData.imr_number}
-                    name="imr_number"
-                    isEditing={isEditing}
-                    onChange={handleChange}
-                    error={errors.imr_number}
-                    placeholder="Medical registration number"
-                    isLast
-                  />
-                </Section>
-
-                <Section title="Additional Information">
-                  <Field
-                    icon={<Languages className="h-5 w-5" />}
-                    label="Languages Spoken"
-                    value={formData.languages_spoken}
-                    name="languages_spoken"
-                    isEditing={isEditing}
-                    onChange={handleChange}
-                    error={errors.languages_spoken}
-                    placeholder="English, Hindi, etc. (comma separated)"
-                  />
-                  <Field
-                    icon={<FileText className="h-5 w-5" />}
-                    label="Bio"
-                    value={formData.bio}
-                    name="bio"
-                    type="textarea"
-                    isEditing={isEditing}
-                    onChange={handleChange}
-                    error={errors.bio}
-                    placeholder="Brief description about yourself"
-                  />
-                  <StatusBadge
-                    isActive={formData.is_active}
-                    isEditing={isEditing}
-                    onChange={handleChange}
-                  />
-                </Section>
+            {profile.location && (
+              <div className="flex items-center space-x-1">
+                <MapPin className="h-4 w-4" />
+                <span>{profile.location}</span>
               </div>
             )}
           </div>
-
-          {/* Action Buttons */}
-          {isEditing && (
-            <div className="mt-8 flex justify-end space-x-4">
-              <Button
-                variant="outline"
-                onClick={handleCancel}
-                disabled={isSaving}
-                className="px-6"
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-6"
-              >
-                {isSaving ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Check className="h-4 w-4 mr-2" />
-                )}
-                {isSaving ? "Saving..." : "Save Changes"}
-              </Button>
-            </div>
-          )}
         </div>
+
+        {/* Navigation Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-white rounded-xl p-1 shadow-sm">
+            <TabsTrigger 
+              value="personal" 
+              className="rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            >
+              <UserCircle className="h-4 w-4 mr-2" />
+              Personal Info
+            </TabsTrigger>
+            {showPractitionerFields && (
+              <TabsTrigger 
+                value="professional" 
+                className="rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+              >
+                <Stethoscope className="h-4 w-4 mr-2" />
+                Professional Info
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+          <TabsContent value="personal" className="space-y-6">
+            <FieldSection
+              title="Personal Information"
+              fields={userFields}
+              isEditing={isEditingUser}
+              formData={userFormData}
+              onChange={handleChange}
+              onSave={() => handleSave(false)}
+              onCancel={() => handleCancel(false)}
+              onEdit={() => handleEdit(false)}
+              isDoctor={false}
+            />
+          </TabsContent>
+
+          {showPractitionerFields && (
+            <TabsContent value="professional" className="space-y-6">
+              <FieldSection
+                title="Professional Information"
+                fields={doctorFields}
+                isEditing={isEditingDoctor}
+                formData={doctorFormData}
+                onChange={handleChange}
+                onSave={() => handleSave(true)}
+                onCancel={() => handleCancel(true)}
+                onEdit={() => handleEdit(true)}
+                isDoctor={true}
+              />
+            </TabsContent>
+          )}
+        </Tabs>
       </div>
     </div>
   );

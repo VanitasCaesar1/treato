@@ -1,3 +1,6 @@
+///api/user/profile/picture/[userId]/route.js
+// This route handles fetching a user's profile picture from MongoDB
+// and returns it as a response. If the user does not have a profile picture,
 import { NextRequest, NextResponse } from 'next/server';
 import mongodb from '@/lib/mongodb';
 import { withAuth } from '@workos-inc/authkit-nextjs';

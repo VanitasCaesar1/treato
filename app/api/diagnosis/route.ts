@@ -187,8 +187,33 @@ export async function POST(req: NextRequest) {
       data.follow_up_notes = data.follow_up_notes || '';
     }
 
-    // Process JSON fields - ensure they're strings
-    const jsonFields = ['symptom_timeline', 'symptom_summary', 'primary_symptoms', 'specialty_data', 'symptom_triggers', 'symptom_relieving_factors', 'symptom_quality_details', 'symptom_progression', 'symptom_radiation_patterns'];
+    // --- SPECIALIZATION MULTI-SAVE LOGIC ---
+    // Accepts: data.specializations = { [specialtyType]: { ...data } }
+    // Fallback: data.specialty, data.specialty_data for legacy single-specialty
+    if (data.specializations && typeof data.specializations === 'object') {
+      // Always stringify for JSONB
+      data.specializations = JSON.stringify(data.specializations);
+      // Set specialty/specialty_data for the selected one for compatibility
+      const selectedType = data.specialty || Object.keys(JSON.parse(data.specializations))[0] || 'general';
+      data.specialty = selectedType;
+      data.specialty_data = JSON.stringify(JSON.parse(data.specializations)[selectedType] || {});
+    } else {
+      // Fallback: synthesize specializations from specialty/specialty_data
+      if (data.specialty && data.specialty_data) {
+        let obj = {};
+        try {
+          obj[data.specialty] = typeof data.specialty_data === 'string' ? JSON.parse(data.specialty_data) : data.specialty_data;
+        } catch {
+          obj[data.specialty] = {};
+        }
+        data.specializations = JSON.stringify(obj);
+      } else {
+        data.specializations = JSON.stringify({});
+      }
+    }
+
+    // Add 'specializations' to JSON fields for validation
+    const jsonFields = ['symptom_timeline', 'symptom_summary', 'primary_symptoms', 'specialty_data', 'specializations', 'symptom_triggers', 'symptom_relieving_factors', 'symptom_quality_details', 'symptom_progression', 'symptom_radiation_patterns'];
     jsonFields.forEach(field => {
       if (data[field]) {
         try {
@@ -199,7 +224,7 @@ export async function POST(req: NextRequest) {
           JSON.parse(data[field]);
         } catch (error) {
           console.warn(`Invalid JSON for ${field}:`, error);
-          data[field] = field === 'specialty_data' ? '{}' : '[]';
+          data[field] = field === 'specialty_data' || field === 'specializations' ? '{}' : '[]';
         }
       }
     });

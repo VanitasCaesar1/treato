@@ -217,7 +217,7 @@ const UnifiedSearchBar = () => {
 
   // Navigation functions
   const navigateToPatient = (patient) => {
-    window.location.href = `/patients/${patient.patient_id}`;
+    window.location.href = `/dashboard/patients/${patient.patient_id}`;
   };
 
   const navigateToDoctor = (doctor) => {

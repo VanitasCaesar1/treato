@@ -437,6 +437,21 @@ const DoctorSettings = () => {
 
   const filteredSchedules = schedules.filter(s => s.isActive);
 
+  // Fee input local states
+  const [defaultFeesInput, setDefaultFeesInput] = useState(newFees.defaultFees === 0 ? "" : String(newFees.defaultFees));
+  const [recurringFeesInput, setRecurringFeesInput] = useState(newFees.recurringFees === 0 ? "" : String(newFees.recurringFees));
+  const [emergencyFeesInput, setEmergencyFeesInput] = useState(newFees.emergencyFees === 0 ? "" : String(newFees.emergencyFees));
+
+  useEffect(() => {
+    setDefaultFeesInput(newFees.defaultFees === 0 ? "" : String(newFees.defaultFees));
+  }, [newFees.defaultFees]);
+  useEffect(() => {
+    setRecurringFeesInput(newFees.recurringFees === 0 ? "" : String(newFees.recurringFees));
+  }, [newFees.recurringFees]);
+  useEffect(() => {
+    setEmergencyFeesInput(newFees.emergencyFees === 0 ? "" : String(newFees.emergencyFees));
+  }, [newFees.emergencyFees]);
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -668,17 +683,29 @@ const DoctorSettings = () => {
                             <Label>Default Consultation (₹)</Label>
                             <Input 
                               type="number" 
-                              value={newFees.defaultFees}
-                              onChange={(e) => setNewFees({...newFees, defaultFees: Number(e.target.value)})}
+                              value={defaultFeesInput}
+                              onChange={e => setDefaultFeesInput(e.target.value)}
+                              onFocus={e => { if (defaultFeesInput === "0") setDefaultFeesInput(""); }}
+                              onBlur={e => {
+                                const val = e.target.value;
+                                setNewFees(fees => ({ ...fees, defaultFees: val === "" ? 0 : Number(val) }));
+                                setDefaultFeesInput(val === "" ? "" : String(Number(val)));
+                              }}
                               placeholder="Enter default fee"
                             />
                           </div>
                           <div>
-                            <Label>Recurring Patient (₹)</Label>
+                            <Label>Recurring Consultation (₹)</Label>
                             <Input 
                               type="number" 
-                              value={newFees.recurringFees}
-                              onChange={(e) => setNewFees({...newFees, recurringFees: Number(e.target.value)})}
+                              value={recurringFeesInput}
+                              onChange={e => setRecurringFeesInput(e.target.value)}
+                              onFocus={e => { if (recurringFeesInput === "0") setRecurringFeesInput(""); }}
+                              onBlur={e => {
+                                const val = e.target.value;
+                                setNewFees(fees => ({ ...fees, recurringFees: val === "" ? 0 : Number(val) }));
+                                setRecurringFeesInput(val === "" ? "" : String(Number(val)));
+                              }}
                               placeholder="Enter recurring fee"
                             />
                           </div>
@@ -686,8 +713,14 @@ const DoctorSettings = () => {
                             <Label>Emergency Consultation (₹)</Label>
                             <Input 
                               type="number" 
-                              value={newFees.emergencyFees}
-                              onChange={(e) => setNewFees({...newFees, emergencyFees: Number(e.target.value)})}
+                              value={emergencyFeesInput}
+                              onChange={e => setEmergencyFeesInput(e.target.value)}
+                              onFocus={e => { if (emergencyFeesInput === "0") setEmergencyFeesInput(""); }}
+                              onBlur={e => {
+                                const val = e.target.value;
+                                setNewFees(fees => ({ ...fees, emergencyFees: val === "" ? 0 : Number(val) }));
+                                setEmergencyFeesInput(val === "" ? "" : String(Number(val)));
+                              }}
                               placeholder="Enter emergency fee"
                             />
                           </div>

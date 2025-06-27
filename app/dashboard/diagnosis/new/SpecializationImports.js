@@ -80,182 +80,325 @@ export const SPECIALIZATION_CONFIG = {
 export const getSpecializationConfig = (specialization) => {
   if (!specialization) return null;
   
-  // Handle different data types that might be passed
   let normalized;
   
   if (typeof specialization === 'string') {
     normalized = specialization.toLowerCase().trim();
-  } else if (typeof specialization === 'object') {
-    // If it's an object, try to extract a string value
-    if (specialization.name) {
-      normalized = String(specialization.name).toLowerCase().trim();
-    } else if (specialization.type) {
-      normalized = String(specialization.type).toLowerCase().trim();
-    } else if (specialization.primary) {
-      normalized = String(specialization.primary).toLowerCase().trim();
-    } else {
-      // Convert object to string as fallback
+  } else if (typeof specialization === 'object' && specialization !== null) {
+    const possibleKeys = ['name', 'type', 'primary', 'title', 'specialty'];
+    let found = false;
+    
+    for (const key of possibleKeys) {
+      if (specialization[key]) {
+        normalized = String(specialization[key]).toLowerCase().trim();
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
       normalized = String(specialization).toLowerCase().trim();
     }
   } else {
-    // Convert any other type to string
     normalized = String(specialization).toLowerCase().trim();
   }
   
-  // Handle edge cases where conversion might result in unwanted strings
-  if (normalized === '[object object]' || normalized === 'undefined' || normalized === 'null') {
+  if (!normalized || 
+      normalized === '[object object]' || 
+      normalized === 'undefined' || 
+      normalized === 'null' ||
+      normalized === 'nan') {
     return null;
   }
   
-  return SPECIALIZATION_CONFIG[normalized] || null;
+  if (SPECIALIZATION_CONFIG[normalized]) {
+    return SPECIALIZATION_CONFIG[normalized];
+  }
+  
+  const partialMatches = Object.keys(SPECIALIZATION_CONFIG).filter(key => 
+    key.includes(normalized) || normalized.includes(key)
+  );
+  
+  if (partialMatches.length > 0) {
+    return SPECIALIZATION_CONFIG[partialMatches[0]];
+  }
+  
+  return null;
 };
 
-// Main component for rendering specialization sections
-export const SpecializationSection = ({ 
-  doctorData, 
-  specializationData, 
-  onChange,
-  isOpen = true,
-  onToggle 
-}) => {
-  // Extract specialization from doctor data
-  const getSpecialization = () => {
-    if (!doctorData) return null;
-    
-    // Try multiple possible fields for specialization
-    return (
-      doctorData.specialization?.primary ||
-      doctorData.specialization?.type ||
-      doctorData.Specialization?.primary ||
-      doctorData.Specialization ||
-      doctorData.specialty ||
-      doctorData.department ||
-      null
-    );
-  };
-
-  const specialization = getSpecialization();
-  const config = getSpecializationConfig(specialization);
-
-  // If no matching specialization found, don't render anything
-  if (!config) {
+const getSpecializationFromDoctor = (doctorData) => {
+  if (!doctorData) {
+    console.log('❌ No doctor data provided');
     return null;
   }
+  
+  console.log('🔍 Extracting specialization from doctor data:', doctorData);
+  
+  if (doctorData.specialization) {
+    console.log('📋 Found specialization field:', doctorData.specialization);
+    
+    if (typeof doctorData.specialization === 'object' && doctorData.specialization !== null) {
+      if (doctorData.specialization.primary) {
+        console.log('✅ Found specialization.primary:', doctorData.specialization.primary);
+        return doctorData.specialization.primary.toLowerCase().trim();
+      }
+      
+      const possibleFields = ['name', 'type', 'specialty', 'field', 'department', 'main', 'title'];
+      for (const field of possibleFields) {
+        if (doctorData.specialization[field]) {
+          console.log(`✅ Found specialization.${field}:`, doctorData.specialization[field]);
+          return doctorData.specialization[field].toLowerCase().trim();
+        }
+      }
+    }
+    
+    if (typeof doctorData.specialization === 'string') {
+      try {
+        const parsed = JSON.parse(doctorData.specialization);
+        if (parsed && typeof parsed === 'object' && parsed.primary) {
+          console.log('✅ Parsed specialization.primary:', parsed.primary);
+          return parsed.primary.toLowerCase().trim();
+        }
+      } catch (e) {
+        console.log('✅ Using specialization as plain string:', doctorData.specialization);
+        return doctorData.specialization.toLowerCase().trim();
+      }
+    }
+  }
+  
+  const possibleRootFields = [
+    'specialty', 'Specialty', 'department', 'Department', 
+    'field', 'Field', 'medical_specialty', 'doctor_specialty',
+    'primary_specialty', 'main_specialty'
+  ];
+  
+  for (const field of possibleRootFields) {
+    if (doctorData[field]) {
+      console.log(`✅ Found root level ${field}:`, doctorData[field]);
+      
+      if (typeof doctorData[field] === 'object' && doctorData[field] !== null) {
+        if (doctorData[field].primary) {
+          return doctorData[field].primary.toLowerCase().trim();
+        }
+        const firstValue = Object.values(doctorData[field])[0];
+        if (typeof firstValue === 'string') {
+          return firstValue.toLowerCase().trim();
+        }
+      }
+      
+      if (typeof doctorData[field] === 'string') {
+        return doctorData[field].toLowerCase().trim();
+      }
+    }
+  }
+  
+  console.log('❌ No specialization found in doctor data');
+  console.log('🔍 Available fields:', Object.keys(doctorData));
+  return null;
+};
 
-  const SpecializationComponent = config.component;
+const DiagnosisDebugComponent = () => {
+  // Test cases - including your exact data structure
+  const testCases = [
+    {
+      name: "Your actual data (object)",
+      doctorData: {
+        id: "f67ee211-d149-4ed1-b963-5aeacedbc3e3",
+        name: "Chakravarthi Chintapatla",
+        specialization: {"primary": "Dermatology"}
+      }
+    },
+    {
+      name: "Your actual data (as string)",
+      doctorData: {
+        id: "f67ee211-d149-4ed1-b963-5aeacedbc3e3",
+        name: "Chakravarthi Chintapatla",
+        specialization: '{"primary": "Dermatology"}'
+      }
+    },
+    {
+      name: "String specialization",
+      doctorData: {
+        id: "test1",
+        name: "Test Doctor",
+        specialization: "dermatology"
+      }
+    },
+    {
+      name: "JSON string specialization",
+      doctorData: {
+        id: "test2",
+        name: "Test Doctor 2",
+        specialization: '{"primary": "Cardiology"}'
+      }
+    },
+    {
+      name: "Root level specialty",
+      doctorData: {
+        id: "test3",
+        name: "Test Doctor 3",
+        specialty: "Neurology"
+      }
+    }
+  ];
+
+  const [selectedTest, setSelectedTest] = useState(0);
+  const currentTest = testCases[selectedTest];
+  
+  // Run the extraction
+  const extractedSpecialization = getSpecializationFromDoctor(currentTest.doctorData);
+  const config = getSpecializationConfig(extractedSpecialization);
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      <button 
-        onClick={onToggle} 
-        className="w-full p-6 flex items-center justify-between hover:bg-gray-50 transition-colors"
-      >
-        <div className="flex items-center space-x-3">
-          <span className="text-2xl">{config.icon}</span>
-          <div className="text-left">
-            <h3 className="text-lg font-semibold text-gray-800">{config.title}</h3>
-            <p className="text-sm text-gray-600">{config.description}</p>
+    <div className="p-6 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6 text-gray-800">
+        🔬 Diagnosis Specialization Debug Tool
+      </h1>
+      
+      {/* Test Case Selector */}
+      <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+        <h2 className="font-semibold mb-3 text-blue-800">Select Test Case:</h2>
+        <div className="space-y-2">
+          {testCases.map((testCase, index) => (
+            <label key={index} className="flex items-center space-x-2">
+              <input
+                type="radio"
+                name="testCase"
+                checked={selectedTest === index}
+                onChange={() => setSelectedTest(index)}
+                className="text-blue-600"
+              />
+              <span className={`${selectedTest === index ? 'font-medium text-blue-800' : 'text-gray-700'}`}>
+                {testCase.name}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Input Data */}
+      <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+        <h2 className="font-semibold mb-3 text-gray-800 flex items-center">
+          📥 Input Doctor Data
+        </h2>
+        <pre className="text-sm bg-white p-3 rounded border overflow-auto">
+          {JSON.stringify(currentTest.doctorData, null, 2)}
+        </pre>
+      </div>
+
+      {/* Extraction Results */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="p-4 bg-yellow-50 rounded-lg">
+          <h2 className="font-semibold mb-3 text-yellow-800 flex items-center">
+            🔍 Extraction Result
+          </h2>
+          <div className="space-y-2">
+            <div className={`flex items-center space-x-2 ${extractedSpecialization ? 'text-green-700' : 'text-red-700'}`}>
+              {extractedSpecialization ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+              <span className="font-medium">
+                Extracted: {extractedSpecialization ? `"${extractedSpecialization}"` : 'null'}
+              </span>
+            </div>
+            <div className="text-sm text-gray-600">
+              Type: {typeof extractedSpecialization}
+            </div>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-            {specialization}
-          </span>
-          {isOpen ? 
-            <ChevronUp className="h-5 w-5 text-gray-500" /> : 
-            <ChevronDown className="h-5 w-5 text-gray-500" />
-          }
-        </div>
-      </button>
-      
-      {isOpen && (
-        <div className="p-6 pt-0 border-t border-gray-100">
-          <Suspense fallback={
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-3 text-gray-600">Loading {config.title}...</span>
+
+        <div className="p-4 bg-purple-50 rounded-lg">
+          <h2 className="font-semibold mb-3 text-purple-800 flex items-center">
+            ⚙️ Config Match
+          </h2>
+          <div className="space-y-2">
+            <div className={`flex items-center space-x-2 ${config ? 'text-green-700' : 'text-red-700'}`}>
+              {config ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+              <span className="font-medium">
+                Config Found: {config ? 'Yes' : 'No'}
+              </span>
             </div>
-          }>
-            <ErrorBoundary fallback={
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-center text-red-800">
-                  <AlertCircle className="h-5 w-5 mr-2" />
-                  <span>Failed to load {config.title}</span>
-                </div>
+            {config && (
+              <div className="text-sm space-y-1">
+                <div>Title: {config.title}</div>
+                <div>Icon: {config.icon}</div>
               </div>
-            }>
-              <SpecializationComponent
-                data={specializationData}
-                onChange={onChange}
-                doctorInfo={doctorData}
-              />
-            </ErrorBoundary>
-          </Suspense>
+            )}
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* Available Configurations */}
+      <div className="mb-6 p-4 bg-green-50 rounded-lg">
+        <h2 className="font-semibold mb-3 text-green-800">
+          📋 Available Specialization Configs
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+          {Object.keys(SPECIALIZATION_CONFIG).map(key => (
+            <div key={key} className={`p-2 rounded ${extractedSpecialization === key ? 'bg-green-200 font-medium' : 'bg-white'}`}>
+              "{key}"
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Debugging Steps */}
+      <div className="p-4 bg-red-50 rounded-lg">
+        <h2 className="font-semibold mb-3 text-red-800 flex items-center">
+          🐛 Debug Steps
+        </h2>
+        <div className="space-y-2 text-sm">
+          <div className="flex items-start space-x-2">
+            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <strong>Step 1:</strong> Check if doctor data exists: {currentTest.doctorData ? '✅ Yes' : '❌ No'}
+            </div>
+          </div>
+          <div className="flex items-start space-x-2">
+            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <strong>Step 2:</strong> Check specialization field: {currentTest.doctorData?.specialization ? '✅ Found' : '❌ Missing'}
+            </div>
+          </div>
+          <div className="flex items-start space-x-2">
+            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <strong>Step 3:</strong> Extract specialization string: {extractedSpecialization ? `✅ "${extractedSpecialization}"` : '❌ Failed'}
+            </div>
+          </div>
+          <div className="flex items-start space-x-2">
+            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <strong>Step 4:</strong> Match with config: {config ? '✅ Matched' : '❌ No match'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recommendations */}
+      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+        <h2 className="font-semibold mb-3 text-blue-800">
+          💡 Recommendations
+        </h2>
+        <div className="space-y-2 text-sm">
+          {!extractedSpecialization && (
+            <div className="p-2 bg-yellow-100 rounded">
+              ⚠️ Specialization extraction failed. Check the doctor data structure.
+            </div>
+          )}
+          {extractedSpecialization && !config && (
+            <div className="p-2 bg-yellow-100 rounded">
+              ⚠️ Specialization "{extractedSpecialization}" found but no matching config. 
+              Add it to SPECIALIZATION_CONFIG or check for typos.
+            </div>
+          )}
+          {extractedSpecialization && config && (
+            <div className="p-2 bg-green-100 rounded">
+              ✅ Everything looks good! The specialization should work.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
-};
-
-// Error boundary component using hooks (modern approach)
-const ErrorBoundary = ({ children, fallback }) => {
-  const [hasError, setHasError] = useState(false);
-
-  useEffect(() => {
-    const handleError = (error, errorInfo) => {
-      console.error('Specialization component error:', error, errorInfo);
-      setHasError(true);
-    };
-
-    // Reset error state when children change
-    setHasError(false);
-
-    // Add global error handler
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleError);
-
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleError);
-    };
-  }, [children]);
-
-  if (hasError) {
-    return fallback;
-  }
-
-  return children;
-};
-
-// Hook for managing specialization data
-export const useSpecializationData = (initialData = {}) => {
-  const [data, setData] = useState(initialData);
-
-  const updateData = (newData) => {
-    setData(prev => ({
-      ...prev,
-      ...newData
-    }));
-  };
-
-  const resetData = () => {
-    setData({});
-  };
-
-  return {
-    data,
-    updateData,
-    resetData,
-    hasData: Object.keys(data).length > 0
-  };
-};
-
-// Utility to get all available specializations
-export const getAvailableSpecializations = () => {
-  return Object.keys(SPECIALIZATION_CONFIG).map(key => ({
-    key,
-    ...SPECIALIZATION_CONFIG[key]
-  }));
 };
 
 // Export default
