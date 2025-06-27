@@ -21,9 +21,12 @@ const ProfileSection = () => {
       if (response.ok) {
         const blob = await response.blob();
         setProfilePicUrl(URL.createObjectURL(blob));
+      } else {
+        setProfilePicUrl(null);
       }
     } catch (error) {
       console.error("Error fetching profile picture:", error);
+      setProfilePicUrl(null);
     } finally {
       setProfilePicLoading(false);
     }

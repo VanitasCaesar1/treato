@@ -1,5 +1,6 @@
 import { withAuth } from '@workos-inc/authkit-nextjs';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 
 // This component is a Server Component by default in the app directory
 
@@ -44,12 +45,12 @@ export default async function NoOrgPage() { // Make the component async to await
         </p>
         <div className="space-y-4">
           {/* Link back to home or another relevant page */}
-          <a
+          <Link
             href="/"
             className="inline-block px-6 py-3 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600 transition duration-200"
           >
             Return to Home
-          </a>
+          </Link>
           {/* Link to the create hospital page - only shown if not redirected */}
           {/* Consider conditional rendering if this link should truly only be for potential admins */}
           <a
