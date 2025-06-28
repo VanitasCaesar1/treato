@@ -53,6 +53,10 @@ export const config = {
     "/diagnosis/:path*",
     '/medicines',
     '/medicines/:path*',
+    '/pricing',
+    '/pricing/:path*',
+    '/transactions',
+    '/transactions/:path*',
     
     // Protected API routes
     '/api/user/:path*',

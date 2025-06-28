@@ -30,13 +30,7 @@ const SPECIALIZATION_CONFIG = {
     description: 'Skin conditions, lesions, and dermatological examination',
     fields: ['lesion_description', 'distribution', 'skin_color_changes', 'affected_areas']
   },
-  'dermatologist': {
-    component: DermatologySection,
-    icon: '🧴',
-    title: 'Dermatology Assessment',
-    description: 'Skin conditions, lesions, and dermatological examination',
-    fields: ['lesion_description', 'distribution', 'skin_color_changes', 'affected_areas']
-  },
+
   'cardiology': {
     component: CardiologySection,
     icon: '❤️',
@@ -44,13 +38,7 @@ const SPECIALIZATION_CONFIG = {
     description: 'Heart conditions, ECG findings, and cardiovascular examination',
     fields: ['ecg_findings', 'heart_sounds', 'chest_pain_assessment', 'cardiac_risk_factors']
   },
-  'cardiologist': {
-    component: CardiologySection,
-    icon: '❤️',
-    title: 'Cardiac Assessment',
-    description: 'Heart conditions, ECG findings, and cardiovascular examination',
-    fields: ['ecg_findings', 'heart_sounds', 'chest_pain_assessment', 'cardiac_risk_factors']
-  },
+ 
   'neurology': {
     component: NeurologySection,
     icon: '🧠',
@@ -58,13 +46,7 @@ const SPECIALIZATION_CONFIG = {
     description: 'Neurological examination, reflexes, and cognitive assessment',
     fields: ['neurological_exam', 'reflexes', 'cognitive_status', 'motor_function']
   },
-  'neurologist': {
-    component: NeurologySection,
-    icon: '🧠',
-    title: 'Neurological Assessment',
-    description: 'Neurological examination, reflexes, and cognitive assessment',
-    fields: ['neurological_exam', 'reflexes', 'cognitive_status', 'motor_function']
-  },
+  
   'orthopedics': {
     component: OrthopedicsSection,
     icon: '🦴',
@@ -72,13 +54,7 @@ const SPECIALIZATION_CONFIG = {
     description: 'Musculoskeletal examination, joint mobility, and bone health',
     fields: ['joint_examination', 'range_of_motion', 'muscle_strength', 'gait_analysis']
   },
-  'orthopedist': {
-    component: OrthopedicsSection,
-    icon: '🦴',
-    title: 'Orthopedic Assessment',
-    description: 'Musculoskeletal examination, joint mobility, and bone health',
-    fields: ['joint_examination', 'range_of_motion', 'muscle_strength', 'gait_analysis']
-  },
+
   'psychiatry': {
     component: PsychiatrySection,
     icon: '🧠',
@@ -86,13 +62,7 @@ const SPECIALIZATION_CONFIG = {
     description: 'Mental health evaluation and psychological assessment',
     fields: ['mental_status', 'mood_assessment', 'cognitive_function', 'risk_assessment']
   },
-  'psychiatrist': {
-    component: PsychiatrySection,
-    icon: '🧠',
-    title: 'Psychiatric Assessment',
-    description: 'Mental health evaluation and psychological assessment',
-    fields: ['mental_status', 'mood_assessment', 'cognitive_function', 'risk_assessment']
-  },
+
 };
 
 // Get available specializations for dropdown
