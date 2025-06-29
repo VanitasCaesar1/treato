@@ -740,13 +740,7 @@ export default function AppointmentsPage() {
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
           <h1 className="text-2xl font-medium text-gray-900 mb-4 sm:mb-0">Appointments</h1>
-          <Button 
-            onClick={handleNewAppointment}
-            className="bg-blue-600 text-white hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Appointment
-          </Button>
+          
         </div>
 
         {/* Error Alert */}

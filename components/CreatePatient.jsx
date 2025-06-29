@@ -363,7 +363,7 @@ const CreatePatient = ({ isOpen = true, onClose = () => {} }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormSubmitted(true);
-    
+
     // Mark all required fields as touched for validation display
     const requiredFields = ["name", "email", "mobile", "gender", "age", "aadhaar_id"];
     const touchedUpdate = {};
@@ -371,30 +371,49 @@ const CreatePatient = ({ isOpen = true, onClose = () => {} }) => {
       touchedUpdate[field] = true;
     });
     setTouched(prev => ({ ...prev, ...touchedUpdate }));
-    
+
     // Validate all fields
     if (!validateForm()) {
       return;
     }
-    
+
     setSubmitting(true);
-    
+    setErrors({});
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      console.log("Patient created:", formData);
-      
-      // Show success indicator
+      // Prepare payload to match backend API expectations
+      const payload = {
+        ...formData,
+        age: formData.age ? parseInt(formData.age) : undefined,
+        medical_history: formData.medical_history.map(item => ({
+          ...item,
+          diagnosed_date: item.diagnosed_date ? new Date(item.diagnosed_date).toISOString() : undefined
+        })),
+        insurance: formData.insurance?.provider ? {
+          ...formData.insurance,
+          expiry_date: formData.insurance.expiry_date ? new Date(formData.insurance.expiry_date).toISOString() : undefined
+        } : undefined,
+        hospital_visits: formData.hospital_visits.map(visit => ({
+          ...visit,
+          visit_date: visit.visit_date ? new Date(visit.visit_date).toISOString() : undefined
+        })),
+        emergency_contact: formData.emergency_contact?.name ? {
+          ...formData.emergency_contact
+        } : undefined
+      };
+
+      const response = await fetch("/api/patients/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create patient");
+      }
       setShowSuccess(true);
-      
-      // Close modal after showing success for 2 seconds
-      setTimeout(() => {
-        setShowSuccess(false);
-        onClose();
-      }, 2000);
-      
     } catch (error) {
-      console.error("Error creating patient:", error);
+      setErrors(prev => ({ ...prev, general: error.message || "Failed to create patient" }));
     } finally {
       setSubmitting(false);
     }

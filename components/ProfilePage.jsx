@@ -18,6 +18,14 @@ import {
 
 // Constants
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const INDIAN_LANGUAGES = [
+  "Hindi", "English", "Bengali", "Telugu", "Marathi", "Tamil", "Urdu", "Gujarati",
+  "Kannada", "Odia", "Malayalam", "Punjabi", "Assamese", "Maithili", "Sanskrit",
+  "Nepali", "Konkani", "Manipuri", "Sindhi", "Dogri", "Kashmiri", "Santhali",
+  "Bodo", "Mizo", "Khasi", "Garo", "Tripuri", "Bhojpuri", "Magahi", "Rajasthani",
+  "Haryanvi", "Chhattisgarhi", "Awadhi", "Bundeli", "Bagheli", "Bhili", "Gondi",
+  "Khandeshi", "Tulu", "Kodava", "Beary", "Konkani", "Other"
+];
 
 const QUALIFICATIONS = [
   "MBBS", "BDS", "BAMS", "BHMS", "BUMS", "B.VSc", "BNYS",
@@ -616,39 +624,61 @@ const ProfilePage = () => {
   };
 
   const handlePictureUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File too large (max 5MB)");
-      return;
-    }
+  console.log('File selected:', file.name, file.size, file.type);
 
-    if (!file.type.startsWith('image/')) {
-      toast.error("Please select a valid image file");
-      return;
-    }
+  // Validation
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error("File too large (max 5MB)");
+    return;
+  }
 
-    const uploadFormData = new FormData();
-    uploadFormData.append("profilePic", file);
+  if (!file.type.startsWith('image/')) {
+    toast.error("Please select a valid image file");
+    return;
+  }
 
-    const toastId = toast.loading("Uploading picture...");
+  const uploadFormData = new FormData();
+  uploadFormData.append("profilePic", file);
+
+  const toastId = toast.loading("Uploading picture...");
+  
+  try {
+    console.log('Starting upload...');
     
-    try {
-      const response = await fetch('/api/user/profile/picture', {
-        method: "POST",
-        body: uploadFormData,
-        credentials: 'include'
-      });
+    const response = await fetch('/api/user/profile/picture', {
+      method: "POST",
+      body: uploadFormData,
+      credentials: 'include'
+    });
 
-      if (!response.ok) throw new Error("Upload failed");
+    console.log('Upload response status:', response.status);
 
-      await fetchProfilePicture();
-      toast.success("Picture updated successfully", { id: toastId });
-    } catch (error) {
-      toast.error("Upload failed", { id: toastId });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
+      console.error('Upload error:', errorData);
+      throw new Error(errorData.error || 'Upload failed');
     }
-  };
+
+    const result = await response.json();
+    console.log('Upload successful:', result);
+
+    // Refresh profile picture with a small delay to ensure it's saved
+    setTimeout(async () => {
+      await fetchProfilePicture();
+    }, 500);
+    
+    toast.success("Picture updated successfully", { id: toastId });
+  } catch (error) {
+    console.error('Upload error:', error);
+    toast.error(`Upload failed: ${error.message}`, { id: toastId });
+  }
+
+  // Clear the input so the same file can be selected again if needed
+  e.target.value = '';
+};
 
   if (isLoading) {
     return (

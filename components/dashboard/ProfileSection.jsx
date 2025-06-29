@@ -11,11 +11,10 @@ const ProfileSection = () => {
   const [profilePicLoading, setProfilePicLoading] = useState(false);
   const [userId, setUserId] = useState(null);
 
-  const fetchProfilePicture = useCallback(async (uid) => {
-    if (!uid) return;
+  const fetchProfilePicture = useCallback(async () => {
     try {
       setProfilePicLoading(true);
-      const response = await fetch(`/api/user/profile/picture/${uid}`, {
+      const response = await fetch(`/api/user/profile/picture/current`, {
         credentials: 'include'
       });
       if (response.ok) {
@@ -50,8 +49,8 @@ const ProfileSection = () => {
         if (!response.ok) throw new Error("Failed to fetch profile data");
         const data = await response.json();
         setProfileData(data);
-        // Fetch profile picture with userId
-        fetchProfilePicture(sessionData.user.id);
+        // Fetch profile picture for current user
+        fetchProfilePicture();
       } catch (err) {
         console.error("Error fetching profile data:", err);
         setError(err.message);
