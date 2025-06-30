@@ -154,64 +154,42 @@ export default function DermatologySection({ dermatologyData, onChange, diagnosi
     setSaveLoading(true);
     setSaveError("");
     setSaveSuccess(false);
-    
     try {
-      // Primary ID source is diagnosisId prop, fallback to data.appointment_id
+      // Try to use appointment_id from data if diagnosisId is not provided
       const id = diagnosisId || data.appointment_id;
-      
-      // Better error handling for missing ID
-      if (!id) {
-        throw new Error("No diagnosis ID available. Please ensure the component receives a valid diagnosisId prop.");
-      }
-      
-      console.log("Attempting to save with ID:", id);
-      
-      // Ensure the data being sent includes the ID
-      const dataToSend = {
-        ...data,
-        appointment_id: id
-      };
-      
-      console.log("Data being sent:", dataToSend);
-      
+      if (!id) throw new Error("No appointment/diagnosis ID provided");
+      // Debug: log the payload and id
+      console.log("[SaveAssessment] Sending to API:", { id, payload: data });
       // Try PUT first (update), fallback to POST (create)
       let res = await fetch(`/api/diagnosis/${id}/dermatology`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(dataToSend)
+        body: JSON.stringify(data)
       });
-      
       if (res.status === 404) {
-        console.log("PUT returned 404, trying POST...");
-        // No existing record, try POST
+        // No existing, try POST
         res = await fetch(`/api/diagnosis/${id}/dermatology`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(dataToSend)
+          body: JSON.stringify(data)
         });
       }
-      
       if (!res.ok) {
-        const errorText = await res.text();
-        let errorMessage;
+        let errorMessage = "";
         try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.error || errorJson.message;
-        } catch {
+          const err = await res.json();
+          errorMessage = err.error || err.message;
+        } catch (e) {
+          const errorText = await res.text();
           errorMessage = errorText || `HTTP ${res.status}`;
         }
         throw new Error(errorMessage || `Failed to save assessment (${res.status})`);
       }
-      
       const result = await res.json();
-      console.log("Save successful:", result);
-      
       setSaveSuccess(true);
       setSaveError("");
       onSaved?.();
-      
     } catch (e) {
-      console.error("Save error:", e);
       setSaveError(e.message || "Failed to save assessment");
       setSaveSuccess(false);
     } finally {
