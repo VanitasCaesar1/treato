@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Eye, Plus, Camera, Calendar, ChevronDown, X } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { Plus, X, Calendar, Camera, Eye, ChevronDown, Save, FileText } from "lucide-react";
 
 // Default form structure
 const DEFAULT_FORM = {
@@ -112,24 +113,117 @@ const REFERRAL_SPECIALTIES = [
   'Oncology', 'Rheumatology', 'Infectious Disease'
 ];
 
-export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onChange }) {
-  const [data, setData] = useState(dermatologyData);
+export default function DermatologySection({ dermatologyData, onChange, diagnosisId, onSaved }) {
+  // Initialize with DEFAULT_FORM merged with any provided data
+  const [data, setData] = useState(() => ({
+    ...DEFAULT_FORM,
+    ...(dermatologyData || {}),
+    // Ensure appointment_id is set from diagnosisId if available
+    appointment_id: diagnosisId || dermatologyData?.appointment_id || ""
+  }));
   const [openDropdowns, setOpenDropdowns] = useState({});
   const [activeTab, setActiveTab] = useState('assessment');
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [report, setReport] = useState("");
 
+  // Debug logging
+  console.log("DermatologySection props:", {
+    diagnosisId,
+    dermatologyDataId: dermatologyData?.appointment_id,
+    currentDataId: data.appointment_id
+  });
+
+  // Update local state and notify parent
   const updateField = (path, value) => {
     const newData = { ...data };
     const keys = path.split('.');
-    
     let current = newData;
     for (let i = 0; i < keys.length - 1; i++) {
       if (!current[keys[i]]) current[keys[i]] = {};
       current = current[keys[i]];
     }
     current[keys[keys.length - 1]] = value;
-    
     setData(newData);
     onChange?.(newData);
+  };
+
+  // Save Assessment handler
+  const handleSaveAssessment = async () => {
+    setSaveLoading(true);
+    setSaveError("");
+    setSaveSuccess(false);
+    
+    try {
+      // Primary ID source is diagnosisId prop, fallback to data.appointment_id
+      const id = diagnosisId || data.appointment_id;
+      
+      // Better error handling for missing ID
+      if (!id) {
+        throw new Error("No diagnosis ID available. Please ensure the component receives a valid diagnosisId prop.");
+      }
+      
+      console.log("Attempting to save with ID:", id);
+      
+      // Ensure the data being sent includes the ID
+      const dataToSend = {
+        ...data,
+        appointment_id: id
+      };
+      
+      console.log("Data being sent:", dataToSend);
+      
+      // Try PUT first (update), fallback to POST (create)
+      let res = await fetch(`/api/diagnosis/${id}/dermatology`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dataToSend)
+      });
+      
+      if (res.status === 404) {
+        console.log("PUT returned 404, trying POST...");
+        // No existing record, try POST
+        res = await fetch(`/api/diagnosis/${id}/dermatology`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(dataToSend)
+        });
+      }
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        let errorMessage;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.error || errorJson.message;
+        } catch {
+          errorMessage = errorText || `HTTP ${res.status}`;
+        }
+        throw new Error(errorMessage || `Failed to save assessment (${res.status})`);
+      }
+      
+      const result = await res.json();
+      console.log("Save successful:", result);
+      
+      setSaveSuccess(true);
+      setSaveError("");
+      onSaved?.();
+      
+    } catch (e) {
+      console.error("Save error:", e);
+      setSaveError(e.message || "Failed to save assessment");
+      setSaveSuccess(false);
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  // Generate Report handler
+  const handleGenerateReport = () => {
+    // Simple report generation from current data
+    const reportText = `Dermatology Assessment Report\n\nLesion Description: ${data.lesion_description}\nDistribution: ${data.distribution}\nSeverity: ${data.severity_assessment}\nWorking Diagnosis: ${data.working_diagnosis}\nAssessment Notes: ${data.assessment_notes}\nFollow-up: ${data.follow_up_recommendations}`;
+    setReport(reportText);
   };
 
   const toggleDropdown = (key) => {
@@ -226,10 +320,44 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
     { id: 'followup', label: 'Follow-up', icon: Calendar }
   ];
 
+  // Always sync local data.appointment_id with diagnosisId prop
+  useEffect(() => {
+    if (diagnosisId && data.appointment_id !== diagnosisId) {
+      setData(prev => ({ ...prev, appointment_id: diagnosisId }));
+    }
+  }, [diagnosisId]);
+
+  // Also update local data if dermatologyData changes (but preserve appointment_id from diagnosisId if present)
+  useEffect(() => {
+    setData(prev => ({
+      ...DEFAULT_FORM,
+      ...(dermatologyData || {}),
+      appointment_id: diagnosisId || dermatologyData?.appointment_id || prev.appointment_id || ""
+    }));
+  }, [dermatologyData, diagnosisId]);
+
+  // Show warning if no diagnosisId is available
+  if (!diagnosisId && !data.appointment_id) {
+    return (
+      <div className="max-w-6xl mx-auto p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="text-center">
+          <h3 className="text-xl font-bold text-yellow-800 mb-2">Missing Diagnosis ID</h3>
+          <p className="text-yellow-700">
+            This component requires a diagnosisId prop to function properly. 
+            Please ensure the parent component provides a valid diagnosis ID.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 p-6 bg-gray-50 rounded-lg">
       <div className="text-center pb-4 border-b">
         <h3 className="text-2xl font-bold text-gray-800">Dermatology Assessment</h3>
+        {diagnosisId && (
+          <p className="text-sm text-gray-600 mt-1">Diagnosis ID: {diagnosisId}</p>
+        )}
       </div>
 
       {/* Tab Navigation */}
@@ -264,7 +392,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                 <label className="block text-sm font-medium mb-2">Lesion Description</label>
                 <Textarea
                   placeholder="Describe the primary lesion..."
-                  value={data.lesion_description || ""}
+                  value={data?.lesion_description || ""}
                   onChange={(e) => updateField('lesion_description', e.target.value)}
                   className="min-h-24"
                 />
@@ -273,7 +401,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
               <div>
                 <label className="block text-sm font-medium mb-2">Distribution</label>
                 <CustomDropdown
-                  value={data.distribution}
+                  value={data?.distribution}
                   options={DISTRIBUTION_OPTIONS}
                   onChange={(value) => updateField('distribution', value)}
                   placeholder="Select distribution..."
@@ -284,7 +412,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
               <div>
                 <label className="block text-sm font-medium mb-2">Severity Assessment</label>
                 <CustomDropdown
-                  value={data.severity_assessment}
+                  value={data?.severity_assessment}
                   options={SEVERITY_OPTIONS}
                   onChange={(value) => updateField('severity_assessment', value)}
                   placeholder="Select severity..."
@@ -296,7 +424,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                 <label className="block text-sm font-medium mb-2">Working Diagnosis</label>
                 <Input
                   placeholder="Primary diagnosis..."
-                  value={data.working_diagnosis || ""}
+                  value={data?.working_diagnosis || ""}
                   onChange={(e) => updateField('working_diagnosis', e.target.value)}
                 />
               </div>
@@ -329,7 +457,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                 </Button>
               </div>
               
-              {data.differential_diagnosis?.length > 0 && (
+              {data?.differential_diagnosis?.length > 0 && (
                 <div className="space-y-2">
                   {data.differential_diagnosis.map((diagnosis, index) => (
                     <div key={index} className="flex items-center justify-between p-2 bg-gray-100 rounded">
@@ -356,7 +484,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                 <Button
                   key={area}
                   type="button"
-                  variant={data.affected_areas?.includes(area) ? "default" : "outline"}
+                  variant={data?.affected_areas?.includes(area) ? "default" : "outline"}
                   onClick={() => toggleArrayItem('affected_areas', area)}
                   className="text-sm py-2"
                 >
@@ -377,7 +505,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                   <Button
                     key={morph}
                     type="button"
-                    variant={data.lesion_characteristics?.morphology?.includes(morph) ? "default" : "outline"}
+                    variant={data?.lesion_characteristics?.morphology?.includes(morph) ? "default" : "outline"}
                     onClick={() => toggleNestedArrayItem('lesion_characteristics', 'morphology', morph)}
                     className="text-xs py-2"
                   >
@@ -391,7 +519,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
               <div>
                 <label className="block text-sm font-medium mb-2">Size</label>
                 <CustomDropdown
-                  value={data.lesion_characteristics?.size}
+                  value={data?.lesion_characteristics?.size}
                   options={SIZE_OPTIONS}
                   onChange={(value) => updateField('lesion_characteristics.size', value)}
                   placeholder="Select size..."
@@ -402,7 +530,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
               <div>
                 <label className="block text-sm font-medium mb-2">Surface</label>
                 <CustomDropdown
-                  value={data.lesion_characteristics?.surface}
+                  value={data?.lesion_characteristics?.surface}
                   options={SURFACE_OPTIONS}
                   onChange={(value) => updateField('lesion_characteristics.surface', value)}
                   placeholder="Select surface..."
@@ -413,7 +541,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
               <div>
                 <label className="block text-sm font-medium mb-2">Elevation</label>
                 <CustomDropdown
-                  value={data.lesion_characteristics?.elevation}
+                  value={data?.lesion_characteristics?.elevation}
                   options={ELEVATION_OPTIONS}
                   onChange={(value) => updateField('lesion_characteristics.elevation', value)}
                   placeholder="Select elevation..."
@@ -429,7 +557,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                   <Button
                     key={border.value}
                     type="button"
-                    variant={data.lesion_characteristics?.border === border.value ? "default" : "outline"}
+                    variant={data?.lesion_characteristics?.border === border.value ? "default" : "outline"}
                     onClick={() => updateField('lesion_characteristics.border', border.value)}
                     className="text-sm py-2"
                   >
@@ -446,7 +574,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                   <Button
                     key={color}
                     type="button"
-                    variant={data.lesion_characteristics?.color?.includes(color) ? "default" : "outline"}
+                    variant={data?.lesion_characteristics?.color?.includes(color) ? "default" : "outline"}
                     onClick={() => toggleNestedArrayItem('lesion_characteristics', 'color', color)}
                     className="text-xs py-2"
                   >
@@ -471,7 +599,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
               </Button>
             </div>
 
-            {data.medications?.map((med, index) => (
+            {data?.medications?.map((med, index) => (
               <div key={index} className="mb-4 p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center justify-between mb-3">
                   <h5 className="font-medium">Medication {index + 1}</h5>
@@ -487,29 +615,29 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                   <Input
                     placeholder="Medication name..."
-                    value={med.name || ""}
+                    value={med?.name || ""}
                     onChange={(e) => updateMedication(index, 'name', e.target.value)}
                   />
                   <Input
                     placeholder="Dosage..."
-                    value={med.dosage || ""}
+                    value={med?.dosage || ""}
                     onChange={(e) => updateMedication(index, 'dosage', e.target.value)}
                   />
                   <Input
                     placeholder="Frequency..."
-                    value={med.frequency || ""}
+                    value={med?.frequency || ""}
                     onChange={(e) => updateMedication(index, 'frequency', e.target.value)}
                   />
                   <Input
                     placeholder="Duration..."
-                    value={med.duration || ""}
+                    value={med?.duration || ""}
                     onChange={(e) => updateMedication(index, 'duration', e.target.value)}
                   />
                 </div>
               </div>
             ))}
 
-            {!data.medications?.length && (
+            {!data?.medications?.length && (
               <div className="text-center py-8 text-gray-500">
                 <p>No medications prescribed yet.</p>
               </div>
@@ -527,7 +655,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                     <Button
                       key={product}
                       type="button"
-                      variant={data.skincare_recommendations?.products?.includes(product) ? "default" : "outline"}
+                      variant={data?.skincare_recommendations?.products?.includes(product) ? "default" : "outline"}
                       onClick={() => toggleNestedArrayItem('skincare_recommendations', 'products', product)}
                       className="w-full justify-start text-sm"
                     >
@@ -544,7 +672,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                     <Button
                       key={care}
                       type="button"
-                      variant={data.skincare_recommendations?.general_care?.includes(care) ? "default" : "outline"}
+                      variant={data?.skincare_recommendations?.general_care?.includes(care) ? "default" : "outline"}
                       onClick={() => toggleNestedArrayItem('skincare_recommendations', 'general_care', care)}
                       className="w-full justify-start text-sm"
                     >
@@ -569,7 +697,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                 <label className="block text-sm font-medium mb-2">Clinical Photography</label>
                 <Textarea
                   placeholder="Description of photos taken..."
-                  value={data.clinical_photography || ""}
+                  value={data?.clinical_photography || ""}
                   onChange={(e) => updateField('clinical_photography', e.target.value)}
                   className="min-h-24"
                 />
@@ -579,7 +707,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                 <label className="block text-sm font-medium mb-2">Dermoscopy Findings</label>
                 <Textarea
                   placeholder="Dermoscopic observations..."
-                  value={data.dermoscopy_findings || ""}
+                  value={data?.dermoscopy_findings || ""}
                   onChange={(e) => updateField('dermoscopy_findings', e.target.value)}
                   className="min-h-24"
                 />
@@ -589,7 +717,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                 <label className="block text-sm font-medium mb-2">Assessment Notes</label>
                 <Textarea
                   placeholder="Clinical assessment and diagnostic reasoning..."
-                  value={data.assessment_notes || ""}
+                  value={data?.assessment_notes || ""}
                   onChange={(e) => updateField('assessment_notes', e.target.value)}
                   className="min-h-32"
                 />
@@ -610,7 +738,7 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                 <label className="block text-sm font-medium mb-2">Follow-up Recommendations</label>
                 <Textarea
                   placeholder="Timeline and instructions for follow-up..."
-                  value={data.follow_up_recommendations || ""}
+                  value={data?.follow_up_recommendations || ""}
                   onChange={(e) => updateField('follow_up_recommendations', e.target.value)}
                   className="min-h-24"
                 />
@@ -622,14 +750,14 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                   <div className="flex gap-2">
                     <Button
                       type="button"
-                      variant={data.referral_needed ? "default" : "outline"}
+                      variant={data?.referral_needed ? "default" : "outline"}
                       onClick={() => updateField('referral_needed', true)}
                     >
                       Yes
                     </Button>
                     <Button
                       type="button"
-                      variant={!data.referral_needed ? "default" : "outline"}
+                      variant={!data?.referral_needed ? "default" : "outline"}
                       onClick={() => updateField('referral_needed', false)}
                     >
                       No
@@ -637,11 +765,11 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                   </div>
                 </div>
 
-                {data.referral_needed && (
+                {data?.referral_needed && (
                   <div>
                     <label className="block text-sm font-medium mb-2">Referral Specialty</label>
                     <CustomDropdown
-                      value={data.referral_specialty}
+                      value={data?.referral_specialty}
                       options={REFERRAL_SPECIALTIES}
                       onChange={(value) => updateField('referral_specialty', value)}
                       placeholder="Select specialty..."
@@ -651,33 +779,101 @@ export default function DermatologySection({ dermatologyData = DEFAULT_FORM, onC
                 )}
               </div>
 
-              {data.referral_needed && (
+              {data?.referral_needed && (
                 <div>
                   <label className="block text-sm font-medium mb-2">Referral Reason</label>
                   <Textarea
-                    placeholder="Reason for referral..."
-                    value={data.referral_reason || ""}
+                    placeholder="Reason for referral and specific requirements..."
+                    value={data?.referral_reason || ""}
                     onChange={(e) => updateField('referral_reason', e.target.value)}
-                    className="min-h-20"
+                    className="min-h-24"
                   />
                 </div>
               )}
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Patient Education</label>
+                <Textarea
+                  placeholder="Key points discussed with patient..."
+                  value={data?.patient_education || ""}
+                  onChange={(e) => updateField('patient_education', e.target.value)}
+                  className="min-h-24"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Prognosis</label>
+                <Textarea
+                  placeholder="Expected outcome and timeline..."
+                  value={data?.prognosis || ""}
+                  onChange={(e) => updateField('prognosis', e.target.value)}
+                  className="min-h-24"
+                />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h4 className="text-lg font-semibold mb-4">Diagnostic Procedures</h4>
+            <div className="space-y-2">
+              {DIAGNOSTIC_PROCEDURES.map((procedure) => (
+                <Button
+                  key={procedure.value}
+                  type="button"
+                  variant={data?.diagnostic_procedures?.includes(procedure.value) ? "default" : "outline"}
+                  onClick={() => toggleArrayItem('diagnostic_procedures', procedure.value)}
+                  className="w-full justify-start text-sm"
+                >
+                  {procedure.label}
+                </Button>
+              ))}
             </div>
           </Card>
         </div>
       )}
 
       {/* Action Buttons */}
-      <div className="flex justify-center gap-4 pt-4">
-        <Button className="flex items-center gap-2">
-          <Save className="h-4 w-4" />
-          Save Assessment
+      <div className="flex justify-center gap-4 pt-6 border-t">
+        <Button
+          onClick={handleSaveAssessment}
+          disabled={saveLoading}
+          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          {saveLoading ? 'Saving...' : 'Save Assessment'}
         </Button>
-        <Button variant="outline" className="flex items-center gap-2">
-          <FileText className="h-4 w-4" />
+        
+        <Button
+          onClick={handleGenerateReport}
+          variant="outline"
+          className="px-6 py-2"
+        >
           Generate Report
         </Button>
       </div>
+
+      {/* Status Messages */}
+      {saveError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <p className="font-medium">Error saving assessment:</p>
+          <p className="text-sm">{saveError}</p>
+        </div>
+      )}
+
+      {saveSuccess && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+          <p className="font-medium">Assessment saved successfully!</p>
+        </div>
+      )}
+
+      {/* Generated Report */}
+      {report && (
+        <Card className="p-6">
+          <h4 className="text-lg font-semibold mb-4">Generated Report</h4>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <pre className="whitespace-pre-wrap text-sm">{report}</pre>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, ArrowLeft, ChevronDown, ChevronUp, Save, Printer, User, Stethoscope, Calendar, Star, Settings } from "lucide-react";
@@ -185,7 +185,16 @@ const SpecializationSelector = ({ selectedSpecialization, onSpecializationChange
 };
 
 // Updated SpecializationWrapper component
-const SpecializationWrapper = ({ selectedSpecialization, specializationData, onSpecializationChange, doctorData, specializations, onSaveSpecialization }) => {
+const SpecializationWrapper = ({ 
+  selectedSpecialization, 
+  specializationData, 
+  onSpecializationChange, 
+  doctorData, 
+  specializations, 
+  onSaveSpecialization,
+  diagnosisId, // <-- Add this prop
+  appointmentId // <-- Add this prop
+}) => {
   const config = getSpecializationConfig(selectedSpecialization);
   const availableSpecializations = getAvailableSpecializations();
 
@@ -286,11 +295,13 @@ const SpecializationWrapper = ({ selectedSpecialization, specializationData, onS
               {config.description}
             </p>
           </div>
-          {/* Render the dynamic specialization component */}
+          {/* Render the dynamic specialization component with diagnosisId */}
           <config.component
             data={specializationData || {}}
             onChange={onSpecializationChange}
             doctorInfo={doctorData}
+            diagnosisId={diagnosisId || appointmentId}
+            onSaved={() => { /* Handle save if needed */ }}
           />
         </>
       )}
@@ -908,6 +919,9 @@ export default function DiagnosisPage() {
     vitals: true, symptoms: true, diagnosis: true, specialization: true, treatment: true, notes: false
   });
 
+  // --- Add diagnosisId state ---
+  const [diagnosisId, setDiagnosisId] = useState("");
+
   // Always use 5 arguments for createPrescriptionData
   const prescriptionData = createPrescriptionData(
     appointmentId || '',
@@ -929,105 +943,36 @@ export default function DiagnosisPage() {
   useEffect(() => {
     const loadData = async () => {
       if (!appointmentId) {
-        setState(prev => ({ ...prev, error: "No appointment ID provided", loading: false }));
+        setState(prev => ({ ...prev, loading: false, error: "No appointment ID provided." }));
         return;
       }
-
       try {
         setState(prev => ({ ...prev, loading: true, error: null }));
-
-        // Fetch appointment and doctor profile (robust normalization)
-        const [appointmentRes, doctorRes] = await Promise.all([
-          apiCall(`/api/appointments/${appointmentId}`),
-          apiCall(`/api/user/profile`)
-        ]);
-
-        const appointmentData = appointmentRes.appointment || appointmentRes;
-        const doctorData = doctorRes.user || doctorRes;
-        const doctorId = doctorData.id || doctorData.user_id || doctorData.UserID || doctorData.doctor_id;
-        const orgId = doctorData.org_id || doctorData.hospital_id || doctorData.HospitalID;
-
-        if (!doctorId) throw new Error("Doctor ID not found in profile data");
-
-        // Normalize doctorData for robust specialization extraction
-        const normalizedDoctorData = {
-          ...doctorData, id: doctorId, org_id: orgId,
-          name: doctorData.name || doctorData.Name,
-          specialization: doctorData.specialization || doctorData.Specialization || { primary: null }
-        };
-
-        // Fetch patient and history
-        const [patientRes, historyRes] = await Promise.all([
-          apiCall(`/api/patients/${appointmentData.patient_id}`).catch(() => ({ patient: null })),
-          apiCall(`/api/patients/medical-history/${appointmentData.patient_id}`).catch(() => ({ history: [] }))
-        ]);
-
-        let existingDiagnosis = null;
-        try {
-          existingDiagnosis = await fetchExistingDiagnosis(appointmentId);
-        } catch (error) {
-          console.warn('Failed to fetch existing diagnosis:', error);
+        const diagnosis = await fetchExistingDiagnosis(appointmentId);
+        if (diagnosis) {
+          const formData = transformDiagnosisToForm(diagnosis);
+          setForm(formData);
+          // --- Set diagnosisId from loaded data ---
+          if (formData.appointment_id) setDiagnosisId(formData.appointment_id);
+        } else {
+          setForm(DEFAULT_FORM);
+          setDiagnosisId(appointmentId);
         }
-
-        const patientData = patientRes.patient || null;
-        const medicalHistory = historyRes.history || [];
-
-        setForm(prev => {
-          let hydrated = {
-            ...prev,
-            appointment_id: appointmentId,
-            patient_id: appointmentData.patient_id,
-            doctor_id: doctorId,
-            org_id: orgId,
-            ...(existingDiagnosis ? transformDiagnosisToForm(existingDiagnosis) : {})
-          };
-          // --- Ensure specializations is always an object ---
-          let specs = hydrated.specializations;
-          if (typeof specs === 'string') {
-            try { specs = JSON.parse(specs); } catch { specs = {}; }
-          }
-          // If missing, synthesize from existingDiagnosis.specialty/specialty_data
-          if ((!specs || typeof specs !== 'object' || Object.keys(specs).length === 0) && existingDiagnosis) {
-            const specialty = existingDiagnosis.specialty;
-            let specialty_data = existingDiagnosis.specialty_data;
-            if (specialty && specialty_data) {
-              try {
-                specialty_data = typeof specialty_data === 'string' ? JSON.parse(specialty_data) : specialty_data;
-              } catch { specialty_data = {}; }
-              specs = { [specialty]: specialty_data };
-            }
-          }
-          hydrated.specializations = specs || {};
-          // --- Ensure specialization.data is always in sync with specializations[selectedType] ---
-          const type = hydrated.specialization?.type || (existingDiagnosis && existingDiagnosis.specialty) || Object.keys(specs)[0] || 'general';
-          hydrated.specialization = {
-            type,
-            data: specs[type] || {}
-          };
-          return hydrated;
-        });
-
-        setState(prev => ({
-          ...prev,
-          appointmentData,
-          doctorData: normalizedDoctorData,
-          patientData,
-          medicalHistory,
-          loading: false
-        }));
-
+        setState(prev => ({ ...prev, loading: false }));
       } catch (error) {
-        console.error('Error loading data:', error);
-        setState(prev => ({
-          ...prev,
-          error: `Failed to load data: ${error.message}`,
-          loading: false
-        }));
+        setState(prev => ({ ...prev, loading: false, error: error.message || "Failed to load data." }));
       }
     };
-
     loadData();
   }, [appointmentId]);
+
+  // --- Update diagnosisId if child notifies parent via onChange ---
+  const handleDermatologyChange = (newData) => {
+    handleSpecializationChange(newData); // Use the multi-specialization system
+    if (newData && newData.appointment_id && newData.appointment_id !== diagnosisId) {
+      setDiagnosisId(newData.appointment_id);
+    }
+  };
 
   const handleFormChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -1155,6 +1100,8 @@ export default function DiagnosisPage() {
                 doctorData={state.doctorData}
                 specializations={specializations}
                 onSaveSpecialization={() => saveCurrentSpecialization(selectedType, selectedData)}
+                diagnosisId={diagnosisId}
+                appointmentId={appointmentId}
               />
               {/* List and switch between saved specializations */}
               <div className="mt-4">
