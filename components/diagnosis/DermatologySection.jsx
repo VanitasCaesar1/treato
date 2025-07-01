@@ -155,19 +155,35 @@ export default function DermatologySection({ dermatologyData, onChange, diagnosi
     setSaveError("");
     setSaveSuccess(false);
     try {
-      // Try to use appointment_id from data if diagnosisId is not provided
       const id = diagnosisId || data.appointment_id;
       if (!id) throw new Error("No appointment/diagnosis ID provided");
       // Debug: log the payload and id
       console.log("[SaveAssessment] Sending to API:", { id, payload: data });
-      // Try PUT first (update), fallback to POST (create)
-      let res = await fetch(`/api/diagnosis/${id}/dermatology`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      });
-      if (res.status === 404) {
-        // No existing, try POST
+      // First, check if a dermatology diagnosis already exists for this appointment
+      let exists = false;
+      try {
+        const checkRes = await fetch(`/api/diagnosis/${id}/dermatology`, { method: "GET" });
+        if (checkRes.ok) {
+          const checkData = await checkRes.json();
+          // If the backend returns a valid object, consider it exists
+          if (checkData && Object.keys(checkData).length > 0 && !checkData.error) {
+            exists = true;
+          }
+        }
+      } catch (e) {
+        // If GET fails, assume it does not exist (will try POST)
+        exists = false;
+      }
+      let res;
+      if (exists) {
+        // Use PUT to update
+        res = await fetch(`/api/diagnosis/${id}/dermatology`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+      } else {
+        // Use POST to create
         res = await fetch(`/api/diagnosis/${id}/dermatology`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
