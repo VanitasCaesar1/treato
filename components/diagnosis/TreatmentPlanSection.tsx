@@ -51,7 +51,7 @@ const SmartDropdown: React.FC<SmartDropdownProps> = ({ value, onChange, options,
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setFiltered(options.filter(opt => opt.toLowerCase().includes(value.toLowerCase())));
+    setFiltered(options.filter(opt => opt.toLowerCase().startsWith(value.toLowerCase())));
   }, [value, options]);
 
   useEffect(() => {
@@ -108,12 +108,13 @@ const MedicineSearch: React.FC<MedicineSearchProps> = ({ onSelect, className = '
 
   const searchMedicines = async (term: string) => {
     if (!term.trim()) { setResults([]); return; }
-    
     setLoading(true);
     try {
       const response = await fetch(`/api/medicines/search?term=${encodeURIComponent(term)}&limit=10`);
       const data = await response.json();
-      setResults(data.medicines || []);
+      // Only include medicines whose name starts with the search term (prefix match)
+      const prefix = term.toLowerCase();
+      setResults((data.medicines || []).filter((med: MedicineSearchResult) => med.name.toLowerCase().startsWith(prefix)));
     } catch (error) {
       console.error('Medicine search error:', error);
       setResults([]);
@@ -157,6 +158,11 @@ const MedicineSearch: React.FC<MedicineSearchProps> = ({ onSelect, className = '
               </div>
             </button>
           ))}
+        </div>
+      )}
+      {search && !loading && results.length === 0 && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-100 max-h-60 overflow-y-auto z-50">
+          <div className="p-4 text-center text-gray-500">No results found</div>
         </div>
       )}
     </div>
