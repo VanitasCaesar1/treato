@@ -33,7 +33,7 @@ const SPECIALIZATION_CONFIG = {
 
   'cardiology': {
     component: CardiologySection,
-    icon: '❤️',
+    icon: '🫀',
     title: 'Cardiac Assessment',
     description: 'Heart conditions, ECG findings, and cardiovascular examination',
     fields: ['ecg_findings', 'heart_sounds', 'chest_pain_assessment', 'cardiac_risk_factors']
