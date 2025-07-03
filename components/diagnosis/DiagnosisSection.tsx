@@ -44,32 +44,10 @@ const getConfidenceBadgeStyle = (confidence: string) => ({
 const formatConfidence = (confidence: string | undefined) => 
   confidence ? confidence.charAt(0).toUpperCase() + confidence.slice(1) : 'Primary';
 
-// Character-wise fuzzy search algorithm
-const fuzzySearch = (query: string, text: string): number => {
-  const queryLower = query.toLowerCase();
-  const textLower = text.toLowerCase();
-  
-  let queryIndex = 0;
-  let score = 0;
-  let consecutiveMatches = 0;
-  
-  for (let i = 0; i < textLower.length && queryIndex < queryLower.length; i++) {
-    if (textLower[i] === queryLower[queryIndex]) {
-      queryIndex++;
-      consecutiveMatches++;
-      score += consecutiveMatches * 2; // Bonus for consecutive matches
-    } else {
-      consecutiveMatches = 0;
-    }
-  }
-  
-  // Boost score for complete matches and early matches
-  if (queryIndex === queryLower.length) {
-    score += 100;
-    if (textLower.startsWith(queryLower)) score += 50;
-  }
-  
-  return queryIndex === queryLower.length ? score : 0;
+// Character-wise prefix search for medical conditions
+const prefixSearch = (query: string, text: string): boolean => {
+  if (!query) return true;
+  return text.toLowerCase().startsWith(query.toLowerCase());
 };
 
 // Medical Data
@@ -771,6 +749,19 @@ const MEDICAL_CONDITIONS: MedicalCondition[] = [
       'Identify and avoid triggers (foods, medications, insect bites, stress)',
       'Cool compresses',
       'Corticosteroids for severe cases'
+    ]
+  },
+  {
+    id: 'DERM007',
+    name: 'Melanoma',
+    icd10_codes: ['C43.9', 'C43.51', 'C43.61'],
+    category: 'Dermatology/Oncology',
+    description: 'The most serious type of skin cancer, developing in the cells that produce melanin.',
+    common_notes: [
+      'Surgical excision is primary treatment',
+      'Regular self-skin exams (ABCDEs of melanoma)',
+      'Sun protection (sunscreen, protective clothing, seek shade)',
+      'Dermatology follow-up and potential oncology referral for advanced stages'
     ]
   },
 
@@ -1947,22 +1938,30 @@ const SmartInput: React.FC<{
 
   const getSuggestions = useCallback((input: string) => {
     if (!input.trim()) return [];
-    
-    const items = type === 'condition' ? MEDICAL_CONDITIONS : ICD10_CODES;
-    const results = items.map(item => {
-      const searchFields = type === 'condition' 
-        ? [item.name, item.category, item.description]
-        : [item.code, item.description, item.category];
-      
-      const maxScore = Math.max(...searchFields.map(field => fuzzySearch(input, field)));
-      return { item, score: maxScore };
-    })
-    .filter(result => result.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 6)
-    .map(result => result.item);
-
-    return results;
+    if (type === 'condition') {
+      // First, try to match by name (prefix)
+      const nameMatches = MEDICAL_CONDITIONS.filter(cond =>
+        prefixSearch(input, cond.name)
+      );
+      if (nameMatches.length > 0) return nameMatches.slice(0, 6);
+      // If no name matches, try category (prefix)
+      const categoryMatches = MEDICAL_CONDITIONS.filter(cond =>
+        prefixSearch(input, cond.category)
+      );
+      if (categoryMatches.length > 0) return categoryMatches.slice(0, 6);
+      // Optionally, fallback to code (prefix)
+      const codeMatches = MEDICAL_CONDITIONS.filter(cond =>
+        cond.icd10_codes.some(code => prefixSearch(input, code))
+      );
+      return codeMatches.slice(0, 6);
+    } else {
+      // For ICD10 code search, fallback to original logic or prefix search
+      return ICD10_CODES.filter(codeObj =>
+        prefixSearch(input, codeObj.code) ||
+        prefixSearch(input, codeObj.description) ||
+        prefixSearch(input, codeObj.category)
+      ).slice(0, 6);
+    }
   }, [type]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {

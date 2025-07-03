@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, ArrowLeft, ChevronDown, ChevronUp, Save, Printer, User, Stethoscope, Calendar, Star, Settings } from "lucide-react";
@@ -914,7 +914,7 @@ export default function DiagnosisPage() {
     medicalHistory: [], error: null, submitting: false
   });
 
-  const [form, setForm] = useState<DiagnosisFormData>(DEFAULT_FORM);
+  const [form, setForm] = useState(DEFAULT_FORM);
   const [openSections, setOpenSections] = useState({
     vitals: true, symptoms: true, diagnosis: true, specialization: true, treatment: true, notes: false
   });

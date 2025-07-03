@@ -669,8 +669,8 @@ const SymptomDropdown = ({ value, onChange, placeholder = "Search or select symp
   const inputRef = useRef<HTMLInputElement>(null);
 
   const filtered = SYMPTOMS_DB.filter(s =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.cat.toLowerCase().includes(search.toLowerCase())
+    s.name.toLowerCase().startsWith(search.toLowerCase()) ||
+    s.cat.toLowerCase().startsWith(search.toLowerCase())
   );
 
   useEffect(() => {

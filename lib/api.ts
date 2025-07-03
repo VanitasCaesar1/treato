@@ -1,7 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosError, AxiosProgressEvent } from 'axios';
 import { withAuth } from '@workos-inc/authkit-nextjs';
 
-const API_BASE_URL =  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL =  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';  
 
 /**
  * Determines if code is running on the client side

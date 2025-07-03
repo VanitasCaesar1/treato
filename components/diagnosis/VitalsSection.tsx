@@ -230,7 +230,7 @@ const VITAL_FIELDS: VitalField[] = [
     max: 250,
     step: 1,
     maxLength: 3,
-    normalRange: { min: 150, max: 200, unit: 'cm' },
+    normalRange: { min: 0, max: 200, unit: 'cm' },
     inputFilter: (value: string) => {
       // Allow only numbers and one decimal point
       return value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
@@ -239,7 +239,7 @@ const VITAL_FIELDS: VitalField[] = [
       if (!value) return { isValid: true };
       const height = parseFloat(value);
       if (isNaN(height)) return { isValid: false, message: 'Please enter a valid height' };
-      if (height < 50 || height > 250) return { isValid: false, message: 'Height must be between 50-250 cm' };
+      if (height > 250) return { isValid: false, message: 'Height must be between 0-250 cm' };
       if (height < 100) return { isValid: true, message: 'Very short stature', level: 'info' };
       if (height > 220) return { isValid: true, message: 'Very tall stature', level: 'info' };
       return { isValid: true, message: 'Height recorded', level: 'info' };
