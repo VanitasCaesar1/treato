@@ -256,7 +256,7 @@ const VITAL_FIELDS: VitalField[] = [
     max: 300,
     step: 0.1,
     maxLength: 5,
-    normalRange: { min: 50, max: 90, unit: 'kg' },
+    normalRange: { min: 0, max: 100, unit: 'kg' },
     inputFilter: (value: string) => {
       // Allow only numbers and one decimal point
       return value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
@@ -265,7 +265,7 @@ const VITAL_FIELDS: VitalField[] = [
       if (!value) return { isValid: true };
       const weight = parseFloat(value);
       if (isNaN(weight)) return { isValid: false, message: 'Please enter a valid weight' };
-      if (weight < 20 || weight > 300) return { isValid: false, message: 'Weight must be between 20-300 kg' };
+      if (weight > 300) return { isValid: false, message: 'Weight must be between 0-300 kg' };
       if (weight < 30) return { isValid: true, message: 'Significantly underweight', level: 'warning' };
       if (weight > 150) return { isValid: true, message: 'Consider BMI assessment', level: 'info' };
       return { isValid: true, message: 'Weight recorded', level: 'info' };
