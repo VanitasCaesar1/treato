@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, ArrowLeft, ChevronDown, ChevronUp, Save, Printer, User, Stethoscope, Calendar, Star, Settings } from "lucide-react";
@@ -636,24 +636,36 @@ const PrescriptionHeader = ({ appointmentData, doctorData }) => (
 
 const SidebarPanel = ({ patientData, medicalHistory, loading }) => (
   <div className="space-y-6">
+    {/* Patient Information Section */}
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
-        <User className="h-5 w-5 mr-2" />Patient Information
-      </h3>
+      <h3 className="text-lg font-semibold text-gray-800 mb-2">Patient Information</h3>
       {loading ? (
-        <div className="animate-pulse space-y-2">
-          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+        <div className="text-gray-500 text-sm">Loading...</div>
+      ) : patientData ? (
+        <div className="space-y-1">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-lg">
+              {patientData.name ? patientData.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2) : '?'}
+            </span>
+            <div>
+              <div className="font-medium text-gray-900">{patientData.name || 'N/A'}</div>
+              <div className="text-xs text-gray-500">ID: {patientData.patient_id || patientData.id || 'N/A'}</div>
+            </div>
+          </div>
+          <div className="text-sm text-gray-700">Age: <span className="font-medium">{patientData.age ?? 'N/A'}</span></div>
+          <div className="text-sm text-gray-700">Gender: <span className="font-medium">{patientData.gender || 'N/A'}</span></div>
+          {patientData.phone && (
+            <div className="text-sm text-gray-700">Phone: <span className="font-medium">{patientData.phone}</span></div>
+          )}
+          {patientData.email && (
+            <div className="text-sm text-gray-700">Email: <span className="font-medium">{patientData.email}</span></div>
+          )}
+          {patientData.address && (
+            <div className="text-sm text-gray-700">Address: <span className="font-medium">{patientData.address}</span></div>
+          )}
         </div>
       ) : (
-        <div className="space-y-3 text-sm">
-          {['id', 'name', 'age', 'gender', 'phone'].map(field => (
-            <div key={field}>
-              <span className="text-gray-500 capitalize">{field}:</span>
-              <p className="font-medium">{patientData?.[field] || "N/A"}{field === 'age' ? ' years' : ''}</p>
-            </div>
-          ))}
-        </div>
+        <div className="text-gray-500 text-sm">No patient data found.</div>
       )}
     </div>
 
@@ -914,7 +926,7 @@ export default function DiagnosisPage() {
     medicalHistory: [], error: null, submitting: false
   });
 
-  const [form, setForm] = useState(DEFAULT_FORM);
+  const [form, setForm] = useState<DiagnosisFormData>(DEFAULT_FORM);
   const [openSections, setOpenSections] = useState({
     vitals: true, symptoms: true, diagnosis: true, specialization: true, treatment: true, notes: false
   });
@@ -948,17 +960,62 @@ export default function DiagnosisPage() {
       }
       try {
         setState(prev => ({ ...prev, loading: true, error: null }));
+        // Fetch diagnosis (may contain patient_id, doctor_id)
         const diagnosis = await fetchExistingDiagnosis(appointmentId);
+        let formData = DEFAULT_FORM;
+        let patientId = null;
+        let doctorId = null;
+        let appointmentData = null;
         if (diagnosis) {
-          const formData = transformDiagnosisToForm(diagnosis);
-          setForm(formData);
-          // --- Set diagnosisId from loaded data ---
+          formData = transformDiagnosisToForm(diagnosis);
+          patientId = formData.patient_id;
+          doctorId = formData.doctor_id;
+          if (diagnosis.appointment) appointmentData = diagnosis.appointment;
           if (formData.appointment_id) setDiagnosisId(formData.appointment_id);
         } else {
-          setForm(DEFAULT_FORM);
           setDiagnosisId(appointmentId);
         }
-        setState(prev => ({ ...prev, loading: false }));
+        setForm(formData);
+        // --- Fetch appointment data if not present ---
+        if (!appointmentData) {
+          try {
+            const appt = await apiCall(`/api/appointments/${encodeURIComponent(appointmentId)}`);
+            appointmentData = appt?.appointment || appt;
+          } catch {}
+        }
+        // --- Fetch patient and doctor data ---
+        if (!patientId && appointmentData) patientId = appointmentData.patient_id;
+        if (!doctorId && appointmentData) doctorId = appointmentData.doctor_id;
+        let patientData = null;
+        let doctorData = null;
+        if (patientId) {
+          try {
+            const p = await apiCall(`/api/patients/${encodeURIComponent(patientId)}`);
+            patientData = p?.patient || p;
+          } catch {}
+        }
+        if (doctorId) {
+          try {
+            const d = await apiCall(`/api/doctors/${encodeURIComponent(doctorId)}/profile`);
+            doctorData = d?.doctor || d;
+          } catch {}
+        }
+        // --- Fetch medical history ---
+        let medicalHistory = [];
+        if (patientId) {
+          try {
+            const mh = await apiCall(`/api/patients/medical-history/${encodeURIComponent(patientId)}`);
+            medicalHistory = mh?.records || mh?.medical_history || [];
+          } catch {}
+        }
+        setState(prev => ({
+          ...prev,
+          loading: false,
+          appointmentData,
+          doctorData,
+          patientData,
+          medicalHistory
+        }));
       } catch (error) {
         setState(prev => ({ ...prev, loading: false, error: error.message || "Failed to load data." }));
       }
