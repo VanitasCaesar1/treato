@@ -654,15 +654,8 @@ const SidebarPanel = ({ patientData, medicalHistory, loading }) => (
           </div>
           <div className="text-sm text-gray-700">Age: <span className="font-medium">{patientData.age ?? 'N/A'}</span></div>
           <div className="text-sm text-gray-700">Gender: <span className="font-medium">{patientData.gender || 'N/A'}</span></div>
-          {patientData.phone && (
-            <div className="text-sm text-gray-700">Phone: <span className="font-medium">{patientData.phone}</span></div>
-          )}
-          {patientData.email && (
-            <div className="text-sm text-gray-700">Email: <span className="font-medium">{patientData.email}</span></div>
-          )}
-          {patientData.address && (
-            <div className="text-sm text-gray-700">Address: <span className="font-medium">{patientData.address}</span></div>
-          )}
+         <div className="text-sm text-gray-700">Allergies: <span className="font-medium">{patientData.allergies || 'N/A'}</span></div>
+         
         </div>
       ) : (
         <div className="text-gray-500 text-sm">No patient data found.</div>

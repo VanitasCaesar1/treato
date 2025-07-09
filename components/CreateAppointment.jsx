@@ -16,6 +16,7 @@ getDay,
 } from "date-fns";
 import { Search, ChevronLeft, ChevronRight, X, Loader2, User, Calendar, Clock, CreditCard, FileText, Info } from "lucide-react";
 import PatientSearch from "@/components/PatientSearch";
+import CreatePatientForm from "./CreatePatientForm";
 import { toast } from "react-hot-toast";
 
 const CreateAppointment = ({ isOpen, onClose, onSuccess }) => {
@@ -31,6 +32,9 @@ reason: "",
 feeType: "recurring",
 paymentMethod: "online",
  });
+
+// Add patientTab state for toggling between select/create patient
+const [patientTab, setPatientTab] = useState('select');
 
 // UI state
 const [doctors, setDoctors] = useState([]);
@@ -745,6 +749,26 @@ step >= stepNumber ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-500"
 {/* Step 1: Patient Selection */}
 {step === 1 && (
 <div className="space-y-4">
+<div className="flex justify-center mb-4">
+<div className="inline-flex bg-gray-100 rounded-lg p-1">
+<button
+className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${patientTab === 'select' ? 'bg-blue-500 text-white' : 'text-gray-700 hover:bg-blue-50'}`}
+onClick={() => setPatientTab('select')}
+type="button"
+>
+Select Patient
+</button>
+<button
+className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${patientTab === 'create' ? 'bg-blue-500 text-white' : 'text-gray-700 hover:bg-blue-50'}`}
+onClick={() => setPatientTab('create')}
+type="button"
+>
+Create New Patient
+</button>
+</div>
+</div>
+{patientTab === 'select' && (
+<>
 <div className="text-center">
 <User className="w-12 h-12 mx-auto mb-2 text-blue-500" />
 <h3 className="text-lg font-semibold text-gray-800">Select Patient</h3>
@@ -765,9 +789,23 @@ step >= stepNumber ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-500"
 </div>
 </div>
 </div>
- )}
+)}
+</>
+)}
+{patientTab === 'create' && (
+<div className="bg-white rounded-2xl shadow p-4">
+<CreatePatientForm
+ onPatientCreated={(patient) => {
+ setFormData((prev) => ({ ...prev, patient: patient }));
+ setPatientTab('select');
+ // Optionally, show a toast or highlight the new patient
+ }}
+ onCancel={() => setPatientTab('select')}
+ />
 </div>
- )}
+)}
+</div>
+)}
 
 {/* Step 2: Doctor Selection */}
 {step === 2 && (
@@ -776,244 +814,244 @@ step >= stepNumber ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-500"
 <User className="w-12 h-12 mx-auto mb-2 text-blue-500" />
 <h3 className="text-lg font-semibold text-gray-800">Select Doctor</h3>
 <p className="text-sm text-gray-600">Search and select the doctor</p>
-          </div>
+</div>
 
-          {/* Search and Filter */}
-          <div className="flex gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search doctors..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <select
-              value={selectedSpeciality}
-              onChange={(e) => setSelectedSpeciality(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="_all">All Specialities</option>
-              {specialities.map((spec) => (
-                <option key={spec} value={spec}>{spec}</option>
-              ))}
-            </select>
-          </div>
+{/* Search and Filter */}
+<div className="flex gap-3">
+<div className="flex-1 relative">
+<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+<input
+type="text"
+placeholder="Search doctors..."
+value={searchQuery}
+onChange={(e) => setSearchQuery(e.target.value)}
+className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+/>
+</div>
+<select
+value={selectedSpeciality}
+onChange={(e) => setSelectedSpeciality(e.target.value)}
+className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+>
+<option value="_all">All Specialities</option>
+{specialities.map((spec) => (
+<option key={spec} value={spec}>{spec}</option>
+))}
+</select>
+</div>
 
-          {/* Doctor List */}
-          {loading ? (
-            <div className="flex items-center justify-center p-6 text-gray-500">
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              Loading doctors...
-            </div>
-          ) : doctors.length === 0 ? (
-            <div className="text-center p-6 text-gray-500 bg-gray-50 rounded-xl">
-              <User className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-              <p className="text-sm font-medium">No doctors found</p>
-              <p className="text-xs">Try adjusting your search criteria</p>
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {doctors.map((doctor) => (
-                <DoctorCard
-                  key={doctor.id}
-                  doctor={doctor}
-                  onSelect={(selectedDoctor) => {
-                    setFormData((prev) => ({ ...prev, doctor: selectedDoctor }));
-                  }}
-                  isSelected={formData.doctor?.id === doctor.id}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+{/* Doctor List */}
+{loading ? (
+<div className="flex items-center justify-center p-6 text-gray-500">
+<Loader2 className="w-5 h-5 mr-2 animate-spin" />
+Loading doctors...
+</div>
+) : doctors.length === 0 ? (
+<div className="text-center p-6 text-gray-500 bg-gray-50 rounded-xl">
+<User className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+<p className="text-sm font-medium">No doctors found</p>
+<p className="text-xs">Try adjusting your search criteria</p>
+</div>
+) : (
+<div className="space-y-2 max-h-64 overflow-y-auto">
+{doctors.map((doctor) => (
+<DoctorCard
+key={doctor.id}
+doctor={doctor}
+onSelect={(selectedDoctor) => {
+setFormData((prev) => ({ ...prev, doctor: selectedDoctor }));
+}}
+isSelected={formData.doctor?.id === doctor.id}
+ />
+))}
+</div>
+)}
+</div>
+)}
 
-      {/* Step 3: Schedule */}
-      {step === 3 && (
-        <div className="space-y-6">
-          <div className="text-center">
-            <Calendar className="w-12 h-12 mx-auto mb-2 text-blue-500" />
-            <h3 className="text-lg font-semibold text-gray-800">Schedule Appointment</h3>
-            <p className="text-sm text-gray-600">Select date, time, and appointment details</p>
-          </div>
+{/* Step 3: Schedule */}
+{step === 3 && (
+<div className="space-y-6">
+<div className="text-center">
+<Calendar className="w-12 h-12 mx-auto mb-2 text-blue-500" />
+<h3 className="text-lg font-semibold text-gray-800">Schedule Appointment</h3>
+<p className="text-sm text-gray-600">Select date, time, and appointment details</p>
+</div>
 
-          {/* Selected Patient & Doctor Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-3 bg-blue-50 rounded-xl border border-blue-200">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-sm">
-                  {formData.patient?.name?.charAt(0)}
-                </div>
-                <div>
-                  <div className="font-semibold text-gray-800 text-sm">{formData.patient?.name}</div>
-                  <div className="text-xs text-gray-600">Patient</div>
-                </div>
-              </div>
-            </div>
-            <div className="p-3 bg-green-50 rounded-xl border border-green-200">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-semibold text-sm">
-                  {formData.doctor?.name?.charAt(0)}
-                </div>
-                <div>
-                  <div className="font-semibold text-gray-800 text-sm">{formData.doctor?.name}</div>
-                  <div className="text-xs text-gray-600">{formData.doctor?.specialty}</div>
-                </div>
-              </div>
-            </div>
-          </div>
+{/* Selected Patient & Doctor Info */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div className="p-3 bg-blue-50 rounded-xl border border-blue-200">
+<div className="flex items-center gap-3">
+<div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-sm">
+{formData.patient?.name?.charAt(0)}
+</div>
+<div>
+<div className="font-semibold text-gray-800 text-sm">{formData.patient?.name}</div>
+<div className="text-xs text-gray-600">Patient</div>
+</div>
+</div>
+</div>
+<div className="p-3 bg-green-50 rounded-xl border border-green-200">
+<div className="flex items-center gap-3">
+<div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-semibold text-sm">
+{formData.doctor?.name?.charAt(0)}
+</div>
+<div>
+<div className="font-semibold text-gray-800 text-sm">{formData.doctor?.name}</div>
+<div className="text-xs text-gray-600">{formData.doctor?.specialty}</div>
+</div>
+</div>
+</div>
+</div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Calendar */}
-            <div>
-              <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                <Calendar className="w-4 h-4 mr-2" />
-                Select Date
-              </h4>
-              {renderCalendar()}
-            </div>
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+{/* Calendar */}
+<div>
+<h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+<Calendar className="w-4 h-4 mr-2" />
+Select Date
+</h4>
+{renderCalendar()}
+</div>
 
-            {/* Time Slots */}
-            <div>
-              <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                <Clock className="w-4 h-4 mr-2" />
-                Available Times
-                {formData.date && (
-                  <span className="ml-2 text-sm text-gray-600">
-                    {format(formData.date, "MMM dd, yyyy")}
-                  </span>
-                )}
-              </h4>
-              {formData.date ? (
-                <div className="bg-white rounded-xl p-4 border border-gray-200 min-h-[200px]">
-                  {renderTimeSlots()}
-                </div>
-              ) : (
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 min-h-[200px] flex items-center justify-center">
-                  <div className="text-center text-gray-500">
-                    <Calendar className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm">Select a date first</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+{/* Time Slots */}
+<div>
+<h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+<Clock className="w-4 h-4 mr-2" />
+Available Times
+{formData.date && (
+<span className="ml-2 text-sm text-gray-600">
+{format(formData.date, "MMM dd, yyyy")}
+</span>
+)}
+</h4>
+{formData.date ? (
+<div className="bg-white rounded-xl p-4 border border-gray-200 min-h-[200px]">
+{renderTimeSlots()}
+</div>
+) : (
+<div className="bg-gray-50 rounded-xl p-4 border border-gray-200 min-h-[200px] flex items-center justify-center">
+<div className="text-center text-gray-500">
+<Calendar className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+<p className="text-sm">Select a date first</p>
+</div>
+</div>
+)}
+</div>
+</div>
 
-          {/* Appointment Type & Payment */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                <FileText className="w-4 h-4 mr-2" />
-                Appointment Type
-              </h4>
-              <div className="space-y-2">
-                {feeTypes.map((type) => (
-                  <label key={type.value} className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
-                    <input
-                      type="radio"
-                      name="feeType"
-                      value={type.value}
-                      checked={formData.feeType === type.value}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, feeType: e.target.value }))}
-                      className="mr-3"
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-700">{type.label}</div>
-                      <div className="text-sm text-gray-500">₹{doctorFees[type.value] || 0}</div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
+{/* Appointment Type & Payment */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div>
+<h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+<FileText className="w-4 h-4 mr-2" />
+Appointment Type
+</h4>
+<div className="space-y-2">
+{feeTypes.map((type) => (
+<label key={type.value} className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+<input
+type="radio"
+name="feeType"
+value={type.value}
+checked={formData.feeType === type.value}
+onChange={(e) => setFormData((prev) => ({ ...prev, feeType: e.target.value }))}
+className="mr-3"
+/>
+<div className="flex-1">
+<div className="font-medium text-gray-700">{type.label}</div>
+<div className="text-sm text-gray-500">₹{doctorFees[type.value] || 0}</div>
+</div>
+</label>
+))}
+</div>
+</div>
 
-            <div>
-              <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                <CreditCard className="w-4 h-4 mr-2" />
-                Payment Method
-              </h4>
-              <div className="space-y-2">
-                {paymentMethods.map((method) => (
-                  <label key={method.value} className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value={method.value}
-                      checked={formData.paymentMethod === method.value}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, paymentMethod: e.target.value }))}
-                      className="mr-3"
-                    />
-                    <div className="font-medium text-gray-700">{method.label}</div>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
+<div>
+<h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+<CreditCard className="w-4 h-4 mr-2" />
+Payment Method
+</h4>
+<div className="space-y-2">
+{paymentMethods.map((method) => (
+<label key={method.value} className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+<input
+type="radio"
+name="paymentMethod"
+value={method.value}
+checked={formData.paymentMethod === method.value}
+onChange={(e) => setFormData((prev) => ({ ...prev, paymentMethod: e.target.value }))}
+className="mr-3"
+/>
+<div className="font-medium text-gray-700">{method.label}</div>
+</label>
+))}
+</div>
+</div>
+</div>
 
-          {/* Reason */}
-          <div>
-            <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-              <Info className="w-4 h-4 mr-2" />
-              Reason for Visit (Optional)
-            </h4>
-            <textarea
-              value={formData.reason}
-              onChange={(e) => setFormData((prev) => ({ ...prev, reason: e.target.value }))}
-              placeholder="Brief description of the reason for this appointment..."
-              className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-              rows={3}
-            />
-          </div>
+{/* Reason */}
+<div>
+<h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+<Info className="w-4 h-4 mr-2" />
+Reason for Visit (Optional)
+</h4>
+<textarea
+value={formData.reason}
+onChange={(e) => setFormData((prev) => ({ ...prev, reason: e.target.value }))}
+placeholder="Brief description of the reason for this appointment..."
+className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+rows={3}
+/>
+</div>
 
-          {/* Fee Display */}
-          <FeeDisplay />
-        </div>
-      )}
-    </div>
+{/* Fee Display */}
+<FeeDisplay />
+</div>
+)}
+</div>
 
-    {/* Footer - Fixed */}
-    <div className="flex-shrink-0 p-4 border-t bg-gray-50 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        {step > 1 && (
-          <button
-            onClick={() => setStep(step - 1)}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
-          >
-            Back
-          </button>
-        )}
-      </div>
-      
-      <div className="flex items-center gap-3">
-        {step < 3 ? (
-          <button
-            onClick={handleNextStep}
-            disabled={!validateForm()}
-            className="px-6 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Next
-          </button>
-        ) : (
-          <button
-            onClick={handleSubmit}
-            disabled={submitting || !validateForm()}
-            className="px-6 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              "Create Appointment"
-            )}
-          </button>
-        )}
-      </div>
-    </div>
-  </div>
+{/* Footer - Fixed */}
+<div className="flex-shrink-0 p-4 border-t bg-gray-50 flex items-center justify-between">
+<div className="flex items-center gap-2">
+{step > 1 && (
+<button
+onClick={() => setStep(step - 1)}
+className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+>
+Back
+</button>
+)}
+</div>
+
+<div className="flex items-center gap-3">
+{step < 3 ? (
+<button
+onClick={handleNextStep}
+disabled={!validateForm()}
+className="px-6 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+>
+Next
+</button>
+) : (
+<button
+onClick={handleSubmit}
+disabled={submitting || !validateForm()}
+className="px-6 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+>
+{submitting ? (
+<>
+<Loader2 className="w-4 h-4 mr-2 animate-spin" /> 
+Creating...
+</>
+) : (
+"Create Appointment"
+)}
+</button>
+)}
+</div>
+</div>
+</div>
 </div>
 );
 };

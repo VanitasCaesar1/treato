@@ -1019,15 +1019,32 @@ export default function AppointmentsPage() {
                         </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleAppointmentClick(appointment)}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          {appointment.has_diagnosis ? 'View Details' : 'Create Diagnosis'}
-                          <ChevronRight className="h-4 w-4 ml-1" />
-                        </Button>
+                        <div className="flex flex-col gap-1 items-end">
+                          <Link 
+                            href={{
+                              pathname: "/dashboard/rx-pad",
+                              query: {
+                                appointment_id: appointment.appointment_id || appointment.id,
+                                patient_id: appointment.patient_id,
+                                doctor_id: appointment.doctor_id
+                              }
+                            }}
+                            legacyBehavior
+                          >
+                            <Button variant="outline" size="sm" className="text-purple-700 border-purple-300 hover:bg-purple-50 mb-1">
+                              Rx Pad
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleAppointmentClick(appointment)}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            {appointment.has_diagnosis ? 'View Details' : 'Create Diagnosis'}
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
